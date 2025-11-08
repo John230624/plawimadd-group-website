@@ -1,5 +1,4 @@
-// app/api/auth/[...nextauth]/route.ts
-
+//app/api/auth/[...nextauth]/route.ts
 import NextAuth, { NextAuthOptions, User, Session } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
@@ -7,13 +6,13 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { JWT } from "next-auth/jwt";
 import { PrismaClient } from "@prisma/client";
-// Importation spécifique de PrismaClientKnownRequestError et PrismaClientValidationError
-import { PrismaClientKnownRequestError, PrismaClientValidationError } from "@prisma/client/runtime/library";
+import {
+  PrismaClientKnownRequestError,
+  PrismaClientValidationError,
+} from "@prisma/client/runtime/library";
 import type { UserRole } from "@/lib/types";
 
 // --- Prisma Singleton ---
-// Meilleure pratique pour éviter les instanciations multiples de PrismaClient en développement (Hot Reload)
-// En production, chaque requête peut avoir sa propre instance si nécessaire, mais un singleton est courant.
 declare global {
   var prismaGlobal: PrismaClient | undefined;
 }
@@ -21,8 +20,7 @@ declare global {
 const prisma =
   global.prismaGlobal ||
   new PrismaClient({
-    // Optionnel: Ajouter des logs Prisma pour le débogage si besoin
-    // log: ['query', 'info', 'warn', 'error'],
+    // log: ["query", "info", "warn", "error"],
   });
 
 if (process.env.NODE_ENV !== "production") {
@@ -30,119 +28,130 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // --- Typage étendu ---
-// Renommé pour plus de clarté dans les noms de type NextAuth
 interface CustomUser extends User {
   id: string;
   role: UserRole;
   firstName: string;
   lastName: string;
-  token?: string; // Ajouté: Le token est passé du JWT à la session.user, donc il devrait être ici aussi.
+  token?: string;
 }
 
 interface CustomJWT extends JWT {
   id: string;
   role: UserRole;
-  accessToken: string; // Utilisé pour une session personnalisée, potentiellement un token JWT pour un autre microservice
+  accessToken: string;
   firstName: string;
   lastName: string;
 }
 
+// --- Configuration principale NextAuth ---
 export const authOptions: NextAuthOptions = {
   providers: [
+    // === Connexion par email/mot de passe ===
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "text", placeholder: "jsmith@example.com" }, // Ajout d'un placeholder pour l'exemple
-        password: { label: "Password", type: "password", placeholder: "********" }, // Ajout d'un placeholder pour l'exemple
+        email: { label: "Email", type: "text", placeholder: "jsmith@example.com" },
+        password: { label: "Password", type: "password", placeholder: "********" },
       },
       async authorize(credentials): Promise<CustomUser | null> {
-        // Log plus détaillé pour les requêtes manquantes
         if (!credentials?.email || !credentials?.password) {
-          console.log("[NextAuth] Authorize: Email ou mot de passe manquant dans les credentials.");
-          // NextAuth renvoie automatiquement un 401 si authorize retourne null
+          console.log("[NextAuth] Authorize: Email ou mot de passe manquant.");
           return null;
         }
 
         try {
           const user = await prisma.user.findUnique({
-            where: { email: credentials.email.toLowerCase() }, // Toujours stocker et comparer les emails en minuscules
+            where: { email: credentials.email.toLowerCase() },
           });
 
-          if (!user) {
-            console.log(`[NextAuth] Authorize: Utilisateur non trouvé pour l'email: ${credentials.email}.`);
-            return null;
-          }
-
-          // Vérification si le champ password existe sur l'utilisateur récupéré
-          if (!user.password) {
-            console.error(`[NextAuth] Authorize: L'utilisateur ${user.email} n'a pas de mot de passe défini dans la DB.`);
-            return null; // L'utilisateur existe mais n'a pas de mot de passe pour la connexion par identifiants
-          }
+          if (!user || !user.password) return null;
 
           const isPasswordCorrect = await bcrypt.compare(
             credentials.password,
             user.password
           );
-          // Log du résultat de la comparaison du mot de passe pour un débogage facile
-          console.log(`[NextAuth] Authorize: Résultat de la comparaison du mot de passe pour ${user.email}: ${isPasswordCorrect}`);
 
-          if (!isPasswordCorrect) {
-            console.log(`[NextAuth] Authorize: Mot de passe incorrect pour l'email: ${user.email}.`);
-            // Pour des raisons de sécurité, éviter de logguer le mot de passe clair
-            return null;
-          }
+          if (!isPasswordCorrect) return null;
 
-          // Retourne l'objet utilisateur étendu
           return {
             id: user.id,
             email: user.email,
             name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim(),
-            role: (user.role as UserRole) || "USER", // S'assurer que 'role' est bien une 'UserRole'
+            role: (user.role as UserRole) || "USER",
             firstName: user.firstName ?? "",
             lastName: user.lastName ?? "",
-            // Si votre modèle User a un champ 'token' persistant, vous pouvez le retourner ici
-            // token: user.token,
           };
         } catch (error: unknown) {
-          // Gestion des erreurs plus spécifique pour Prisma
           if (error instanceof PrismaClientKnownRequestError) {
-            // P2002: Unique constraint violation (ex: si on avait un create ici)
-            // P2025: Record not found (moins probable ici car géré par !user, mais utile pour d'autres ops)
-            console.error(`[NextAuth] Authorize: Erreur Prisma (${error.code}):`, error.message);
-            // On peut logguer les meta (champs affectés) si disponibles
-            if (error.meta) console.error("[NextAuth] Prisma Error Meta:", error.meta);
+            console.error(`[NextAuth] Prisma error ${error.code}: ${error.message}`);
           } else if (error instanceof PrismaClientValidationError) {
-            console.error("[NextAuth] Authorize: Erreur de validation Prisma (schéma):", error.message);
+            console.error(`[NextAuth] Validation error: ${error.message}`);
           } else if (error instanceof Error) {
-            console.error("[NextAuth] Authorize: Erreur inattendue:", error.message);
-          } else {
-            console.error("[NextAuth] Authorize: Erreur inconnue lors de l'authentification.");
+            console.error(`[NextAuth] Erreur inattendue: ${error.message}`);
           }
-          return null; // Toujours retourner null en cas d'échec d'authentification
+          return null;
         }
       },
     }),
 
+    // === Connexion via Google ===
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
     }),
   ],
 
+  // === Pages personnalisées ===
   pages: {
-    signIn: "/sign-in", // S'assurer que cette page existe et est accessible
+    signIn: "/login",
   },
 
   callbacks: {
-    async jwt({ token, user }): Promise<CustomJWT> {
-      // Le 'user' n'est présent que lors de la première connexion/authentification
-      // après 'authorize' ou la réception d'un OAuth.
-      if (user) {
-        const u = user as CustomUser; // Cast pour accéder aux propriétés étendues
+    // --- Lors de la connexion (signIn) ---
+    async signIn({ user, account, profile }) {
+      // Si l'utilisateur vient de Google
+      if (account?.provider === "google" && profile) {
+        const email = user.email!.toLowerCase();
+        const existingUser = await prisma.user.findUnique({ where: { email } });
 
+        if (!existingUser) {
+          const randomPassword = uuidv4();
+          const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+          await prisma.user.create({
+            data: {
+              email,
+              password: hashedPassword,
+              firstName: user.name?.split(" ")[0] ?? "",
+              lastName: user.name?.split(" ")[1] ?? "",
+              role: "USER",
+              image:
+                (profile as { picture?: string }).picture ??
+                "/default-profile.png", // enregistre la photo du profil Google
+            },
+          });
+        } else {
+          // Met à jour la photo si elle a changé sur Google
+          const newPicture = (profile as { picture?: string }).picture;
+          if (newPicture && newPicture !== existingUser.image) {
+            await prisma.user.update({
+              where: { email },
+              data: { image: newPicture },
+            });
+          }
+        }
+      }
+      return true;
+    },
+
+    // --- JWT Token personnalisé ---
+    async jwt({ token, user }): Promise<CustomJWT> {
+      if (user) {
+        const u = user as CustomUser;
         token.id = u.id;
         token.role = u.role;
-        token.accessToken = uuidv4(); // Génère un nouveau token d'accès unique pour la session
+        token.accessToken = uuidv4();
         token.firstName = u.firstName;
         token.lastName = u.lastName;
         token.name = u.name ?? "";
@@ -151,14 +160,14 @@ export const authOptions: NextAuthOptions = {
       return token as CustomJWT;
     },
 
+    // --- Session utilisateur ---
     async session({ session, token }): Promise<Session> {
-      // Le 'token' (JWT) est toujours disponible ici. On y injecte les données de session.
-      const t = token as CustomJWT; // Cast pour accéder aux propriétés étendues du token
+      const t = token as CustomJWT;
 
       if (session.user) {
         session.user.id = t.id;
         session.user.role = t.role;
-        session.user.token = t.accessToken; // Assurez-vous que votre type Session étendu contient 'token'
+        session.user.token = t.accessToken;
         session.user.firstName = t.firstName;
         session.user.lastName = t.lastName;
         session.user.name = t.name;
@@ -167,18 +176,34 @@ export const authOptions: NextAuthOptions = {
 
       return session;
     },
+
+    // --- Redirection après connexion ---
+    async redirect({ url, baseUrl }) {
+      try {
+        // Si l’utilisateur venait d’une page spécifique avant login → on le renvoie là-bas
+        if (url.startsWith(baseUrl)) {
+          return url;
+        }
+        // Si c’est une URL externe, sécurité : on redirige vers la home
+        else if (url.startsWith("/")) {
+          return `${baseUrl}${url}`;
+        }
+        // Par défaut → accueil
+        return baseUrl;
+      } catch (e) {
+        console.error("Erreur dans redirect callback:", e);
+        return baseUrl;
+      }
+    },
   },
 
   session: {
-    strategy: "jwt", // Utilise JWT pour la gestion des sessions
+    strategy: "jwt",
   },
 
-  // La variable NEXTAUTH_SECRET est ESSENTIELLE pour la sécurité des JWT.
-  // Assurez-vous qu'elle est définie et suffisamment complexe.
-  // `openssl rand -base64 32` est une bonne méthode pour la générer.
   secret: process.env.NEXTAUTH_SECRET,
 };
 
-// Exporte les handlers GET et POST pour la route API de NextAuth.js
+// --- Export des handlers NextAuth ---
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

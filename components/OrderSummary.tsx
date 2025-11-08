@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import axios from "axios";
 import { Loader2 } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { v4 as uuidv4 } from 'uuid'; // Pour générer l'ID de transaction Kkiapay
+import { v4 as uuidv4 } from 'uuid';
 
 import { Address, Product, CreateOrderPayload, OrderItemForCreatePayload } from '@/lib/types';
 
@@ -36,8 +36,6 @@ declare global {
             amount: number;
             api_key: string;
             callback: string;
-            // IMPORTANT: 'transaction_id' est supprimé ici pour éviter l'erreur de propriété en double.
-            // L'ID est déjà passé via le paramètre 'transactionId' dans l'URL de callback.
             email?: string;
             phone?: string;
             position?: string;
@@ -70,7 +68,7 @@ const OrderSummary = () => {
         formatPrice,
         clearCart,
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        loadCartData, // Utilisation du nom original et eslint-disable pour l'avertissement 'never used'
+        loadCartData,
     } = useAppContext();
 
     const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
@@ -78,7 +76,7 @@ const OrderSummary = () => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [showKkiapayWidget, setShowKkiapayWidget] = useState(false);
-    const [transactionIdForKkiapay, setTransactionIdForKkiapay] = useState<string | null>(null); // This will be our order ID
+    const [transactionIdForKkiapay, setTransactionIdForKkiapay] = useState<string | null>(null);
 
     const [isKkiapayWidgetApiReady, setIsKkiapayWidgetApiReady] = useState(false);
     const kkiapayApiCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -89,7 +87,9 @@ const OrderSummary = () => {
 
     const totalAmountToPay = getCartAmount();
 
-    const KKIAPAY_PUBLIC_API_KEY: string | undefined = process.env.NEXT_PUBLIC_KKIAPAY_PUBLIC_API_KEY;
+    // ✅ Configuration Kkiapay LIVE uniquement
+    const KKIAPAY_PUBLIC_API_KEY = process.env.NEXT_PUBLIC_KKIAPAY_PUBLIC_API_KEY;
+    const isLiveMode = true; 
 
     // --- EFFECT POUR DÉCLENCHER LE CHARGEMENT INITIAL DES ADRESSES ---
     useEffect(() => {
@@ -141,8 +141,6 @@ const OrderSummary = () => {
                     }
                     if (addressToSelect) {
                         console.log("[Address Effect Debug] Found address via newAddressId param:", addressToSelect);
-                        // Suppression de la logique d'appel API pour définir automatiquement la nouvelle adresse comme par défaut.
-                        // L'utilisateur pourra la définir manuellement via le sélecteur si désiré.
                     } else {
                         console.log("[Address Effect Debug] newAddressId param present, but address not found in userAddresses. Falling back to default/first.");
                     }
@@ -243,7 +241,7 @@ const OrderSummary = () => {
     const handleAddressSelect = useCallback(async (address: Address) => {
         console.log("[handleAddressSelect] User selected address:", address);
         setSelectedAddress(address);
-        setSelectedAddressId(address.id || null); // L'ID est un nombre
+        setSelectedAddressId(address.id || null);
 
         setIsDropdownOpen(false);
 
@@ -265,7 +263,6 @@ const OrderSummary = () => {
                         state: address.state,
                         street: address.street,
                         country: address.country,
-                        // Correction: Suppression de la propriété 'pincode' en double
                         pincode: address.pincode, 
                     },
                     { headers }
@@ -284,7 +281,7 @@ const OrderSummary = () => {
         }
     }, [currentUser, url, fetchUserAddresses]);
 
-    // Fonction pour initier le paiement Kkiapay (sans création de commande préalable)
+    // Fonction pour initier le paiement Kkiapay
     const createOrder = async () => {
         console.log("--- Début de la fonction createOrder (initiation paiement) ---");
 
@@ -320,18 +317,19 @@ const OrderSummary = () => {
             return;
         }
 
+        console.log(`[Create Order] Mode Kkiapay: LIVE`);
+
         setIsLoading(true);
         toast.info("Génération de la commande et ouverture du paiement Kkiapay...");
 
         try {
             // Étape 1: Générer un ID de transaction unique (UUID) pour la commande
-            // Cet ID sera utilisé comme notre orderId interne ET comme transaction_id pour Kkiapay
             const newTransactionId = uuidv4();
             setTransactionIdForKkiapay(newTransactionId);
             console.log(`[Create Order] Generated new transaction ID for order: ${newTransactionId}`);
 
             toast.success("Ouverture du paiement Kkiapay...");
-            setShowKkiapayWidget(true); // Déclenche l'ouverture du widget Kkiapay via useEffect
+            setShowKkiapayWidget(true);
 
         } catch (error) {
             console.error("[Create Order] Erreur lors de l'initiation de la commande/paiement:", error);
@@ -345,13 +343,13 @@ const OrderSummary = () => {
     // --- EFFECT POUR OUVRIR LE WIDGET KKIAPAY ET GÉRER LES LISTENERS ---
     useEffect(() => {
         console.log("[Kkiapay Widget useEffect] showKkiapayWidget changed:", showKkiapayWidget, "transactionIdForKkiapay:", transactionIdForKkiapay);
+        console.log(`[Kkiapay Widget] Mode: LIVE`);
 
         if (kkiapayOpenRetryTimeoutRef.current) {
             clearTimeout(kkiapayOpenRetryTimeoutRef.current);
             kkiapayOpenRetryTimeoutRef.current = null;
         }
 
-        // Le widget Kkiapay ne s'ouvre que si showKkiapayWidget est vrai ET que l'ID de transaction est présent
         if (showKkiapayWidget && transactionIdForKkiapay) {
             console.log("[Kkiapay Widget] Conditions showKkiapayWidget et transactionIdForKkiapay remplies. Déclenchement de la logique d'ouverture...");
 
@@ -362,19 +360,19 @@ const OrderSummary = () => {
             const tryOpenKkiapayWidget = () => {
                 if (typeof window.openKkiapayWidget === 'function') {
                     console.log("[Kkiapay Widget] openKkiapayWidget() est ENFIN disponible. Ouverture du widget !");
+                    
+                    // ✅ CONFIGURATION LIVE UNIQUEMENT
                     window.openKkiapayWidget({
                         amount: totalAmountToPay,
                         api_key: KKIAPAY_PUBLIC_API_KEY as string,
-                        // La callback de Kkiapay renverra vers notre route /api/kkiapay-callback
-                        // Nous passons notre orderId interne via 'transactionId'
                         callback: `${window.location.origin}/api/kkiapay-callback?transactionId=${transactionIdForKkiapay}`,
-                        // Correction: Suppression complète de la propriété 'transaction_id' pour éviter l'erreur de propriété en double
-                        // transaction_id: transactionIdForKkiapay, // Cette ligne a été supprimée
                         email: currentUser?.email ?? '',
                         phone: selectedAddress?.phoneNumber ?? '',
                         position: "center",
-                        sandbox: process.env.NODE_ENV === 'development', // Mode sandbox en dev, Live en prod
+                        sandbox: false, // 🔥 TOUJOURS FALSE EN LIVE
                     });
+
+                    console.log(`[Kkiapay Widget] Widget ouvert en mode: LIVE`);
 
                     // --- LISTENERS DE SUCCÈS ET D'ÉCHEC DU WIDGET KKIAPAY ---
                     if (typeof window.addSuccessListener === 'function') {
@@ -407,15 +405,14 @@ const OrderSummary = () => {
                                 }
 
                                 const createOrderPayload: CreateOrderPayload = {
-                                    id: transactionIdForKkiapay, // Utilise l'ID généré au début comme orderId
+                                    id: transactionIdForKkiapay,
                                     items: orderItemsForPayload,
                                     totalAmount: totalAmountToPay,
-                                    shippingAddress: selectedAddress!, // selectedAddress est garanti non null ici
+                                    shippingAddress: selectedAddress!,
                                     paymentMethod: "Kkiapay",
-                                    userEmail: currentUser!.email ?? '', // Correction: Assure que userEmail est toujours une chaîne
+                                    userEmail: currentUser!.email ?? '',
                                     userPhoneNumber: selectedAddress!.phoneNumber || currentUser!.phoneNumber || null,
                                     currency: currency,
-                                    // Ajouter les détails de transaction Kkiapay pour le backend
                                     kkiapayTransactionId: response.transactionId,
                                     kkiapayPaymentMethod: response.paymentMethod,
                                     kkiapayAmount: response.amount,
@@ -423,14 +420,14 @@ const OrderSummary = () => {
                                 };
 
                                 const createOrderBackendResponse = await axios.post<{ success: boolean; orderId: string; message?: string }>(
-                                    `${url}/api/orders/create-after-payment`, // NOUVELLE ROUTE API
+                                    `${url}/api/orders/create-after-payment`, 
                                     createOrderPayload,
                                     { headers: { 'Content-Type': 'application/json', 'auth-token': currentUser!.token } }
                                 );
 
                                 if (createOrderBackendResponse.status === 200 && createOrderBackendResponse.data.success) {
                                     toast.success("Commande créée avec succès !");
-                                    clearCart(); // Vider le panier après création réussie
+                                    clearCart();
                                     router.push(`/order-status?orderId=${createOrderBackendResponse.data.orderId}&status=success`);
                                 } else {
                                     console.error("[Create Order After Payment] Échec de la création de la commande côté backend:", createOrderBackendResponse.data);
@@ -442,9 +439,6 @@ const OrderSummary = () => {
                                 console.error("[Create Order After Payment] Erreur lors de l'appel à l'API backend pour créer la commande:", backendError);
                                 toast.error("Erreur réseau lors de la finalisation de la commande.");
                                 router.push(`/order-status?orderId=${transactionIdForKkiapay}&status=failed&message=${encodeURIComponent('Erreur réseau lors de la finalisation de la commande.')}`);
-                            } finally {
-                                // Correction: Supprimer l'appel à window.removeSuccessListener car il n'est pas exposé par le SDK Kkiapay
-                                // window.removeSuccessListener(successListener); 
                             }
                         };
                         window.addSuccessListener(successListener);
@@ -458,8 +452,7 @@ const OrderSummary = () => {
                             console.warn("[Kkiapay Widget] Paiement Kkiapay échec via addFailedListener:", error);
                             setShowKkiapayWidget(false);
                             router.push(`/order-status?orderId=${transactionIdForKkiapay}&status=failed&message=${encodeURIComponent(errorMessage)}`);
-                            // Correction: Supprimer l'appel à window.removeFailedListener car il n'est pas exposé par le SDK Kkiapay
-                            // window.removeFailedListener(failedListener);
+                            
                         };
                         window.addFailedListener(failedListener);
                     } else {
@@ -472,7 +465,7 @@ const OrderSummary = () => {
                         console.warn(`[Kkiapay Widget] openKkiapayWidget() n'est pas encore disponible. Nouvelle tentative (${retryCount}/${maxRetries})...`);
                         kkiapayOpenRetryTimeoutRef.current = setTimeout(tryOpenKkiapayWidget, retryDelay);
                     } else {
-                        console.error("[Kkiapay Widget] CRITIQUE FINALE : openKkiapayWidget() n'est pas devenu disponible après de multiples tentatives. Le widget ne peut pas s'ouvrir. Problème d'initialisation de l'API JavaScript Kkiapay.");
+                        console.error("[Kkiapay Widget] CRITIQUE FINALE : openKkiapayWidget() n'est pas devenu disponible après de multiples tentatives. Le widget ne peut pas s'ouvrir.");
                         toast.error("Erreur critique : Le module de paiement n'est pas utilisable. Veuillez contacter le support technique de Kkiapay.");
                         setShowKkiapayWidget(false);
                     }
@@ -482,7 +475,7 @@ const OrderSummary = () => {
             tryOpenKkiapayWidget();
 
         } else if (showKkiapayWidget && !transactionIdForKkiapay) {
-            console.log("[Kkiapay Widget] Le widget Kkiapay ne peut pas s'ouvrir : ID de transaction manquant (log dans showKkiapayWidget useEffect).", { showKkiapayWidget, transactionIdForKkiapay });
+            console.log("[Kkiapay Widget] Le widget Kkiapay ne peut pas s'ouvrir : ID de transaction manquant.", { showKkiapayWidget, transactionIdForKkiapay });
             setShowKkiapayWidget(false);
         }
 
@@ -501,12 +494,11 @@ const OrderSummary = () => {
         KKIAPAY_PUBLIC_API_KEY, 
         currency, 
         router,
-        cartItems, // Ajouté pour la dépendance de la création de commande
-        products, // Ajouté pour la dépendance de la création de commande
-        clearCart, // Ajouté pour la dépendance de la création de commande
-        url // Ajouté à la dépendance pour résoudre l'avertissement ESLint
+        cartItems, 
+        products, 
+        clearCart, 
+        url
     ]);
-
 
     const isButtonDisabled = getCartCount() === 0 || isLoading || !isKkiapayWidgetApiReady || !KKIAPAY_PUBLIC_API_KEY || !selectedAddress;
 
@@ -515,6 +507,7 @@ const OrderSummary = () => {
     console.log("En chargement (isLoading - bouton):", isLoading);
     console.log("API Kkiapay prête (isKkiapayWidgetApiReady - CLÉ pour activer le bouton):", isKkiapayWidgetApiReady);
     console.log("Clé publique Kkiapay définie (KKIAPAY_PUBLIC_API_KEY):", KKIAPAY_PUBLIC_API_KEY ? "Defined" : "Undefined");
+    console.log("Mode Kkiapay: LIVE");
     console.log("Adresse sélectionnée (selectedAddress):", selectedAddress ? "Defined" : "Undefined", selectedAddress);
     console.log("ID d'adresse sélectionnée (selectedAddressId):", selectedAddressId);
     console.log("Bouton désactivé (isButtonDisabled - calculé):", isButtonDisabled);
@@ -568,7 +561,7 @@ const OrderSummary = () => {
                             {userAddresses.length > 0 ? (
                                 userAddresses.map((address: Address) => (
                                     <li
-                                        key={address.id} // Clé basée sur l'ID numérique
+                                        key={address.id}
                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center"
                                         onClick={() => handleAddressSelect(address)}
                                     >
@@ -618,7 +611,7 @@ const OrderSummary = () => {
                         Préparation du paiement...
                     </>
                 ) : (
-                    "Procéder au paiement avec Kkiapay"
+                    "Procéder au paiement"
                 )}
             </button>
         </div>

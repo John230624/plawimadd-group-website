@@ -1,13 +1,32 @@
 // lib/kkiapay.ts
 
-// Make sure these environment variables are defined on Vercel
-// and contain the REAL Kkiapay keys for your account (secret, private_api_key, and public_api_key)
-
 const KKIAPAY_SECRET = process.env.KKIAPAY_SECRET!;
 const KKIAPAY_PRIVATE_API_KEY = process.env.KKIAPAY_PRIVATE_API_KEY!;
-const KKIAPAY_PUBLIC_API_KEY = process.env.NEXT_PUBLIC_KKIAPAY_PUBLIC_API_KEY!;
+const KKIAPAY_PUBLIC_API_KEY = process.env.KKIAPAY_PUBLIC_API_KEY!;
 
-// Type definition for Kkiapay verification result
+// ✅ CONFIGURATION LIVE UNIQUEMENT
+function getKkiapayConfig() {
+  if (!KKIAPAY_PRIVATE_API_KEY || !KKIAPAY_PUBLIC_API_KEY || !KKIAPAY_SECRET) {
+    console.error('❌ Kkiapay configuration error: Missing LIVE environment variables');
+    throw new Error('Kkiapay LIVE environment variables are not properly configured');
+  }
+
+  // 🔥 TOUJOURS EN MODE LIVE
+  const isSandbox = false;
+  const baseUrl = 'https://api.kkiapay.me';
+  
+  console.log(`🔧 Kkiapay Config - MODE LIVE`);
+  console.log(`🔧 URL: ${baseUrl}`);
+  
+  return {
+    secret: KKIAPAY_SECRET,
+    privateKey: KKIAPAY_PRIVATE_API_KEY,
+    publicKey: KKIAPAY_PUBLIC_API_KEY,
+    baseUrl,
+    isSandbox
+  };
+}
+
 interface VerificationResult {
   status: string;
   amount: number;
@@ -16,48 +35,44 @@ interface VerificationResult {
   currency: string;
   state: string;
   reason?: { code?: string; message?: string };
-  message?: string; // Added for generic error messages
+  message?: string;
 }
 
-/**
- * Kkiapay side verification via their API (POST /v1/transactions/verify)
- * @param transactionId The Kkiapay transaction ID to verify.
- * @returns A VerificationResult object containing transaction details.
- * @throws Error if verification fails or Kkiapay API returns an error.
- */
 async function verifyKkiapayTransaction(transactionId: string): Promise<VerificationResult> {
+  const config = getKkiapayConfig();
+  
   try {
-    // Force Kkiapay API URL to Live mode, as requested by the user.
-    // Ensure your environment variables (KKIAPAY_SECRET, KKIAPAY_PRIVATE_API_KEY, NEXT_PUBLIC_KKIAPAY_PUBLIC_API_KEY)
-    // are set with your LIVE Kkiapay keys.
-    const baseUrl = 'https://api.kkiapay.me'; // Always use Live API URL
-    const url = `${baseUrl}/v1/transactions/verify`;
+    const url = `${config.baseUrl}/api/v1/transactions/status`;
 
-    console.log(`[KKIAPAY] Verifying transaction on URL: ${url}`);
+    console.log(`[KKIAPAY LIVE] Verifying transaction: ${transactionId}`);
+    console.log(`[KKIAPAY] Using base URL: ${config.baseUrl}`);
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-secret-key': KKIAPAY_SECRET,
-        'x-public-key': KKIAPAY_PUBLIC_API_KEY,
-        'x-api-key': KKIAPAY_PRIVATE_API_KEY,
+        'X-API-KEY': config.privateKey,
       },
       body: JSON.stringify({ transactionId }),
     });
 
+    console.log(`[KKIAPAY] Response status: ${response.status}`);
+
     if (!response.ok) {
-      // Log the response body in case of error for better debugging
       const errorText = await response.text();
       console.error(`[KKIAPAY] HTTP Error ${response.status}: ${errorText}`);
-      // If status is 404, it may indicate incorrect authentication or transaction not found in the environment.
-      if (response.status === 404) {
-          throw new Error(`Transaction ${transactionId} not found or incorrect API keys (HTTP 404).`);
+      
+      if (response.status === 401) {
+        throw new Error(`Authentication failed - Vérifie tes clés API LIVE`);
       }
-      throw new Error(`Kkiapay API error: ${response.status} - ${errorText}`);
+      if (response.status === 404) {
+        throw new Error(`Transaction ${transactionId} not found in LIVE mode`);
+      }
+      throw new Error(`Kkiapay API error: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log(`[KKIAPAY] Verification success:`, data);
 
     return {
       status: data.status,
@@ -67,15 +82,13 @@ async function verifyKkiapayTransaction(transactionId: string): Promise<Verifica
       currency: data.currency,
       state: data.state,
       reason: data.reason,
-      message: data.message, // Include generic message if present
+      message: data.message,
     };
   } catch (error) {
-    console.error('[KKIAPAY] API verification error:', error);
-    // Re-throw the error so it can be caught higher up in `kkiapay-callback/route.ts`
-    throw error; 
+    console.error('[KKIAPAY LIVE] API verification error:', error);
+    throw error;
   }
 }
 
-// Correction: Use 'export type' for types when 'isolatedModules' is enabled
-export { verifyKkiapayTransaction };
-export type { VerificationResult }; 
+export { verifyKkiapayTransaction, getKkiapayConfig };
+export type { VerificationResult };

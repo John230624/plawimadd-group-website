@@ -1,4 +1,3 @@
-// app/add-address/page.tsx
 'use client';
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
@@ -22,8 +21,8 @@ interface AddressFormState {
     area: string;
     city: string;
     state: string;
-    street: string; // Ajouté
-    country: string; // Ajouté
+    street: string; 
+    country: string; 
 }
 
 interface InputFieldConfig {
@@ -35,7 +34,8 @@ interface InputFieldConfig {
 }
 
 const AddAddress = (): React.ReactElement => {
-    const { currentUser, setCurrentUser, url, fetchUserAddresses } = useAppContext();
+    // Suppression de 'url' du destructuring car elle n'est pas nécessaire pour les appels internes
+    const { currentUser, setCurrentUser, fetchUserAddresses } = useAppContext(); 
     const router = useRouter();
     const { data: session, status } = useSession();
 
@@ -46,8 +46,8 @@ const AddAddress = (): React.ReactElement => {
         area: '',
         city: '',
         state: '',
-        street: '', // Initialisé
-        country: '', // Initialisé
+        street: '', 
+        country: '', 
     });
     const [message, setMessage] = useState<string>('');
     const [isClient, setIsClient] = useState<boolean>(false);
@@ -55,16 +55,21 @@ const AddAddress = (): React.ReactElement => {
     useEffect(() => {
         setIsClient(true);
         if (status === 'authenticated' && session?.user) {
-            setCurrentUser(session.user as User); // Cast explicite pour s'assurer de la compatibilité
+            // S'assurer que le currentUser est à jour avec la session
+            setCurrentUser(session.user as User); 
         } else if (status === 'unauthenticated') {
             setCurrentUser(null);
         }
-    }, [session, status, setCurrentUser]);
+        // Préremplir le nom complet si disponible dans la session
+        if (session?.user?.name && !address.fullName) {
+            setAddress(prev => ({ ...prev, fullName: session.user.name || '' }));
+        }
+    }, [session, status, setCurrentUser, address.fullName]);
 
-    const onChangeHandler = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    function onChangeHandler(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
         const { name, value } = e.target;
         setAddress((prev) => ({ ...prev, [name]: value }));
-    };
+    }
 
     const onSubmitHandler = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -72,60 +77,56 @@ const AddAddress = (): React.ReactElement => {
 
         if (!currentUser?.id) {
             toast.error("Veuillez vous connecter pour ajouter une adresse.");
-            router.push('/login');
-            return;
+            // Le routeur va gérer la redirection si vous le souhaitez, mais l'erreur est suffisante ici
+            return; 
         }
 
-        // Assurez-vous que tous les champs obligatoires sont remplis
-        // 'country' est obligatoire dans schema.prisma, donc il doit être validé ici
+        // Validation des champs obligatoires
         if (!address.fullName || !address.phoneNumber || !address.area || !address.city || !address.state || !address.country) {
             toast.error("Veuillez remplir tous les champs obligatoires.");
             return;
         }
 
         try {
-            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-            if (currentUser.token) headers['auth-token'] = currentUser.token;
-
             const payload: Partial<Address> = {
                 ...address,
-                pincode: address.pincode || null, // Assurez-vous que pincode est null si vide pour correspondre à l'interface
-                isDefault: false,
+                pincode: address.pincode || null, 
+                isDefault: true, // On peut forcer à true, l'API gérera le reset des autres
                 userId: currentUser.id,
-                // street et country sont maintenant inclus via ...address
             };
 
             const res = await axios.post(
-                `${url}/api/addresses/${currentUser.id}`, // L'ID de l'utilisateur est dans l'URL
-                payload,
-                { headers }
+                `/api/addresses/${currentUser.id}`, // Chemin relatif direct
+                payload
             );
 
             const data: { success: boolean; message?: string; addressId?: string } = res.data;
 
             if (res.status === 201 && data.success) {
                 toast.success(data.message || "Adresse ajoutée !");
-                setAddress({ // Réinitialiser le formulaire
-                    fullName: '',
+                setAddress({ // Réinitialiser le formulaire (sauf fullName si prérempli)
+                    fullName: session?.user?.name || '',
                     phoneNumber: '',
                     pincode: '',
                     area: '',
                     city: '',
                     state: '',
-                    street: '', // Réinitialisé
-                    country: '', // Réinitialisé
+                    street: '', 
+                    country: '', 
                 });
-                fetchUserAddresses(); // Recharger les adresses après l'ajout
-                router.push('/cart'); // Rediriger vers le panier
+                
+                await fetchUserAddresses(); // Assurez-vous que cette fonction met à jour votre état global (AppContext)
+                router.push('/cart'); 
             } else {
                 toast.error(`Erreur: ${data.message || "Échec de l'ajout."}`);
             }
         } catch (error: unknown) {
             console.error("Erreur lors de l'ajout:", error);
             if (axios.isAxiosError(error) && error.response) {
+                // Affiche l'erreur renvoyée par l'API (e.g., champs manquants)
                 toast.error(error.response.data?.message || 'Erreur serveur');
             } else {
-                toast.error('Erreur inattendue');
+                toast.error('Erreur inattendue de connexion');
             }
         }
     };
@@ -137,17 +138,23 @@ const AddAddress = (): React.ReactElement => {
             </div>
         );
     }
-
-    const inputFields: InputFieldConfig[] = [
+    
+    // Simplification des configurations d'input
+    const allInputFields: InputFieldConfig[] = [
         { name: 'fullName', placeholder: 'Nom complet', Icon: FiUser, required: true, type: 'text' },
         { name: 'phoneNumber', placeholder: 'Numéro de téléphone', Icon: FiPhone, required: true, type: 'tel' },
         { name: 'pincode', placeholder: 'Code postal', Icon: FiMapPin, required: false, type: 'text' },
-    ];
-
-    const cityStateFields: InputFieldConfig[] = [
+        // L'aire est désormais un textarea, donc on le gère séparément
+        // Street est géré séparément
+        { name: 'country', placeholder: 'Pays', Icon: FiNavigation, required: true, type: 'text' },
         { name: 'city', placeholder: 'Ville', Icon: FiNavigation, required: true, type: 'text' },
         { name: 'state', placeholder: 'Région', Icon: FiMail, required: true, type: 'text' },
     ];
+    
+    // Regrouper les champs pour le rendu
+    const topFields = allInputFields.slice(0, 3); 
+    const bottomFields = allInputFields.slice(4); 
+    const countryField = allInputFields[3];
 
     return (
         <>
@@ -163,7 +170,8 @@ const AddAddress = (): React.ReactElement => {
                             </div>
 
                             <form onSubmit={onSubmitHandler} className="space-y-6">
-                                {inputFields.map(({ name, placeholder, Icon, required, type }) => (
+                                {/* Top Fields (Name, Phone, Pincode) */}
+                                {topFields.map(({ name, placeholder, Icon, required, type }) => (
                                     <div key={name} className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                             <Icon className="text-gray-400" size={20} />
@@ -181,13 +189,14 @@ const AddAddress = (): React.ReactElement => {
                                     </div>
                                 ))}
 
+                                {/* Area (Textarea) */}
                                 <div className="relative">
                                     <div className="absolute top-3 left-4 flex items-start pointer-events-none">
                                         <FiHome className="text-gray-400" size={20} />
                                     </div>
                                     <textarea
                                         name="area"
-                                        placeholder="Adresse (Numéro de rue, Bâtiment, etc.)"
+                                        placeholder="Adresse détaillée (Bâtiment, étage, etc.)"
                                         rows={4}
                                         value={address.area}
                                         onChange={onChangeHandler}
@@ -196,8 +205,8 @@ const AddAddress = (): React.ReactElement => {
                                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none"
                                     />
                                 </div>
-
-                                {/* Champs Street et Country */}
+                                
+                                {/* Street (Optionnel) */}
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <FiHome className="text-gray-400" size={20} />
@@ -205,25 +214,26 @@ const AddAddress = (): React.ReactElement => {
                                     <input
                                         type="text"
                                         name="street"
-                                        placeholder="Rue (optionnel)"
+                                        placeholder="Numéro et nom de rue (Optionnel)"
                                         value={address.street}
                                         onChange={onChangeHandler}
-                                        // required // Décommentez si street est obligatoire dans schema.prisma
                                         className="pl-12 pr-4 py-3 w-full border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400
                                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
                                     />
                                 </div>
+
+                                {/* Country */}
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <FiNavigation className="text-gray-400" size={20} />
+                                        <countryField.Icon className="text-gray-400" size={20} />
                                     </div>
                                     <input
-                                        type="text"
-                                        name="country"
-                                        placeholder="Pays"
+                                        type={countryField.type}
+                                        name={countryField.name}
+                                        placeholder={countryField.placeholder}
                                         value={address.country}
                                         onChange={onChangeHandler}
-                                        required // Country est obligatoire dans schema.prisma
+                                        required={countryField.required}
                                         className="pl-12 pr-4 py-3 w-full border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400
                                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
                                     />
@@ -231,7 +241,8 @@ const AddAddress = (): React.ReactElement => {
 
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {cityStateFields.map(({ name, placeholder, Icon, required, type }) => (
+                                    {/* City & State */}
+                                    {bottomFields.map(({ name, placeholder, Icon, required, type }) => (
                                         <div key={name} className="relative">
                                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                                 <Icon className="text-gray-400" size={20} />
@@ -296,4 +307,3 @@ const AddAddress = (): React.ReactElement => {
     };
 
     export default AddAddress;
-    

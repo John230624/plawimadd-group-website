@@ -1,5 +1,3 @@
-// app/api/addresses/[userId]/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeUser, AuthResult } from '@/lib/authUtils';
@@ -10,6 +8,7 @@ interface Context {
   };
 }
 
+// Structure de données de l'adresse (Doit correspondre au schéma Prisma)
 interface AddressPayload {
   id?: number;
   fullName: string;
@@ -30,7 +29,8 @@ export async function GET(req: NextRequest, context: Context): Promise<NextRespo
   const authResult: AuthResult = await authorizeUser(req, context);
   if (!authResult.authorized) return authResult.response!;
 
-  const userId = authResult.userId!;
+  // L'ID utilisateur est extrait de la session après l'autorisation
+  const userId = authResult.userId!; 
 
   try {
     const addresses = await prisma.address.findMany({
@@ -60,10 +60,11 @@ export async function POST(req: NextRequest, context: Context): Promise<NextResp
   try {
     const data: AddressPayload = await req.json();
 
-    // Validation basique
+    // Validation basique: Ajout d'une vérification stricte pour les champs requis
     if (!data.fullName || !data.phoneNumber || !data.area || !data.city || !data.state) {
+      // ⚠️ IMPORTANT: Ceci attrape les erreurs si le formulaire côté client n'envoie pas ces champs.
       return NextResponse.json(
-        { success: false, message: 'Champs obligatoires manquants.' },
+        { success: false, message: 'Champs obligatoires manquants: fullName, phoneNumber, area, city, state.' },
         { status: 400 }
       );
     }
@@ -81,12 +82,12 @@ export async function POST(req: NextRequest, context: Context): Promise<NextResp
         userId,
         fullName: data.fullName,
         phoneNumber: data.phoneNumber,
-        pincode: data.pincode || null,
+        pincode: data.pincode ?? null, // Utilisation de ?? pour s'assurer que si undefined, c'est null
         area: data.area,
         city: data.city,
         state: data.state,
-        street: data.street || null,
-        country: data.country || 'Unknown',
+        street: data.street ?? null,
+        country: data.country ?? 'Unknown',
         isDefault: data.isDefault ?? false,
       },
     });
@@ -96,7 +97,8 @@ export async function POST(req: NextRequest, context: Context): Promise<NextResp
       { status: 201 }
     );
   } catch (error) {
-    console.error('Erreur ajout adresse:', error);
+    // ⚠️ Très important pour le débogage côté serveur
+    console.error('Erreur ajout adresse Prisma:', error); 
     return NextResponse.json(
       { success: false, message: 'Erreur serveur lors de l’ajout de l’adresse.' },
       { status: 500 }
@@ -135,12 +137,12 @@ export async function PUT(req: NextRequest, context: Context): Promise<NextRespo
       data: {
         fullName: data.fullName,
         phoneNumber: data.phoneNumber,
-        pincode: data.pincode || null,
+        pincode: data.pincode ?? null,
         area: data.area,
         city: data.city,
         state: data.state,
-        street: data.street || null,
-        country: data.country || 'Unknown',
+        street: data.street ?? null,
+        country: data.country ?? 'Unknown',
         isDefault: data.isDefault ?? false,
       },
     });
