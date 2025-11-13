@@ -1,8 +1,8 @@
 // app/api/kkiapay-callback/route.ts - VERSION LIVE UNIQUEMENT
-import { NextRequest, NextResponse } from 'next/server';
+import { getKkiapayConfig, verifyKkiapayTransaction } from '@/lib/kkiapay';
 import prisma from '@/lib/prisma';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
-import { verifyKkiapayTransaction, getKkiapayConfig } from '@/lib/kkiapay';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   console.log("🔄 Kkiapay Callback GET reçu - MODE LIVE");
@@ -97,4 +97,5 @@ export async function GET(request: NextRequest) {
       `${request.nextUrl.origin}/order-status?orderId=${transactionId}&status=failed&message=${encodeURIComponent('Erreur de vérification du paiement')}`
     );
   }
-}
+} 
+//pourcommiter, sans impact sur le code
