@@ -1,6 +1,6 @@
 // app/layout.tsx
 import "./globals.css";
-import Navbar from "@/components/Navbar";
+import AppChrome from "@/components/AppChrome";
 import SessionProvider from "./SessionProvider";
 import { AppProvider } from "@/context/AppContext";
 import { ToastContainer } from 'react-toastify';
@@ -23,8 +23,7 @@ export default function RootLayout({ children }: RootLayoutProps): React.ReactNo
             <body>
                 <SessionProvider>
                     <AppProvider>
-                        <Navbar />
-                        {children}
+                        <AppChrome>{children}</AppChrome>
                         {/* ToastContainer est correctement configuré ici */}
                         <ToastContainer
                             position="bottom-right"

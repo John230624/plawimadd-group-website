@@ -1,391 +1,401 @@
-// app/seller/orders/page.tsx
 'use client';
 
-import React, { useEffect, useState, useCallback, ChangeEvent } from "react";
-import Image from "next/image";
-import { useAppContext } from "@/context/AppContext";
-import Footer from "@/components/seller/Footer";
-import Loading from "@/components/Loading";
-import axios from "axios";
-import { Package, Trash2 } from "lucide-react";
-import { useSession } from "next-auth/react";
-import { toast } from "react-toastify";
-import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import {
+  Clock3,
+  Search,
+  ShoppingCart,
+  Trash2,
+  Truck,
+  XCircle,
+} from 'lucide-react';
+import { toast } from 'react-toastify';
 
-import { Order, OrderStatus, PaymentStatus, UserRole } from "@/lib/types";
+import Footer from '@/components/seller/Footer';
+import SellerEmptyState from '@/components/seller/SellerEmptyState';
+import SellerPanel from '@/components/seller/SellerPanel';
+import SellerSectionHeader from '@/components/seller/SellerSectionHeader';
+import SellerSelect from '@/components/seller/SellerSelect';
+import SellerStatCard from '@/components/seller/SellerStatCard';
+import Loading from '@/components/Loading';
+import { useAppContext } from '@/context/AppContext';
+import { Order, OrderStatus, PaymentStatus, UserRole } from '@/lib/types';
 
-const getStatusBadgeStyle = (status: string): string => {
-    switch (status) {
-        case OrderStatus.DELIVERED:
-        case PaymentStatus.COMPLETED:
-            return 'bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium';
-        case OrderStatus.PENDING:
-        case OrderStatus.PROCESSING:
-        case OrderStatus.ON_HOLD:
-        case OrderStatus.SHIPPED:
-            return 'bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium';
-        case OrderStatus.CANCELLED:
-        case OrderStatus.PAYMENT_FAILED: // OrderStatus a PAYMENT_FAILED
-        case PaymentStatus.FAILED: // PaymentStatus a FAILED
-        case PaymentStatus.REFUNDED:
-            return 'bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium';
-        default:
-            return 'bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs font-medium';
+function getStatusClasses(status: string): string {
+  if ([OrderStatus.DELIVERED, PaymentStatus.COMPLETED].includes(status as never)) {
+    return 'bg-emerald-100 text-emerald-700';
+  }
+
+  if (
+    [OrderStatus.PENDING, OrderStatus.PROCESSING, OrderStatus.ON_HOLD, OrderStatus.SHIPPED].includes(
+      status as never
+    )
+  ) {
+    return 'bg-amber-100 text-amber-700';
+  }
+
+  if (
+    [OrderStatus.CANCELLED, OrderStatus.PAYMENT_FAILED, PaymentStatus.FAILED].includes(
+      status as never
+    )
+  ) {
+    return 'bg-rose-100 text-rose-700';
+  }
+
+  return 'bg-slate-100 text-slate-600';
+}
+
+export default function OrdersPage(): React.ReactElement {
+  const { formatPrice } = useAppContext();
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | OrderStatus>('ALL');
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchAllOrders = useCallback(async () => {
+    if (status !== 'authenticated' || session?.user?.role !== UserRole.ADMIN) {
+      setLoading(false);
+      setError("Acces refuse. Vous devez etre connecte en tant qu'administrateur.");
+      return;
     }
-};
 
-const formatFullDateTime = (dateTimeValue: string | number | Date | null | undefined): string => {
-    if (dateTimeValue === undefined || dateTimeValue === null) return "Date non disponible";
+    setLoading(true);
+    setError(null);
 
-    let date: Date;
+    try {
+      const response = await axios.get<Order[]>('/api/admin/orders', {
+        headers: {
+          'auth-token': session.user.token,
+        },
+      });
 
-    if (dateTimeValue instanceof Date) {
-        date = dateTimeValue;
-    } else if (typeof dateTimeValue === 'string') {
-        const numericTimestamp = parseInt(dateTimeValue, 10);
-        if (!isNaN(numericTimestamp) && numericTimestamp > 0 && String(numericTimestamp) === dateTimeValue) {
-            date = new Date(numericTimestamp < 1000000000000 ? numericTimestamp * 1000 : numericTimestamp);
-        } else {
-            date = new Date(dateTimeValue);
-        }
-    } else if (typeof dateTimeValue === 'number') {
-        date = new Date(dateTimeValue < 1000000000000 && dateTimeValue > 0 ? dateTimeValue * 1000 : dateTimeValue);
-    } else {
-        return "Date invalide";
+      setOrders(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error(err);
+      setError(
+        axios.isAxiosError(err)
+          ? err.response?.data?.message || 'Erreur lors du chargement des commandes.'
+          : 'Erreur inconnue lors du chargement des commandes.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [session?.user?.role, session?.user?.token, status]);
+
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role === UserRole.ADMIN) {
+      fetchAllOrders();
+      return;
     }
 
-    if (isNaN(date.getTime()) || (date.getFullYear() === 1970 && date.getMonth() === 0 && date.getDate() === 1 && date.getHours() === 0 && date.getMinutes() === 0)) {
-        console.warn("Date parsed as invalid or epoch (1970-01-01):", dateTimeValue);
-        return "Date non disponible";
+    if (status === 'unauthenticated') {
+      router.push('/login');
     }
+  }, [fetchAllOrders, router, session?.user?.role, status]);
 
-    return date.toLocaleString('fr-FR', {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-        hour12: false,
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
+      const haystack = [
+        order.id,
+        order.userName,
+        order.userEmail,
+        order.shippingCity,
+        order.shippingCountry,
+      ]
+        .join(' ')
+        .toLowerCase();
+      const matchesSearch = haystack.includes(searchTerm.toLowerCase());
+      return matchesStatus && matchesSearch;
     });
-};
+  }, [orders, searchTerm, statusFilter]);
 
-const Orders = (): React.ReactElement => {
-    const { formatPrice } = useAppContext();
-    const { data: session, status } = useSession();
-    const router = useRouter();
+  const pendingCount = useMemo(
+    () => orders.filter((order) => order.status === OrderStatus.PENDING).length,
+    [orders]
+  );
+  const deliveredCount = useMemo(
+    () => orders.filter((order) => order.status === OrderStatus.DELIVERED).length,
+    [orders]
+  );
+  const totalRevenue = useMemo(
+    () =>
+      orders.reduce((sum, order) => {
+        return order.paymentStatus === PaymentStatus.COMPLETED ? sum + order.totalAmount : sum;
+      }, 0),
+    [orders]
+  );
 
-    const [orders, setOrders] = useState<Order[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState<string | null>(null);
-    const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
-    const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
+  const handleStatusChange = async (newStatus: OrderStatus, orderId: string): Promise<void> => {
 
-    const fetchAllOrders = useCallback(async () => {
-        if (status !== 'authenticated' || session?.user?.role !== UserRole.ADMIN) {
-            setLoading(false);
-            setError('Accès refusé. Vous devez être connecté en tant qu\'administrateur.');
-            return;
+    if (!session?.user?.token) {
+      toast.error('Authentification requise.');
+      return;
+    }
+
+    try {
+      const response = await axios.put(
+        `/api/admin/orders/${orderId}`,
+        { status: newStatus },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'auth-token': session.user.token,
+          },
         }
+      );
 
-        setLoading(true);
-        setError(null);
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Mise a jour impossible.');
+      }
 
-        try {
-            const response = await axios.get<Order[]>('/api/admin/orders', {
-                headers: {
-                    'auth-token': session.user.token,
-                },
-            });
+      setOrders((current) =>
+        current.map((order) => (order.id === orderId ? { ...order, status: newStatus } : order))
+      );
+      toast.success('Statut de commande mis a jour.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erreur lors de la mise a jour du statut.');
+    }
+  };
 
-            if (Array.isArray(response.data)) {
-                const fetchedOrders = response.data.map(order => ({
-                    ...order,
-                    orderItems: order.orderItems.map(item => ({
-                        ...item,
-                        product: {
-                            ...item.product,
-                            imgUrl: Array.isArray(item.product.imgUrl)
-                                ? item.product.imgUrl
-                                : (item.product.imgUrl ? [item.product.imgUrl] : []),
-                        }
-                    }))
-                }));
-                setOrders(fetchedOrders);
-            } else {
-                setError('Format de données inattendu de l\'API.');
-            }
-        } catch (err: unknown) {
-            console.error('Erreur lors du chargement des commandes:', err);
-            if (axios.isAxiosError(err)) {
-                setError(err.response?.data?.message || 'Erreur lors du chargement des commandes.');
-            } else {
-                setError('Erreur réseau ou inconnue lors du chargement des commandes.');
-            }
-        } finally {
-            setLoading(false);
-        }
-    }, [status, session?.user?.token, session?.user?.role]);
+  const handleDeleteOrder = async (): Promise<void> => {
+    if (!orderToDelete || !session?.user?.token) return;
 
+    setIsDeleting(true);
 
-    const handleStatusChange = async (event: ChangeEvent<HTMLSelectElement>, orderId: string) => {
-        const newStatus = event.target.value as OrderStatus;
-        if (!session?.user?.token) {
-            toast.error("Authentification requise pour mettre à jour le statut.");
-            router.push('/login');
-            return;
-        }
-        try {
-            const response = await axios.put(`/api/admin/orders/${orderId}`, { status: newStatus }, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'auth-token': session.user.token,
-                },
-            });
+    try {
+      const response = await axios.delete(`/api/admin/orders/${orderToDelete}`, {
+        headers: { 'auth-token': session.user.token },
+        data: { id: orderToDelete },
+      });
 
-            if (response.data.success) {
-                setOrders(prevOrders =>
-                    prevOrders.map(order =>
-                        order.id === orderId ? { ...order, status: newStatus } : order
-                    )
-                );
-                toast.success('Statut de la commande mis à jour avec succès !');
-            } else {
-                toast.error('Échec de la mise à jour du statut de la commande.');
-            }
-        } catch (error: unknown) {
-            console.error('Erreur lors de la mise à jour du statut:', error);
-            toast.error('Erreur réseau ou du serveur lors de la mise à jour du statut.');
-        }
-    };
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Suppression impossible.');
+      }
 
-    const handleDeleteClick = (orderId: string) => {
-        setOrderToDelete(orderId);
-        setShowConfirmModal(true);
-    };
+      setOrders((current) => current.filter((order) => order.id !== orderToDelete));
+      toast.success('Commande supprimee avec succes.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erreur lors de la suppression de la commande.');
+    } finally {
+      setIsDeleting(false);
+      setOrderToDelete(null);
+    }
+  };
 
-    const confirmDelete = async () => {
-        setShowConfirmModal(false);
-        if (!orderToDelete) return;
-
-        if (!session?.user?.token) {
-            toast.error("Authentification requise pour supprimer un produit.");
-            router.push('/login');
-            return;
-        }
-
-        try {
-            const response = await axios.delete(`/api/admin/orders/${orderToDelete}`, {
-                headers: {
-                    'auth-token': session.user.token,
-                },
-                data: { id: orderToDelete }
-            });
-            if (response.data.success) {
-                setOrders(prevOrders => prevOrders.filter(order => order.id !== orderToDelete));
-                toast.success('Commande supprimée avec succès !');
-                // Optionally, refetch all orders to ensure the list is fully up-to-date
-                // fetchAllOrders();
-            } else {
-                toast.error('Échec de la suppression de la commande.');
-            }
-        } catch (error: unknown) {
-            console.error('Erreur lors de la suppression de la commande:', error);
-            toast.error('Erreur réseau ou du serveur lors de la suppression de la commande.');
-        } finally {
-            setOrderToDelete(null);
-        }
-    };
-
-    const cancelDelete = () => {
-        setShowConfirmModal(false);
-        setOrderToDelete(null);
-    };
-
-    useEffect(() => {
-        if (status === 'authenticated' && session?.user?.role === UserRole.ADMIN) {
-            fetchAllOrders();
-        } else if (status === 'unauthenticated') {
-            setLoading(false);
-            setError('Non connecté. Veuillez vous connecter.');
-            router.push('/login');
-        } else if (status === 'authenticated' && session?.user?.role !== UserRole.ADMIN) {
-            setLoading(false);
-            setError('Accès refusé. Vous n\'êtes pas autorisé à voir cette page.');
-            router.push('/');
-        }
-    }, [status, fetchAllOrders, session?.user?.role, router]);
-
+  if (loading) {
     return (
-        <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100 font-sans">
-            <main className="flex-1 p-4 md:p-8 lg:p-10 max-w-7xl mx-auto w-full">
-                <div className="flex items-center gap-4 mb-8">
-                    <Package className="w-10 h-10 text-blue-600" aria-hidden='true' />
-                    <h1 className="text-4xl font-extrabold text-gray-900">Gestion des Commandes</h1>
-                </div>
+      <div className="flex min-h-[70vh] items-center justify-center">
+        <Loading />
+      </div>
+    );
+  }
 
-                {loading ? (
-                    <div className="flex justify-center items-center h-64 bg-white rounded-xl shadow">
-                        <Loading />
-                        <p className="ml-3 text-lg text-gray-700">Chargement des commandes...</p>
-                    </div>
-                ) : error ? (
-                    <div className="text-center bg-red-100 border border-red-300 text-red-800 p-6 rounded-xl shadow-md" role='alert'>
-                        <h2 className="text-xl font-bold mb-3">Erreur</h2>
-                        <p>{error}</p>
-                        <button
-                            onClick={() => router.push('/login')}
-                            className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-transform duration-300 transform hover:scale-105"
-                            aria-label='Se connecter pour accéder aux commandes'
-                        >
-                            Se connecter
-                        </button>
-                    </div>
-                ) : (
-                    <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-                        <div className="p-6 border-b border-gray-200 bg-gray-50">
-                            <h2 className="text-2xl font-semibold text-gray-800">Toutes les Commandes Clients</h2>
-                        </div>
+  return (
+    <div className="flex min-h-full flex-col">
+      <SellerSectionHeader
+        eyebrow="Operations"
+        title="Gestion des commandes"
+        description="Suivez les commandes en attente, mettez a jour leur statut et gardez une vision claire sur la livraison et le paiement."
+      />
 
-                        {orders.length === 0 ? (
-                            <p className="text-gray-600 text-center p-10">Aucune commande trouvée.</p>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                                    <thead className="bg-gray-100">
-                                        <tr>
-                                            <th scope="col" className="py-4 px-6 text-left font-medium text-gray-600 uppercase tracking-wider">Client</th>
-                                            <th scope="col" className="py-4 px-6 text-left font-medium text-gray-600 uppercase tracking-wider">Articles</th>
-                                            <th scope="col" className="py-4 px-6 text-left font-medium text-gray-600 uppercase tracking-wider">Total</th>
-                                            <th scope="col" className="py-4 px-6 text-left font-medium text-gray-600 uppercase tracking-wider">Livraison</th>
-                                            <th scope="col" className="py-4 px-6 text-left font-medium text-gray-600 uppercase tracking-wider">Paiement</th>
-                                            <th scope="col" className="py-4 px-6 text-left font-medium text-gray-600 uppercase tracking-wider">Date</th>
-                                            <th scope="col" className="py-4 px-6 text-left font-medium text-gray-600 uppercase tracking-wider">Statut Commande</th>
-                                            <th scope="col" className="py-4 px-6 text-left font-medium text-gray-600 uppercase tracking-wider">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {orders.map((order: Order) => (
-                                            <tr key={order.id} className="hover:bg-blue-50 transition duration-150">
-                                                <td className="py-4 px-6">
-                                                    <p className="font-semibold text-gray-800">{order.userName || 'N/A'}</p>
-                                                    <p className="text-gray-600">{order.userEmail || 'N/A'}</p>
-                                                </td>
-                                                <td className="py-4 px-6">
-                                                    <div className="flex flex-col space-y-2">
-                                                        {order.orderItems?.length > 0 ? (
-                                                            order.orderItems.map((item, index) => (
-                                                                <div key={index} className="flex items-center gap-2">
-                                                                    {Array.isArray(item.product.imgUrl) && item.product.imgUrl.length > 0 && item.product.imgUrl[0] ? (
-                                                                        <Image
-                                                                            src={item.product.imgUrl[0]}
-                                                                            alt={item.product.name || 'Image produit'}
-                                                                            width={30}
-                                                                            height={30}
-                                                                            className="rounded object-cover"
-                                                                            onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => { e.currentTarget.src = '/placeholder.jpg'; }}
-                                                                        />
-                                                                    ) : (
-                                                                        <div className="w-8 h-8 bg-gray-200 rounded-md flex items-center justify-center text-gray-500 text-xs">
-                                                                            <Package size={16} />
-                                                                        </div>
-                                                                    )}
-                                                                    <span className="text-gray-700">{item.product.name} x {item.quantity}</span>
-                                                                </div>
-                                                            ))
-                                                        ) : (
-                                                            <span className="text-gray-500">Aucun</span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="py-4 px-6 font-bold text-gray-900">{formatPrice(order.totalAmount)}</td>
-                                                <td className="py-4 px-6 text-gray-700">
-                                                    <p>{order.shippingAddressLine1}</p>
-                                                    {order.shippingAddressLine2 && <p>{order.shippingAddressLine2}</p>}
-                                                    <p>{`${order.shippingCity || ''}, ${order.shippingState || ''}`}</p>
-                                                    <p>{`${order.shippingZipCode || ''}, ${order.shippingCountry || ''}`}</p>
-                                                    {order.userPhoneNumber && <p className="font-medium">Tél: {order.userPhoneNumber}</p>}
-                                                    {!order.userPhoneNumber && <p className="font-medium text-gray-500">Tél: N/A</p>}
-                                                </td>
-                                                <td className="py-4 px-6 text-gray-700">
-                                                    <p className="font-medium">Méthode : {order.paymentMethod}</p>
-                                                    <p>Statut :
-                                                        <span className={`ml-1 px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadgeStyle(order.paymentStatus)}`}>
-                                                            {order.paymentStatus?.replace(/_/g, ' ') || 'N/A'}
-                                                        </span>
-                                                    </p>
-                                                    <p className="font-mono text-xs">ID: {order.transactionId || 'N/A'}</p>
-                                                </td>
-                                                <td className="py-4 px-6 text-gray-700 whitespace-nowrap">
-                                                    {formatFullDateTime(order.orderDate)}
-                                                    </td>
-                                                    <td className="py-4 px-6">
-                                                        <select
-                                                            onChange={(e) => handleStatusChange(e, order.id)}
-                                                            value={order.status}
-                                                            className={`p-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${getStatusBadgeStyle(order.status)}`}
-                                                            aria-label={`Changer le statut de la commande ${order.id}`}
-                                                        >
-                                                            {/* MODIFICATION ICI : Limiter les options */}
-                                                            <option value={OrderStatus.PENDING}>En attente</option>
-                                                            <option value={OrderStatus.DELIVERED}>Livré</option>
-                                                            {/* Si vous voulez d'autres options pour l'admin, ajoutez-les ici */}
-                                                            {/* Par exemple, pour permettre de passer en 'PROCESSING' ou 'SHIPPED' */}
-                                                            {/* <option value={OrderStatus.PROCESSING}>En cours de traitement</option> */}
-                                                            {/* <option value={OrderStatus.SHIPPED}>Expédiée</option> */}
-                                                        </select>
-                                                    </td>
-                                                    <td className="py-4 px-6 text-left">
-                                                        <button
-                                                            onClick={() => handleDeleteClick(order.id)}
-                                                            className="text-red-600 hover:text-red-800 transition-colors duration-200"
-                                                            title="Supprimer la commande"
-                                                            aria-label={`Supprimer la commande ${order.id}`}
-                                                        >
-                                                            <Trash2 className="w-5 h-5" aria-hidden='true' />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
-                    )}
+      <section className="mt-8 grid gap-5 md:grid-cols-3">
+        <SellerStatCard
+          title="Commandes totales"
+          value={String(orders.length)}
+          description="Toutes les commandes disponibles dans le back-office."
+          icon={ShoppingCart}
+          tone="blue"
+        />
+        <SellerStatCard
+          title="En attente"
+          value={String(pendingCount)}
+          description="Commandes a confirmer, preparer ou expedier."
+          icon={Clock3}
+          tone="amber"
+        />
+        <SellerStatCard
+          title="Livrees"
+          value={String(deliveredCount)}
+          description="Commandes marquees comme finalisees et remises au client."
+          icon={Truck}
+          tone="emerald"
+        />
+      </section>
 
-                    {/* Confirmation Modal for Deletion */}
-                    {showConfirmModal && (
-                        <div
-                            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-                            role='dialog'
-                            aria-modal='true'
-                            aria-labelledby='confirm-delete-title'
-                            aria-describedby='confirm-delete-description'
-                        >
-                            <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
-                                <h3 id='confirm-delete-title' className="text-2xl font-bold text-gray-900 mb-4">Confirmer la suppression</h3>
-                                <p id='confirm-delete-description' className="text-gray-700 mb-6">Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.</p>
-                                <div className="flex justify-center gap-4">
-                                    <button
-                                        onClick={cancelDelete}
-                                        className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg shadow hover:bg-gray-400 transition-transform duration-300 transform hover:scale-105"
-                                        aria-label='Annuler la suppression de la commande'
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        onClick={confirmDelete}
-                                        className="px-6 py-3 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition-transform duration-300 transform hover:scale-105"
-                                        aria-label='Confirmer la suppression de la commande'
-                                    >
-                                        Supprimer
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </main>
-                <Footer />
+      <SellerPanel className="mt-6 p-5 md:p-6">
+        <div className="grid gap-4 lg:grid-cols-[1fr_220px_220px]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Rechercher par client, email, ville ou numero de commande"
+              className="w-full rounded-full border border-slate-200 bg-white px-11 py-3.5 text-sm text-slate-700 outline-none transition focus:border-[var(--brand-300)]"
+            />
+          </div>
+
+          <SellerSelect
+            value={statusFilter}
+            onChange={(value) => setStatusFilter(value as 'ALL' | OrderStatus)}
+            options={[
+              { value: 'ALL', label: 'Tous les statuts' },
+              { value: OrderStatus.PENDING, label: 'En attente' },
+              { value: OrderStatus.PROCESSING, label: 'En cours' },
+              { value: OrderStatus.SHIPPED, label: 'Expediees' },
+              { value: OrderStatus.DELIVERED, label: 'Livrees' },
+              { value: OrderStatus.CANCELLED, label: 'Annulees' },
+            ]}
+          />
+
+          <div className="rounded-[1.2rem] bg-slate-50 px-4 py-3.5 text-sm">
+            <p className="text-slate-500">CA encaisse</p>
+            <p className="mt-1 font-semibold text-slate-950">{formatPrice(totalRevenue)}</p>
+          </div>
+        </div>
+      </SellerPanel>
+
+      <SellerPanel className="mt-6 overflow-hidden">
+        {error ? (
+          <div className="p-6">
+            <SellerEmptyState
+              title="Chargement impossible"
+              description={error}
+              icon={XCircle}
+            />
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="p-6">
+            <SellerEmptyState
+              title="Aucune commande trouvee"
+              description="Aucun resultat ne correspond aux filtres appliques pour le moment."
+              icon={ShoppingCart}
+            />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-left text-slate-500">
+                <tr>
+                  <th className="px-6 py-4 font-medium">Commande</th>
+                  <th className="px-6 py-4 font-medium">Client</th>
+                  <th className="px-6 py-4 font-medium">Montant</th>
+                  <th className="px-6 py-4 font-medium">Paiement</th>
+                  <th className="px-6 py-4 font-medium">Livraison</th>
+                  <th className="px-6 py-4 font-medium">Date</th>
+                  <th className="px-6 py-4 font-medium">Statut</th>
+                  <th className="px-6 py-4 font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.map((order) => (
+                  <tr key={order.id} className="border-t border-slate-100 align-top">
+                    <td className="px-6 py-5">
+                      <p className="font-semibold text-slate-950">#{order.id.slice(0, 8)}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {order.orderItems.length} article(s)
+                      </p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <p className="font-medium text-slate-900">{order.userName}</p>
+                      <p className="mt-1 text-slate-500">{order.userEmail}</p>
+                    </td>
+                    <td className="px-6 py-5 font-semibold text-slate-950">
+                      {formatPrice(order.totalAmount)}
+                    </td>
+                    <td className="px-6 py-5">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusClasses(
+                          order.paymentStatus
+                        )}`}
+                      >
+                        {order.paymentStatus}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 text-slate-600">
+                      <p>{order.shippingCity}</p>
+                      <p className="mt-1 text-xs text-slate-400">{order.shippingCountry}</p>
+                    </td>
+                    <td className="px-6 py-5 text-slate-500">
+                      {new Date(order.orderDate).toLocaleDateString('fr-FR')}
+                    </td>
+                    <td className="px-6 py-5">
+                      <SellerSelect
+                        value={order.status}
+                        onChange={(value) => handleStatusChange(value as OrderStatus, order.id)}
+                        className={`min-w-[160px] ${getStatusClasses(order.status)}`}
+                        options={[
+                          { value: OrderStatus.PENDING, label: 'En attente' },
+                          { value: OrderStatus.PROCESSING, label: 'En cours' },
+                          { value: OrderStatus.SHIPPED, label: 'Expediee' },
+                          { value: OrderStatus.DELIVERED, label: 'Livree' },
+                          { value: OrderStatus.CANCELLED, label: 'Annulee' },
+                        ]}
+                      />
+                    </td>
+                    <td className="px-6 py-5">
+                      <button
+                        type="button"
+                        onClick={() => setOrderToDelete(order.id)}
+                        className="inline-flex items-center gap-2 rounded-full border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Supprimer
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SellerPanel>
+
+      <Footer />
+
+      {orderToDelete ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[1.8rem] bg-white p-6 shadow-[0_30px_90px_rgba(15,23,42,0.18)]">
+            <h3 className="text-[1.35rem] font-semibold text-slate-950">
+              Supprimer cette commande ?
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-slate-500">
+              Cette action retire la commande, ses lignes et ses informations de paiement de
+              l&apos;espace d&apos;administration.
+            </p>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setOrderToDelete(null)}
+                className="flex-1 rounded-full border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteOrder}
+                disabled={isDeleting}
+                className="flex-1 rounded-full bg-rose-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
+              >
+                {isDeleting ? 'Suppression...' : 'Confirmer'}
+              </button>
             </div>
-        );
-    };
-
-    export default Orders;
-    
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

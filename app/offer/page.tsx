@@ -1,296 +1,309 @@
-// app/offer/page.tsx
 'use client';
-import React from "react";
-import backgroundImage from "@/assets/bg2.jpg"; // Next.js automatically handles StaticImageData
-import backgroundImage2 from "@/assets/bg6.jpg"; // Next.js automatically handles StaticImageData
-import { StaticImageData } from 'next/image'; // Importez StaticImageData pour le typage des images
 
-/**
- * Composant Footer de base (placeholder).
- * @returns {React.ReactElement} Le JSX du pied de page.
- */
-const FooterPlaceholder = (): React.ReactElement => (
-    <footer className="bg-gray-800 text-white py-8 px-4 sm:px-6 lg:px-8 text-center rounded-t-3xl">
-        <div className="max-w-6xl mx-auto">
-            <p>&copy; {new Date().getFullYear()} Plawimadd Group. Tous droits réservés.</p>
-        </div>
-    </footer>
-);
+import React from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import axios from 'axios';
+import {
+  ArrowRight,
+  BadgeCheck,
+  BookOpenCheck,
+  CreditCard,
+  GraduationCap,
+  Laptop,
+} from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
-/**
- * Composant de la page des offres.
- * Décrit la mission de l'entreprise et les modalités de paiement.
- * @returns {React.ReactElement} Le JSX de la page des offres.
- */
-const OfferPageContent = (): React.ReactElement => {
-    // Assurez-vous que les imports d'images sont correctement typés par Next.js
-    const bg1: StaticImageData = backgroundImage;
-    const bg2: StaticImageData = backgroundImage2;
+import HomeFooter from '@/components/home/HomeFooter';
+import StudentInstallmentRequestModal from '@/components/student/StudentInstallmentRequestModal';
+import type { StudentInstallmentRequest } from '@/lib/types';
 
-    return (
-        <>
-            <div>
-                {/* Espace réservé, peut être utilisé pour une barre de navigation ou autre */}
-            </div>
-            <div className="bg-gradient-to-br from-blue-50 to-white min-h-screen">
-                {/* Section Hero - Titre principal et sous-titre */}
-                <section
-                    className="text-white py-20 sm:py-24 text-center relative overflow-hidden shadow-lg"
-                    style={{
-                        backgroundImage: `url(${bg1.src})`, // Utilisez .src pour l'URL de l'image
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        backgroundRepeat: "no-repeat",
-                        height: "calc(90vh - 90px)", // Prend toute la hauteur d'écran moins un offset
-                        minHeight: "300px", // Hauteur minimum sur petits écrans
-                    }}
+const advantages = [
+  {
+    icon: GraduationCap,
+    title: 'Offres pensees pour les etudiants',
+    text: "Des propositions utiles pour les cours, les projets, le memoire et le travail quotidien.",
+  },
+  {
+    icon: CreditCard,
+    title: 'Paiement par tranche',
+    text: 'Une formule plus souple pour avancer sans etre bloque par un paiement unique.',
+  },
+  {
+    icon: Laptop,
+    title: 'Equipements vraiment pertinents',
+    text: 'Ordinateurs, audio et accessoires choisis pour repondre a un besoin concret.',
+  },
+  {
+    icon: BadgeCheck,
+    title: 'Suivi simple et clair',
+    text: "L'equipe vous accompagne pour comprendre l'offre et finaliser la bonne solution.",
+  },
+];
+
+const steps = [
+  {
+    step: '01',
+    title: 'Choisir le bon produit',
+    text: "Nous partons de votre usage reel: bureautique, cours, creation, memoire ou travail freelance.",
+  },
+  {
+    step: '02',
+    title: 'Valider la formule',
+    text: 'Nous verifions avec vous la formule de paiement par tranche la plus adaptee.',
+  },
+  {
+    step: '03',
+    title: 'Confirmer et suivre',
+    text: 'Une fois la solution retenue, vous avancez avec plus de clarte et un meilleur confort.',
+  },
+];
+
+const offerPoints = [
+  'Possibilite de paiement en plusieurs etapes selon le produit.',
+  'Orientation sur les references les plus pertinentes pour etudes et productivite.',
+  'Accompagnement humain pour comprendre les modalites avant validation.',
+];
+
+export default function OfferPage(): React.ReactElement {
+  const { status } = useSession();
+  const [isRequestModalOpen, setIsRequestModalOpen] = React.useState(false);
+  const [latestRequest, setLatestRequest] = React.useState<StudentInstallmentRequest | null>(null);
+
+  React.useEffect(() => {
+    const fetchRequests = async () => {
+      if (status !== 'authenticated') {
+        setLatestRequest(null);
+        return;
+      }
+
+      try {
+        const response = await axios.get('/api/student-installment');
+        const requests = response.data?.requests || [];
+        setLatestRequest(requests[0] || null);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    fetchRequests();
+  }, [status]);
+
+  return (
+    <div className="flex min-h-screen flex-col">
+      <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-4 pb-0 pt-8 md:px-6 lg:px-8">
+        <section className="px-2 pb-2 md:px-0">
+          <div className="grid gap-6 rounded-[2rem] bg-white p-4 shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:p-6 lg:grid-cols-[1.04fr_0.96fr] lg:p-8">
+            <div className="flex flex-col justify-center rounded-[1.8rem] bg-[linear-gradient(180deg,rgba(237,244,253,0.88),rgba(255,255,255,0.98))] p-6 md:p-7">
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-[var(--brand-700)]">
+                Offres etudiantes
+              </p>
+              <h1 className="mt-4 max-w-[12ch] text-[2.45rem] font-semibold leading-[0.98] tracking-[-0.06em] text-slate-950 md:text-[3.35rem]">
+                S&apos;equiper serieusement, sans se bloquer.
+              </h1>
+              <p className="mt-5 max-w-[62ch] text-sm leading-8 text-slate-500 md:text-[0.98rem]">
+                Nous avons pense cette page pour les etudiants qui ont besoin d&apos;un materiel
+                utile, fiable et presentable, avec une modalite de paiement par tranche plus
+                accessible et plus realiste.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link
+                  href="/all-products"
+                  className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-700)] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[var(--brand-800)]"
                 >
-                    {/* Overlay sombre pour améliorer la lisibilité du texte */}
-                    <div className="absolute inset-0 bg-black opacity-40 z-0"></div>
-
-                    <div className="max-w-5xl mx-auto px-6 relative pt-11 z-10 animate-fade-in-up">
-                        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4 leading-tight drop-shadow-md">
-                            Un Étudiant, un Ordinateur Portable
-                        </h1>
-                        <p className="text-lg sm:text-xl text-zinc-50 max-w-3xl mx-auto opacity-90">
-                            Mise à disposition d&#39;ordinateurs portables modernes, puissants et
-                            adaptés aux défis technologiques actuels, le tout à un prix
-                            forfaitaire flexible.
-                        </p>
-                        <div className="mt-8 pt-20">
-                            <a
-                                href="#payment-methods"
-                                className="inline-block bg-blue-900 text-zinc-50 hover:text-zinc-950 font-bold py-3 px-8 rounded-full shadow-lg hover:bg-blue-100 transition duration-300 ease-in-out transform hover:-translate-y-1"
-                                aria-label="Découvrir nos solutions de paiement" // Ajouté pour l'accessibilité
-                            >
-                                Découvrir nos solutions de paiement
-                            </a>
-                        </div>
-                    </div>
-                </section>
-                {/* Section principale du contenu - Deux colonnes sur les grands écrans */}
-                <section className="container mx-auto px-6 py-6 lg:py-12">
-                    <div className="grid grid-cols-1 lg:grid-cols-1 gap-12 lg:gap-16 items-start">
-                        {/* Colonne de gauche: Description détaillée de l'offre */}
-                        <div className="space-y-10 animate-fade-in-left">
-                            <h2 className="text-4xl font-extrabold text-gray-900 mb-6 border-b-4 border-blue-500 pb-2">
-                                Notre Mission
-                            </h2>
-                            <p className="text-gray-700 text-lg leading-relaxed bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-400">
-                                Ce projet vise à offrir une solution informatique complète,
-                                parfaitement adaptée aux besoins académiques et professionnels
-                                des étudiants, tout en tenant compte de leur budget. Grâce à des
-                                modalités de paiement innovantes et flexibles et un service
-                                après-vente de qualité supérieure, notre initiative se
-                                positionne comme un pilier de soutien pour la communauté
-                                estudiantine. Nous proposons une gamme soigneusement
-                                sélectionnée d&#39;ordinateurs portatifs avec des configurations
-                                optimisées pour la bureautique, le travail collaboratif, la
-                                recherche, et l&#39;utilisation fluide de logiciels spécialisés
-                                (design graphique, ingénierie, développement, etc.). Chaque
-                                ordinateur est accompagné d&#39;un service après-vente fiable avec
-                                une garantie solide de
-                                <span className="font-bold text-blue-600"> 1 à 2 ans</span>,
-                                pour une tranquillité d&#39;esprit totale.
-                            </p>
-
-                            <div className="bg-blue-50 border-l-4 border-blue-600 p-8 rounded-xl shadow-lg transform hover:scale-105 transition-transform duration-300">
-                                <h3 className="text-2xl font-bold text-blue-800 mb-4">
-                                    Accessoires offerts avec chaque achat :
-                                </h3>
-                                <ul className="list-disc list-inside text-blue-700 space-y-3 text-lg">
-                                    <li className="flex items-center">
-                                        <span className="text-blue-600 mr-2">✓</span> Sac à dos de
-                                        qualité, résistant et stylé
-                                    </li>
-                                    <li className="flex items-center">
-                                        <span className="text-blue-600 mr-2">✓</span> Souris
-                                        ergonomique pour un confort optimal
-                                    </li>
-                                    <li className="flex items-center">
-                                        <span className="text-blue-600 mr-2">✓</span> Casque audio
-                                        performant pour vos études et loisirs
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-                <section className="container mx-auto px-6 py-3 lg:py-6">
-                    <div id="payment-methods" className="animate-fade-in-right">
-                        <h2 className="text-4xl font-extrabold text-gray-900 mb-8 pb-4 border-b-4 border-blue-500">
-                            Modalités de Paiement Accessibles
-                        </h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                            {/* Modalité 1 */}
-                            <div className="flex items-start space-x-6 bg-white p-8 rounded-xl shadow-lg border-l-4 border-green-500 hover:shadow-xl transition-shadow duration-300">
-                                <div className="flex-shrink-0 p-4 bg-green-100 rounded-full text-green-600 shadow-inner">
-                                    <svg
-                                        className="w-8 h-8"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        aria-label="Icône de paiement échelonné" // Ajouté pour l'accessibilité
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-                                        ></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                                        Paiement échelonné flexible
-                                    </h3>
-                                    <p className="text-gray-700 text-lg">
-                                        Choisissez l&#39;option qui vous convient le mieux : paiement en{" "}
-                                        <strong>3, 6 ou 10 tranches</strong> sans frais
-                                        supplémentaires. Simplifiez la gestion de votre budget !
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Modalité 2 */}
-                            <div className="flex items-start space-x-6 bg-white p-8 rounded-xl shadow-lg border-l-4 border-purple-500 hover:shadow-xl transition-shadow duration-300">
-                                <div className="flex-shrink-0 p-4 bg-purple-100 rounded-full text-purple-600 shadow-inner">
-                                    <svg
-                                        className="w-8 h-8"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        aria-label="Icône d'abonnement avec option d'achat" // Ajouté pour l'accessibilité
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                        ></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                                        Abonnement avec option d&#39;achat (LOA)
-                                    </h3>
-                                    <p className="text-gray-700 text-lg">
-                                        Profitez de mensualités avantageuses avec la{" "}
-                                        <strong>
-                                            possibilité exclusive de devenir propriétaire
-                                        </strong>{" "}
-                                        de votre ordinateur à la fin du contrat. Une flexibilité
-                                        inégalée !
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {/* Modalité 3 */}
-                            <div className="flex items-start space-x-6 bg-white p-8 rounded-xl shadow-lg border-l-4 border-red-500 hover:shadow-xl transition-shadow duration-300">
-                                <div className="flex-shrink-0 p-4 bg-red-100 rounded-full text-red-600 shadow-inner">
-                                    <svg
-                                        className="w-8 h-8"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        aria-label="Icône de réduction spéciale" // Ajouté pour l'accessibilité
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M9 14V7m0 0l-3 3m3-3l3 3m6 4h4a2 2 0 002-2V7a2 2 0 00-2-2H9a2 2 0 00-2 2v12a2 2 0 002 2h4"
-                                        ></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                                        Réduction spéciale pour boursiers
-                                    </h3>
-                                    <p className="text-gray-700 text-lg">
-                                        Bénéficiez de remises significatives (à hauteur de{" "}
-                                        <strong>XX</strong>) si vous êtes étudiant boursier ou issu
-                                        d&#39;une famille aux revenus modestes. Une aide concrète sur
-                                        présentation de votre preuve d&#39;éligibilité.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Modalité 4 */}
-                            <div className="flex items-start space-x-6 bg-white p-8 rounded-xl shadow-lg border-l-4 border-teal-500 hover:shadow-xl transition-shadow duration-300">
-                                <div className="flex-shrink-0 p-4 bg-teal-100 rounded-full text-teal-600 shadow-inner">
-                                    <svg
-                                        className="w-8 h-8"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        aria-label="Icône de distribution en collaboration" // Ajouté pour l'accessibilité
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                                        ></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                                        Distribution en collaboration avec les établissements
-                                    </h3>
-                                    <p className="text-gray-700 text-lg">
-                                        Nous travaillons en concertation avec les administrations de
-                                        votre établissement pour une attribution directe
-                                        d&#39;ordinateurs aux étudiants boursiers, avec un remboursement
-                                        facilité dès réception de leurs allocations.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-                {/* Section Appel à l'action ou FAQ rapide (optionnel mais professionnel) */}
-                <section
-                    className="bg-blue-600 text-white text-center py-16 mt-16 shadow-inner"
-                    style={{
-                        backgroundImage: `url(${bg2.src})`, // Utilisez .src pour l'URL de l'image
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        backgroundRepeat: "no-repeat",
-                        height: "calc(40vh - 40px)", // Prend toute la hauteur d'écran moins un offset
-                        minHeight: "40px", // Hauteur minimum sur petits écrans
-                    }}
+                  Voir le catalogue
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/contact"
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-300)] px-6 py-3.5 text-sm font-medium text-slate-700 transition hover:bg-[rgba(191,219,254,0.18)] hover:text-[var(--brand-700)]"
                 >
-                    <div className=" max-w-4xl mx-auto px-6">
-                        <h2 className="text-3xl sm:text-4xl font-bold mb-6">
-                            Prêt à acquérir votre outil de réussite ?
-                        </h2>
-                        <p className="text-lg text-blue-100 mb-8">
-                            N&#39;hésitez pas à nous contacter pour discuter de la meilleure
-                            option pour vous.
-                        </p>
-                        <a
-                            href="/contact"
-                            className="inline-block bg-blue-900 text-zinc-50 font-bold py-4 px-10 rounded-full shadow-xl hover:text-zinc-950 hover:bg-blue-100 transition duration-300 ease-in-out transform hover:scale-105"
-                            aria-label="Contactez-nous pour les offres" // Ajouté pour l'accessibilité
-                        >
-                            Contactez-nous
-                        </a>
-                    </div>
-                </section>
-            </div>
-            <div>
-                <FooterPlaceholder /> {/* Utilisation du composant placeholder typé */}
-            </div>
-        </>
-    );
-};
+                  Demander des informations
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setIsRequestModalOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-3.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                  Soumettre un dossier etudiant
+                </button>
+              </div>
 
-export default OfferPageContent;
+              <div className="mt-8 rounded-[1.45rem] bg-white/92 p-5 shadow-[0_12px_32px_rgba(15,23,42,0.04)]">
+                <p className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--brand-700)]">
+                  En pratique
+                </p>
+                <div className="mt-4 space-y-3">
+                  {offerPoints.map((item) => (
+                    <div key={item} className="flex items-start gap-3">
+                      <span className="mt-2 h-2.5 w-2.5 rounded-full bg-[var(--brand-500)]" />
+                      <p className="text-sm leading-7 text-slate-500">{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {latestRequest ? (
+                <div className="mt-5 rounded-[1.45rem] border border-[rgba(148,163,184,0.14)] bg-white/92 p-5">
+                  <p className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--brand-700)]">
+                    Statut de votre dossier
+                  </p>
+                  <p className="mt-2 text-[1.05rem] font-semibold text-slate-950">
+                    {latestRequest.status === 'APPROVED'
+                      ? 'Votre dossier etudiant est approuve.'
+                      : latestRequest.status === 'REJECTED'
+                        ? 'Votre dossier etudiant a ete refuse.'
+                        : 'Votre dossier etudiant est en cours de verification.'}
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-slate-500">
+                    {latestRequest.status === 'APPROVED'
+                      ? 'Vous pouvez maintenant utiliser le paiement par tranche depuis le panier, avec 50% au depart puis 25% et 25% sur les deux mois suivants.'
+                      : latestRequest.status === 'REJECTED'
+                        ? 'Vous pouvez soumettre un nouveau dossier plus complet si necessaire.'
+                        : 'Notre equipe verifie votre justificatif avant d activer le plan fixe a 3 tranches dans le panier.'}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="relative min-h-[460px] overflow-hidden rounded-[1.8rem]">
+              <Image
+                src="/images/background_etudiant1.jpg"
+                alt="Offre etudiante Plawimadd Group"
+                fill
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.06),rgba(15,23,42,0.42))]" />
+              <div className="absolute inset-x-6 bottom-6 rounded-[1.5rem] bg-white/92 p-5 backdrop-blur md:p-6">
+                <p className="text-sm font-medium uppercase tracking-[0.16em] text-[var(--brand-700)]">
+                  Paiement par tranche
+                </p>
+                <p className="mt-2 text-[1.18rem] font-semibold text-slate-950">
+                  Une solution plus souple pour mieux repartir votre effort
+                </p>
+                <p className="mt-2 text-sm leading-7 text-white">
+                  Nous adaptons la discussion autour du produit, de votre besoin et des
+                  modalites possibles avant validation.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="px-2 pb-2 pt-8 md:px-0">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {advantages.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <div
+                  key={item.title}
+                  className="rounded-[1.7rem] bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.05)]"
+                >
+                  <div className="w-fit rounded-2xl bg-[rgba(191,219,254,0.22)] p-3 text-[var(--brand-700)]">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h2 className="mt-5 text-[1.2rem] font-semibold text-slate-950">{item.title}</h2>
+                  <p className="mt-3 text-sm leading-8 text-slate-500">{item.text}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="px-2 pb-2 pt-8 md:px-0">
+          <div className="grid gap-6 lg:grid-cols-[0.98fr_1.02fr]">
+            <div className="overflow-hidden rounded-[2rem] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.05)]">
+              <div className="relative h-[260px]">
+                <Image
+                  src="/images/background_etudiant2.jpg"
+                  alt="Etudiant avec materiel"
+                  fill
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.04),rgba(15,23,42,0.32))]" />
+              </div>
+
+              <div className="p-6 lg:p-8">
+                <p className="text-sm font-medium uppercase tracking-[0.18em] text-[var(--brand-700)]">
+                  A qui s&apos;adresse cette page ?
+                </p>
+                <h2 className="mt-3 text-[1.95rem] font-semibold tracking-[-0.05em] text-slate-950">
+                  Aux etudiants qui veulent un choix intelligent
+                </h2>
+                <p className="mt-4 text-sm leading-8 text-slate-500">
+                  Si vous avez besoin d&apos;un ordinateur pour les cours, d&apos;un casque pour
+                  travailler, d&apos;accessoires utiles ou d&apos;un equipement plus fiable pour votre
+                  quotidien, cette offre est pensee pour vous orienter proprement.
+                </p>
+
+                <div className="mt-7 rounded-[1.45rem] bg-[rgba(237,244,253,0.55)] p-5">
+                  <div className="flex items-start gap-3">
+                    <BookOpenCheck className="mt-1 h-5 w-5 shrink-0 text-[var(--brand-700)]" />
+                    <p className="text-sm leading-7 text-slate-500">
+                      L&apos;objectif n&apos;est pas seulement de vendre un produit, mais de proposer
+                      une solution plus tenable et plus utile pour vos etudes.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.05)] lg:p-8">
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-[var(--brand-700)]">
+                Modalites
+              </p>
+              <h2 className="mt-3 text-[2rem] font-semibold tracking-[-0.05em] text-slate-950">
+                Comment cela se passe
+              </h2>
+
+              <div className="mt-8 space-y-5">
+                {steps.map((item) => (
+                  <div
+                    key={item.step}
+                    className="grid gap-4 rounded-[1.45rem] bg-[rgba(248,250,252,0.82)] p-5 md:grid-cols-[68px_1fr]"
+                  >
+                    <div className="text-[1.2rem] font-semibold text-[var(--brand-700)]">
+                      {item.step}
+                    </div>
+                    <div>
+                      <h3 className="text-[1.08rem] font-semibold text-slate-950">{item.title}</h3>
+                      <p className="mt-2 text-sm leading-7 text-slate-500">{item.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 rounded-[1.55rem] border border-[rgba(148,163,184,0.14)] bg-[linear-gradient(180deg,rgba(237,244,253,0.7),rgba(255,255,255,1))] p-5 md:p-6">
+                <p className="text-sm font-medium uppercase tracking-[0.16em] text-[var(--brand-700)]">
+                  Besoin de verifier votre cas ?
+                </p>
+                <p className="mt-3 text-sm leading-8 text-slate-500">
+                  Contactez-nous pour discuter du produit vise, de votre usage et de la
+                  possibilite de paiement par tranche avant de vous engager.
+                </p>
+
+                <Link
+                  href="/contact"
+                  className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--brand-700)] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[var(--brand-800)]"
+                >
+                  Contacter l&apos;equipe
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <HomeFooter />
+
+      <StudentInstallmentRequestModal
+        isOpen={isRequestModalOpen}
+        onClose={() => setIsRequestModalOpen(false)}
+        onSuccess={(request) => setLatestRequest(request)}
+      />
+    </div>
+  );
+}

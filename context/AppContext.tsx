@@ -61,6 +61,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
     const [cartItems, setCartItems] = useState<Record<string, number>>({});
+    const [wishlistItems, setWishlistItems] = useState<string[]>([]);
     const [loadingCart, setLoadingCart] = useState(true);
     const [initialCartLoaded, setInitialCartLoaded] = useState(false);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -437,6 +438,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         toast.success("Panier vidé !");
     }, [isLoggedIn, currentUser?.id, currentUser?.token, baseUrl]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        try {
+            const savedWishlist = localStorage.getItem('wishlistItems');
+            setWishlistItems(savedWishlist ? JSON.parse(savedWishlist) : []);
+        } catch (error: unknown) {
+            console.error("Error loading wishlist from localStorage", error);
+            setWishlistItems([]);
+        }
+    }, []);
+
+    const toggleWishlist = useCallback((productId: string) => {
+        setWishlistItems((current) => {
+            const exists = current.includes(productId);
+            const next = exists ? current.filter((item) => item !== productId) : [...current, productId];
+            localStorage.setItem('wishlistItems', JSON.stringify(next));
+            return next;
+        });
+    }, []);
+
+    const isInWishlist = useCallback((productId: string) => wishlistItems.includes(productId), [wishlistItems]);
+
+    const getWishlistCount = useCallback(() => wishlistItems.length, [wishlistItems]);
+
 
     const fetchUserOrders = useCallback(async () => {
         // Attendre que baseUrl soit défini avant de faire l'appel API
@@ -671,6 +697,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         deliveryFee,
         setDeliveryFee,
         fetchProducts,
+        wishlistItems,
+        toggleWishlist,
+        isInWishlist,
+        getWishlistCount,
         loadCartData,
         addToCart,
         removeFromCart,

@@ -1,4 +1,4 @@
-// C:\xampp\htdocs\02_PlawimAdd_TS\components\FeaturedProduct.tsx
+//FeaturedProduct.tsx
 "use client";
 
 import React from "react";

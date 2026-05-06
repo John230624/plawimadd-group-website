@@ -1,275 +1,322 @@
-// app/seller/add-products/page.tsx
 'use client';
-import React, { useState, FormEvent, ChangeEvent } from 'react';
-import { assets } from '@/assets/assets';
+
+import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { toast } from 'react-toastify'; // Importez toast de react-toastify
 import { useRouter } from 'next/navigation';
-import { StaticImageData } from 'next/image';
+import { ImagePlus, Loader2, Plus } from 'lucide-react';
+import { toast } from 'react-toastify';
 
-// Définition des catégories avec un type explicite
-const CATEGORIES: string[] = [
-    "Ordinateurs",
-    "Ecouteurs",
-    "Télévisions",
-    "Accessoires",
-    "Téléphones",
-];
+import Footer from '@/components/seller/Footer';
+import SellerPanel from '@/components/seller/SellerPanel';
+import SellerSectionHeader from '@/components/seller/SellerSectionHeader';
 
-/**
- * Composant de la page d'ajout de produit pour les vendeurs.
- * Permet aux vendeurs d'ajouter de nouveaux produits à la plateforme, y compris les images et les détails.
- * @returns {React.ReactElement} Le JSX de la page d'ajout de produit.
- */
-const AddProduct = (): React.ReactElement => {
-    const router = useRouter();
+interface CategoryOption {
+  id: string;
+  name: string;
+}
 
-    // États du formulaire avec typage explicite
-    const [imageFiles, setImageFiles] = useState<File[]>([]); // Tableau de fichiers pour les images
-    const [name, setName] = useState<string>('');
-    const [description, setDescription] = useState<string>('');
-    const [category, setCategory] = useState<string>(CATEGORIES[0]);
-    const [price, setPrice] = useState<string>(''); // Stocké comme string pour l'input, converti en float pour l'API
-    const [offerPrice, setOfferPrice] = useState<string>(''); // Stocké comme string, converti en float ou null
-    const [stock, setStock] = useState<string>(''); // Stocké comme string, converti en int
-    const [loading, setLoading] = useState<boolean>(false);
+export default function AddProductPage(): React.ReactElement {
+  const router = useRouter();
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [brand, setBrand] = useState('');
+  const [color, setColor] = useState('');
+  const [price, setPrice] = useState('');
+  const [offerPrice, setOfferPrice] = useState('');
+  const [stock, setStock] = useState('');
+  const [loading, setLoading] = useState(false);
 
-    /**
-     * Gère la soumission du formulaire d'ajout de produit.
-     * Télécharge les images, puis envoie les données du produit à l'API.
-     * @param {FormEvent<HTMLFormElement>} e L'événement de soumission du formulaire.
-     */
-    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        setLoading(true);
-
-        const validFiles = imageFiles.filter(Boolean); // Filtrer les éléments null/undefined
-        if (validFiles.length === 0) {
-            toast.error("Veuillez télécharger au moins une image de produit.");
-            setLoading(false);
-            return;
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/categories');
+        const data = await response.json();
+        const normalized = Array.isArray(data) ? data : [];
+        setCategories(normalized);
+        if (normalized[0]?.id) {
+          setCategoryId(normalized[0].id);
         }
-
-        try {
-            // Étape 1: Télécharger toutes les images sur Cloudinary
-            const uploadedImageUrls: string[] = await Promise.all( // Type le tableau de URLs
-                validFiles.map(async (file: File) => { // Type 'file' comme File
-                    const formData = new FormData();
-                    formData.append('image', file);
-
-                    // TODO: Si votre API d'upload nécessite un token d'authentification (ex: pour authorizeAdminRequest),
-                    // vous devrez l'ajouter ici dans les headers de la requête fetch.
-                    // const authToken = 'VOTRE_TOKEN_D_AUTH_ICI'; // Récupérez-le depuis votre contexte d'authentification
-                    const uploadRes = await fetch('/api/upload-image', {
-                        method: 'POST',
-                        body: formData,
-                        // headers: {
-                        //     'Authorization': `Bearer ${authToken}`, // Exemple si vous utilisez un token Bearer
-                        // },
-                    });
-
-                    if (!uploadRes.ok) {
-                        const err = await uploadRes.json();
-                        throw new Error(err.message || "Échec de l’upload de l'image.");
-                    }
-
-                    const data: { imageUrl: string } = await uploadRes.json(); // Type la réponse de l'upload
-                    return data.imageUrl;
-                })
-            );
-
-            // Étape 2: Préparer les données du produit
-            // CORRECTION ICI: imgUrl est stringifié car le backend attend une chaîne JSON
-            const productData = {
-                name,
-                description,
-                category,
-                price: parseFloat(price),
-                offerPrice: offerPrice ? parseFloat(offerPrice) : null,
-                stock: parseInt(stock),
-                imgUrl: JSON.stringify(uploadedImageUrls), // <-- RE-MODIFIÉ pour envoyer une chaîne JSON
-            };
-
-            // Étape 3: Envoyer les données du produit à l'API
-            // TODO: Si votre API d'ajout de produit nécessite un token d'authentification,
-            // vous devrez l'ajouter ici dans les headers de la requête fetch.
-            // const authToken = 'VOTRE_TOKEN_D_AUTH_ICI'; // Récupérez-le depuis votre contexte d'authentification
-            const res = await fetch('/api/products', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // 'Authorization': `Bearer ${authToken}`, // Exemple si vous utilisez un token Bearer
-                },
-                body: JSON.stringify(productData),
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || "Erreur d’enregistrement du produit.");
-            }
-
-            toast.success("Produit ajouté avec succès !");
-            router.push('/seller/product-list'); // Redirige après succès
-
-        } catch (error: unknown) { // Type l'erreur comme unknown
-            console.error("Erreur d'ajout :", error);
-            // Vérifie si l'erreur est une instance d'Error pour accéder à 'message'
-            toast.error((error instanceof Error) ? error.message : "Une erreur est survenue.");
-        } finally {
-            setLoading(false);
-        }
+      } catch (error) {
+        console.error(error);
+        toast.error('Impossible de charger les categories.');
+      }
     };
 
-    /**
-     * Gère le changement de fichier pour les inputs d'image.
-     * @param {ChangeEvent<HTMLInputElement>} e L'événement de changement de l'input de fichier.
-     * @param {number} index L'index de l'image dans le tableau.
-     */
-    const handleFileChange = (e: ChangeEvent<HTMLInputElement>, index: number) => {
-        const file = e.target.files?.[0]; // Utilise l'opérateur de chaînage optionnel
-        if (file) {
-            const updatedFiles = [...imageFiles];
-            updatedFiles[index] = file;
-            setImageFiles(updatedFiles);
-        }
+    fetchCategories();
+  }, []);
+
+  const previews = useMemo(() => {
+    return imageFiles.map((file) => URL.createObjectURL(file));
+  }, [imageFiles]);
+
+  useEffect(() => {
+    return () => {
+      previews.forEach((preview) => URL.revokeObjectURL(preview));
     };
+  }, [previews]);
 
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100 flex items-center justify-center px-4 py-10">
-            <form
-                onSubmit={handleSubmit}
-                className="w-full max-w-2xl bg-white rounded-2xl shadow-lg border border-gray-200 p-6 md:p-10 space-y-6"
-            >
-                <h2 className="text-3xl font-bold text-gray-800 mb-4 text-center">Ajouter un produit</h2>
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>, index: number): void => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-                {/* Images */}
-                <div>
-                    <label className="block mb-2 font-semibold text-gray-700">Images du produit</label>
-                    <div className="flex flex-wrap gap-4">
-                        {[...Array(4)].map((_, index: number) => ( // Type index
-                            <label key={index} htmlFor={`image-upload-${index}`} className="cursor-pointer">
-                                <input
-                                    type="file"
-                                    id={`image-upload-${index}`}
-                                    hidden
-                                    accept="image/*"
-                                    onChange={(e) => handleFileChange(e, index)}
-                                    aria-label={`Télécharger l'image ${index + 1}`} // Ajouté pour l'accessibilité
-                                />
-                                <Image
-                                    src={imageFiles[index] ? URL.createObjectURL(imageFiles[index]) : (assets.upload_area as StaticImageData)} // Cast pour StaticImageData
-                                    alt={`Image du produit ${index + 1}`} // Alt text descriptif
-                                    width={100}
-                                    height={100}
-                                    className="max-w-24 border border-gray-300 rounded-lg p-1 hover:ring-2 hover:ring-blue-400 transition object-cover" // Ajout de object-cover
-                                />
-                            </label>
-                        ))}
-                    </div>
-                </div>
+    setImageFiles((current) => {
+      const next = [...current];
+      next[index] = file;
+      return next;
+    });
+  };
 
-                {/* Champs */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div>
-                        <label htmlFor="productName" className="block mb-1 text-gray-700 font-medium">Nom du produit</label>
-                        <input
-                            type="text"
-                            id="productName" // Ajout d'un id pour la label
-                            required
-                            value={name}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} // Type l'événement
-                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                            placeholder="Ex : Ordinateur HP"
-                            aria-label="Nom du produit" // Ajouté pour l'accessibilité
-                        />
-                    </div>
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
 
-                    <div>
-                        <label htmlFor="productCategory" className="block mb-1 text-gray-700 font-medium">Catégorie</label>
-                        <select
-                            id="productCategory" // Ajout d'un id pour la label
-                            value={category}
-                            onChange={(e: ChangeEvent<HTMLSelectElement>) => setCategory(e.target.value)} // Type l'événement
-                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                            required
-                            aria-label="Catégorie du produit" // Ajouté pour l'accessibilité
-                        >
-                            {CATEGORIES.map((cat: string) => ( // Type cat
-                                <option key={cat} value={cat}>{cat}</option>
-                            ))}
-                        </select>
-                    </div>
+    if (!name || !description || !categoryId || !price || !stock) {
+      toast.error('Veuillez remplir tous les champs obligatoires.');
+      return;
+    }
 
-                    <div>
-                        <label htmlFor="productPrice" className="block mb-1 text-gray-700 font-medium">Prix</label>
-                        <input
-                            type="number"
-                            id="productPrice" // Ajout d'un id pour la label
-                            required
-                            value={price}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => setPrice(e.target.value)} // Type l'événement
-                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                            placeholder="100000"
-                            aria-label="Prix du produit" // Ajouté pour l'accessibilité
-                        />
-                    </div>
+    const validFiles = imageFiles.filter(Boolean);
+    if (validFiles.length === 0) {
+      toast.error('Ajoutez au moins une image pour ce produit.');
+      return;
+    }
 
-                    <div>
-                        <label htmlFor="offerPrice" className="block mb-1 text-gray-700 font-medium">Prix promotionnel</label>
-                        <input
-                            type="number"
-                            id="offerPrice" // Ajout d'un id pour la label
-                            value={offerPrice}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => setOfferPrice(e.target.value)} // Type l'événement
-                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                            placeholder="90000"
-                            aria-label="Prix promotionnel du produit (optionnel)" // Ajouté pour l'accessibilité
-                        />
-                    </div>
+    setLoading(true);
 
-                    <div>
-                        <label htmlFor="productStock" className="block mb-1 text-gray-700 font-medium">Stock</label>
-                        <input
-                            type="number"
-                            id="productStock" // Ajout d'un id pour la label
-                            min="0"
-                            required
-                            value={stock}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => setStock(e.target.value)} // Type l'événement
-                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                            placeholder="Ex: 20"
-                            aria-label="Quantité en stock du produit" // Ajouté pour l'accessibilité
-                        />
-                    </div>
-                </div>
+    try {
+      const imageUrls = await Promise.all(
+        validFiles.map(async (file) => {
+          const formData = new FormData();
+          formData.append('image', file);
 
-                {/* Description */}
-                <div>
-                    <label htmlFor="productDescription" className="block mb-1 text-gray-700 font-medium">Description</label>
-                    <textarea
-                        id="productDescription" // Ajout d'un id pour la label
-                        required
-                        rows={4}
-                        value={description}
-                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)} // Type l'événement
-                        className="w-full p-3 border rounded-lg resize-none focus:ring-2 focus:ring-blue-400 outline-none"
-                        placeholder="Décrivez le produit ici..."
-                        aria-label="Description complète du produit" // Ajouté pour l'accessibilité
-                    ></textarea>
-                </div>
+          const uploadResponse = await fetch('/api/upload-image', {
+            method: 'POST',
+            body: formData,
+          });
 
-                {/* Bouton */}
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition disabled:opacity-50"
-                    aria-label={loading ? "Ajout du produit en cours" : "Ajouter le produit"} // Ajouté pour l'accessibilité
+          const uploadData = await uploadResponse.json();
+
+          if (!uploadResponse.ok || !uploadData.imageUrl) {
+            throw new Error(uploadData.message || "Echec de l'upload d'une image.");
+          }
+
+          return uploadData.imageUrl as string;
+        })
+      );
+
+      const selectedCategory = categories.find((category) => category.id === categoryId);
+
+      const response = await fetch('/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          description,
+          category: selectedCategory?.name || '',
+          price: parseFloat(price),
+          offerPrice: offerPrice ? parseFloat(offerPrice) : null,
+          stock: parseInt(stock, 10),
+          imgUrl: imageUrls,
+          brand: brand || null,
+          color: color || null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Impossible d'ajouter le produit.");
+      }
+
+      toast.success('Produit ajoute avec succes.');
+      router.push('/seller/product-list');
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Erreur lors de la creation du produit.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-full flex-col">
+      <SellerSectionHeader
+        eyebrow="Catalogue"
+        title="Ajouter un produit"
+        description="Creez une fiche produit propre avec images, prix, marque, couleur et stock pour garder un catalogue net et facile a maintenir."
+      />
+
+      <SellerPanel className="mt-8 p-5 md:p-8">
+        <form onSubmit={handleSubmit} className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
+          <div>
+            <p className="text-sm font-medium text-slate-500">Galerie produit</p>
+            <h2 className="mt-2 text-[1.45rem] font-semibold tracking-[-0.04em] text-slate-950">
+              Ajoutez jusqu&apos;a 4 images
+            </h2>
+            <div className="mt-6 grid grid-cols-2 gap-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <label
+                  key={index}
+                  htmlFor={`product-image-${index}`}
+                  className="group flex aspect-square cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50 transition hover:border-[var(--brand-300)] hover:bg-[rgba(191,219,254,0.14)]"
                 >
-                    {loading ? "Ajout en cours..." : "Ajouter le produit"}
-                </button>
-            </form>
-        </div>
-    );
-};
+                  <input
+                    id={`product-image-${index}`}
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={(event) => handleFileChange(event, index)}
+                  />
 
-export default AddProduct;
+                  {previews[index] ? (
+                    <Image
+                      src={previews[index]}
+                      alt={`Apercu ${index + 1}`}
+                      width={220}
+                      height={220}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-center">
+                      <div className="rounded-full bg-white p-3 text-[var(--brand-700)] shadow-sm">
+                        <ImagePlus className="h-5 w-5" />
+                      </div>
+                      <p className="mt-3 text-sm font-medium text-slate-700">Ajouter une image</p>
+                      <p className="mt-1 px-4 text-xs leading-6 text-slate-400">
+                        JPG, PNG ou WebP
+                      </p>
+                    </div>
+                  )}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-5">
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">Nom du produit</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  className="w-full rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[var(--brand-300)]"
+                  placeholder="Ex : MacBook Air 13 pouces"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Categorie</label>
+                <select
+                  value={categoryId}
+                  onChange={(event) => setCategoryId(event.target.value)}
+                  className="w-full rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[var(--brand-300)]"
+                >
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Marque</label>
+                <input
+                  type="text"
+                  value={brand}
+                  onChange={(event) => setBrand(event.target.value)}
+                  className="w-full rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[var(--brand-300)]"
+                  placeholder="Apple, Samsung, JBL..."
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Prix</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={price}
+                  onChange={(event) => setPrice(event.target.value)}
+                  className="w-full rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[var(--brand-300)]"
+                  placeholder="250000"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Prix promo</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={offerPrice}
+                  onChange={(event) => setOfferPrice(event.target.value)}
+                  className="w-full rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[var(--brand-300)]"
+                  placeholder="Optionnel"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Stock</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={stock}
+                  onChange={(event) => setStock(event.target.value)}
+                  className="w-full rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[var(--brand-300)]"
+                  placeholder="20"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Couleur</label>
+                <input
+                  type="text"
+                  value={color}
+                  onChange={(event) => setColor(event.target.value)}
+                  className="w-full rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[var(--brand-300)]"
+                  placeholder="Titanium, Noir, Bleu..."
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">Description</label>
+                <textarea
+                  rows={6}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  className="w-full rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[var(--brand-300)]"
+                  placeholder="Decrivez clairement le produit, ses points forts et son usage."
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 pt-2 md:flex-row">
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[var(--brand-600)] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-700)] disabled:opacity-60"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                {loading ? 'Enregistrement...' : 'Enregistrer le produit'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push('/seller/product-list')}
+                className="inline-flex flex-1 items-center justify-center rounded-full border border-slate-200 px-6 py-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Retour au catalogue
+              </button>
+            </div>
+          </div>
+        </form>
+      </SellerPanel>
+
+      <Footer />
+    </div>
+  );
+}

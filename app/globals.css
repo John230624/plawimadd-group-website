@@ -1,12 +1,26 @@
     /* C:\xampp\htdocs\plawimadd_group\app\globals.css */
 
     /* Importation de la police Poppins */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playwrite+PL:wght@100..400&family=Poppins:wght@400;600;700&display=swap');
 
     /* Importations des directives Tailwind CSS (méthode recommandée) */
     @tailwind base;
     @tailwind components;
     @tailwind utilities;
+
+    :root {
+        --brand-950: oklch(28.2% 0.091 267.935);
+        --brand-900: oklch(37.9% 0.146 265.522);
+        --brand-800: oklch(42.4% 0.199 265.638);
+        --brand-700: oklch(48.8% 0.243 264.376);
+        --brand-600: oklch(54.6% 0.245 262.881);
+        --brand-500: oklch(62.3% 0.214 259.815);
+        --brand-400: oklch(70.7% 0.165 254.624);
+        --brand-300: oklch(80.9% 0.105 251.813);
+        --brand-200: oklch(88.2% 0.059 254.128);
+        --brand-100: oklch(93.2% 0.032 255.585);
+        --brand-50: oklch(97% 0.014 254.604);
+    }
 
     /* Styles globaux personnalisés */
     * {
@@ -28,9 +42,22 @@
         display: none;
     }
 
+    .catalog-scroll {
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .catalog-scroll::-webkit-scrollbar {
+        display: none;
+    }
+
     /* Définition de la police par défaut pour le corps */
     body {
         font-family: 'Poppins', sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        background: var(--brand-50);
+        color: var(--brand-950);
     }

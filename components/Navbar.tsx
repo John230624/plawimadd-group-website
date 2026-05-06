@@ -1,582 +1,352 @@
-// components/Navbar.tsx
 'use client';
 
-import React, { useState, useRef, useEffect } from "react";
-import { assets } from "@/assets/assets";
-import Link from "next/link";
-import Image from "next/image";
-import { useAppContext } from "@/context/AppContext";
-import { usePathname, useRouter } from "next/navigation";
-import { useSession, signOut } from 'next-auth/react';
-// L'importation de 'Session' de 'next-auth' est utile pour la clarté,
-// mais les extensions de type sont faites via next-auth.d.ts
-
-
-// Import React Icons
+import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { signOut, useSession } from 'next-auth/react';
 import {
-    FaSearch,
-    FaUser,
-    FaHome,
-    FaShoppingBag,
-    FaGift,
-    FaEnvelope,
-    FaBars,
-    FaTimes,
-    FaSignInAlt,
-    FaUserPlus,
-    FaShoppingCart,
-    FaSignOutAlt,
-} from "react-icons/fa";
-import { MdOutlineDashboard } from "react-icons/md";
+  Clock3,
+  Heart,
+  MapPin,
+  Menu,
+  Search,
+  ShoppingBag,
+  User,
+  X,
+} from 'lucide-react';
+import { useAppContext } from '@/context/AppContext';
 
-// --- CETTE INTERFACE CustomSession N'EST PLUS NÉCESSAIRE ET DOIT ÊTRE SUPPRIMÉE OU COMMENTÉE ---
-// C'est le rôle de 'next-auth.d.ts' d'étendre les types globaux.
-// interface CustomSession extends Session {
-//     user?: {
-//         name?: string | null;
-//         email?: string | null;
-//         image?: string | null;
-//         firstName?: string | null;
-//         role?: 'ADMIN' | 'SELLER' | 'USER';//     };
-// }
-// --- FIN DE LA SUPPRESSION/COMMENTAIRE ---
-
-// Define the shape of the AppContext values used in this component
-interface AppContextType {
-    searchTerm: string;
-    setSearchTerm: (term: string) => void;
-    getCartCount: () => number;
+interface AppContextShape {
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
+  getCartCount: () => number;
+  getWishlistCount: () => number;
 }
 
-const Navbar = () => {
-    const { searchTerm, setSearchTerm, getCartCount } = useAppContext() as AppContextType;
-    const pathname = usePathname();
-    const router = useRouter();
+const navLinks = [
+  { href: '/', label: 'Accueil' },
+  { href: '/all-products', label: 'Catalogue' },
+  { href: '/offer', label: 'Offres' },
+  { href: '/contact', label: 'Contact' },
+];
 
-    const { data: session, status } = useSession();
+export default function Navbar(): React.ReactElement {
+  const { searchTerm, setSearchTerm, getCartCount, getWishlistCount } =
+    useAppContext() as AppContextShape;
+  const pathname = usePathname();
+  const router = useRouter();
+  const { data: session, status } = useSession();
 
-    const isLoggedIn: boolean = status === 'authenticated';
-    // Mettez à jour la logique pour 'isAdmin' et supprimez 'isSeller'
-    const isAdmin: boolean = isLoggedIn && session?.user?.role === 'ADMIN';
-    // const isSeller: boolean = isLoggedIn && session?.user?.role === 'SELLER'; // <-- SUPPRIMEZ OU COMMENTEZ CETTE LIGNE
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
 
-    const userFullName: string =
-        session?.user?.name ||
-        session?.user?.firstName ||
-        (session?.user?.email ? session.user.email.split('@')[0] : '');
-    const userInitial: string = userFullName ? userFullName.charAt(0).toUpperCase() : '';
+  const isLoggedIn = status === 'authenticated';
+  const isAdmin = Boolean(isLoggedIn && session?.user?.role === 'ADMIN');
+  const cartCount = getCartCount();
+  const wishlistCount = getWishlistCount();
 
-    const getAvatarColorClass = (initial: string): string => {
-        const colors: string[] = [
-            'bg-blue-500', 'bg-green-500', 'bg-red-500', 'bg-purple-500',
-            'bg-yellow-500', 'bg-indigo-500', 'bg-pink-500', 'bg-teal-500'
-        ];
-        if (!initial) return 'bg-gray-400';
-        const index: number = initial.charCodeAt(0) % colors.length;
-        return colors[index];
+  const userLabel =
+    session?.user?.firstName ||
+    session?.user?.name ||
+    session?.user?.email?.split('@')[0] ||
+    'Mon compte';
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
+        setIsAccountOpen(false);
+      }
     };
 
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-    const [isDesktopSearchInputVisible, setIsDesktopSearchInputVisible] = useState<boolean>(false);
-    const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState<boolean>(false);
-    const [showLogoutOverlay, setShowLogoutOverlay] = useState<boolean>(false);
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
-    const accountButtonRef = useRef<HTMLDivElement>(null);
-    const dropdownRef = useRef<HTMLDivElement>(null);
-    const cartIconRef = useRef<HTMLAnchorElement>(null);
-    const desktopSearchInputRef = useRef<HTMLInputElement>(null);
-
-    const [animateCart, setAnimateCart] = useState<boolean>(false);
-    const prevCartItemCount = useRef<number>(0);
-
-    useEffect(() => {
-        const currentCartCount: number = getCartCount();
-        if (currentCartCount > 0 && currentCartCount !== prevCartItemCount.current) {
-            setAnimateCart(true);
-            const timer = setTimeout(() => {
-                setAnimateCart(false);
-            }, 500);
-            return () => clearTimeout(timer);
-        }
-        prevCartItemCount.current = currentCartCount;
-    }, [getCartCount]);
-
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (
-                accountButtonRef.current &&
-                !accountButtonRef.current.contains(event.target as Node) &&
-                dropdownRef.current &&
-                !dropdownRef.current.contains(event.target as Node)
-            ) {
-                setIsAccountDropdownOpen(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [accountButtonRef, dropdownRef]);
-
-    useEffect(() => {
-        if (pathname === '/all-products' && searchTerm) {
-            setIsDesktopSearchInputVisible(true);
-        }
-        if (isDesktopSearchInputVisible && desktopSearchInputRef.current) {
-            desktopSearchInputRef.current.focus();
-        }
-    }, [pathname, searchTerm, isDesktopSearchInputVisible]);
-
-    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchTerm(e.target.value);
-        if (pathname !== '/all-products') {
-            router.push('/all-products');
-        }
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 8);
     };
 
-    const toggleDesktopSearchVisibility = () => {
-        if (isDesktopSearchInputVisible) {
-            setSearchTerm('');
-        }
-        setIsDesktopSearchInputVisible(prev => !prev);
-    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-    const getLinkClassName = (href: string): string => {
-        const baseClasses: string = "hover:text-gray-900 transition";
-        const activeClasses: string = "text-blue-600 font-semibold";
-        if (href === "/" && pathname === "/") {
-            return `${baseClasses} ${activeClasses}`;
-        }
-        if (href !== "/" && pathname.startsWith(href)) {
-            return `${baseClasses} ${activeClasses}`;
-        }
-        return baseClasses;
-    };
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    if (pathname !== '/all-products') {
+      router.push('/all-products');
+    }
+  };
 
-    const getMobileMenuItemClassName = (href: string): string => {
-        const baseClasses: string =
-            "flex items-center gap-3 text-lg w-full py-2 px-3 rounded-md transition duration-200 ease-in-out";
-        const activeClasses: string = "bg-indigo-100 text-indigo-700 font-semibold";
-        const hoverClasses: string = "hover:bg-zinc-200 hover:text-zinc-950";
-        if (href === "/" && pathname === "/") {
-            return `${baseClasses} ${activeClasses}`;
-        }
-        if (href !== "/" && pathname.startsWith(href)) {
-            return `${baseClasses} ${activeClasses}`;
-        }
-        return `${baseClasses} ${hoverClasses}`;
-    };
+  const getLinkClassName = (href: string) => {
+    const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href);
 
-    const handleLogoutConfirmation = (): void => {
-        setIsAccountDropdownOpen(false);
-        setIsMobileMenuOpen(false);
-        setShowLogoutOverlay(true);
-    };
+    return [
+      'text-sm font-medium transition',
+      isActive ? 'text-[var(--brand-600)]' : 'text-slate-700 hover:text-[var(--brand-800)]',
+    ].join(' ');
+  };
 
-    const confirmLogout = async (): Promise<void> => {
-        setShowLogoutOverlay(false);
-        await signOut({ callbackUrl: '/' });
-    };
+  return (
+    <header
+      className={`sticky top-0 z-50 bg-[oklch(97%_0.014_254.604/0.94)] backdrop-blur transition-shadow duration-200 ${
+        isScrolled ? 'shadow-[0_10px_30px_rgba(15,23,42,0.06)]' : ''
+      }`}
+    >
+      <div className="mx-auto flex max-w-[1440px] items-center justify-between px-6 py-3 text-xs text-slate-600 md:px-10 lg:px-12">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-[var(--brand-600)]" />
+          <span>Abomey-Calavi, en face du College Bakhita</span>
+        </div>
 
-    const cancelLogout = (): void => {
-        setShowLogoutOverlay(false);
-    };
+        <div className="hidden items-center gap-6 md:flex">
+          <div className="flex items-center gap-2">
+            <Clock3 className="h-4 w-4 text-[var(--brand-600)]" />
+            <span>Lundi-Samedi, 09h - 21h</span>
+          </div>
+          <a href="tel:+2290197747178" className="font-medium text-slate-800 transition hover:text-[var(--brand-700)]">
+            +(229) 0197747178
+          </a>
+        </div>
+      </div>
 
-    return (
-        <>
-            {/* Logout Confirmation Overlay */}
-            {showLogoutOverlay && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg">
-                        <h3 className="text-lg font-semibold mb-4">Confirmation de déconnexion</h3>
-                        <p className="mb-6">Êtes-vous sûr de vouloir vous déconnecter ?</p>
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={cancelLogout}
-                                className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                onClick={confirmLogout}
-                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                            >
-                                Déconnexion
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+      <div className="mx-auto flex max-w-[1440px] items-center gap-4 px-6 py-4 md:px-10 lg:px-12">
+        <Link href="/" className="shrink-0 whitespace-nowrap">
+          <span className="inline-flex items-baseline whitespace-nowrap font-['Playwrite_PL',cursive] text-[0.96rem] font-[400] leading-none tracking-[-0.025em] md:text-[1.08rem] lg:text-[1.18rem]">
+            <span className="text-slate-600">Plawimadd</span>
+            <span className="ml-1 text-[var(--brand-800)]">Group</span>
+          </span>
+        </Link>
 
-            <nav className="flex items-center justify-between px-6 md:px-16 lg:px-32 py-3 border-b bg-zinc-100 text-zinc-950 relative z-30">
-                {/* Logo (Left side) */}
-                <Link href="/">
-                    <Image
-                        src={assets.logo}
-                        alt="Logo"
-                        // AJOUTÉ: width et height sont requis pour next/image
-                        // Ajustez ces valeurs selon les dimensions réelles de votre logo ou la taille souhaitée.
-                        width={180} // Exemple: ajustez à la largeur réelle ou souhaitée
-                        height={60} // Exemple: ajustez à la hauteur réelle ou souhaitée
-                        className="w-[120px] md:w-[150px] lg:w-[180px] hover:scale-105 transition-transform"
-                        priority={true}
-                    />
-                </Link>
+        <nav className="hidden items-center gap-7 pl-6 lg:flex xl:pl-10">
+          {navLinks.map((link) => (
+            <Link key={link.href} href={link.href} className={getLinkClassName(link.href)}>
+              {link.label}
+            </Link>
+          ))}
+        </nav>
 
-                {/* Desktop Navigation Links (Middle) */}
-                <div className="hidden md:flex items-center gap-4 lg:gap-8 text-zinc-950">
-                    <div className="p-2 hover:bg-zinc-200 rounded-3xl hover:scale-105 transition-transform hover:font-semibold">
-                        <Link href="/" className={getLinkClassName("/")}>
-                            Accueil
-                        </Link>
-                    </div>
-                    <div className="p-2 hover:bg-zinc-200 rounded-3xl hover:scale-105 transition-transform hover:font-semibold">
-                        <Link
-                            href="/all-products"
-                            className={getLinkClassName("/all-products")}
+        <div className="hidden flex-1 items-center justify-end gap-3 md:flex">
+          <label className="flex w-full max-w-[430px] items-center gap-3 rounded-full border border-[var(--brand-100)] bg-white/72 px-4 py-3 text-sm text-slate-500 shadow-sm transition duration-200 focus-within:border-[var(--brand-100)] focus-within:bg-white/92 focus-within:shadow-[0_10px_30px_rgba(148,163,184,0.10)]">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => handleSearch(event.target.value)}
+              placeholder="Rechercher parmi nos produits"
+              className="w-full bg-transparent text-slate-800 outline-none placeholder:text-slate-400 caret-[var(--brand-600)]"
+            />
+          </label>
+
+          <div className="flex items-center gap-1 text-slate-700">
+            <button
+              type="button"
+              onClick={() => router.push('/wishlist')}
+              className="relative flex h-11 w-11 items-center justify-center rounded-full border border-transparent transition hover:border-[var(--brand-100)] hover:bg-white/70 hover:text-[var(--brand-700)]"
+              aria-label="Favoris"
+            >
+              <Heart className="h-5 w-5" />
+              {wishlistCount > 0 ? (
+                <span className="absolute right-0.5 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--brand-600)] px-1 text-[10px] font-semibold text-white">
+                  {wishlistCount}
+                </span>
+              ) : null}
+            </button>
+
+            <div className="relative" ref={accountRef}>
+              <button
+                type="button"
+                onClick={() => setIsAccountOpen((previous) => !previous)}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-transparent transition hover:border-[var(--brand-100)] hover:bg-white/70 hover:text-[var(--brand-700)]"
+                aria-label="Compte"
+              >
+                <User className="h-5 w-5" />
+              </button>
+
+              {isAccountOpen ? (
+                <div className="absolute right-0 top-[calc(100%+12px)] w-56 rounded-3xl border border-[var(--brand-100)] bg-white p-2 shadow-[0_25px_70px_rgba(15,23,42,0.12)]">
+                  {isLoggedIn ? (
+                    <>
+                      <div className="rounded-2xl bg-[var(--brand-50)] px-4 py-3">
+                        <p className="text-sm font-semibold text-slate-900">{userLabel}</p>
+                        <p className="mt-1 text-xs text-slate-500">{session?.user?.email}</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          router.push('/my-orders');
+                          setIsAccountOpen(false);
+                        }}
+                        className="mt-2 w-full rounded-2xl px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                      >
+                        Mes commandes
+                      </button>
+
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            router.push('/seller');
+                            setIsAccountOpen(false);
+                          }}
+                          className="w-full rounded-2xl px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
                         >
-                            Boutique
-                        </Link>
-                    </div>
-                    <div className="p-2 hover:bg-zinc-200 rounded-3xl hover:scale-105 transition-transform hover:font-semibold">
-                        <Link href="/offer" className={getLinkClassName("/offer")}>
-                            Offres
-                        </Link>
-                    </div>
-                    <div className="p-2 hover:bg-zinc-200 rounded-3xl hover:scale-105 transition-transform hover:font-semibold">
-                        <Link href="/contact" className={getLinkClassName("/contact")}>
-                            Contact
-                        </Link>
-                    </div>
+                          Tableau de bord
+                        </button>
+                      ) : null}
 
-                    {/* Conditional rendering for Admin Dashboard links on Desktop */}
-                    {status !== 'loading' && (
-                        <>
-                            {isAdmin && ( // Maintenant, seul l'admin a accès au tableau de bord /seller
-                                <button
-                                    onClick={() => router.push("/seller")}
-                                    className="text-xs border px-4 py-1.5 rounded-full hover:text-semibold hover:scale-105 transition-transform border-zinc-950 text-zinc-950 hover:bg-zinc-950 hover:text-zinc-50"
-                                >
-                                    Tableau de bord (Admin)
-                                </button>
-                            )}
-                            {/* SUPPRIMEZ OU COMMENTEZ LE BLOC 'isSeller' POUR LE BUREAU */}
-                            {/* {!isAdmin && isSeller && (
-                                <button
-                                    onClick={() => router.push("/seller")}
-                                    className="text-xs border px-4 py-1.5 rounded-full hover:text-semibold hover:scale-105 transition-transform border-zinc-950 text-zinc-950 hover:bg-zinc-950 hover:text-zinc-50"
-                                >
-                                    Tableau de bord (Vendeur)
-                                </button>
-                            )} */}
-                        </>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => signOut({ callbackUrl: '/' })}
+                        className="w-full rounded-2xl px-4 py-3 text-left text-sm text-red-600 transition hover:bg-red-50"
+                      >
+                        Deconnexion
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/login"
+                        onClick={() => setIsAccountOpen(false)}
+                        className="block rounded-2xl px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"
+                      >
+                        Se connecter
+                      </Link>
+                      <Link
+                        href="/register"
+                        onClick={() => setIsAccountOpen(false)}
+                        className="block rounded-2xl px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"
+                      >
+                        Creer un compte
+                      </Link>
+                    </>
+                  )}
                 </div>
+              ) : null}
+            </div>
 
-                {/* Desktop Icons (Right side) */}
-                <div className="hidden md:flex items-center gap-4">
-                    {/* Shopping Cart Icon (visible only if logged in and status is not loading) */}
-                    {status !== 'loading' && (
-                        <Link href="/cart" className={`relative cursor-pointer group ${!isLoggedIn ? 'hidden' : ''}`} ref={cartIconRef}>
-                            <FaShoppingCart className="w-6 h-6 text-gray-700 hover:scale-105 hover:text-blue-700 transition-transform" />
-                            {getCartCount() > 0 && (
-                                <span className={`absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center ${animateCart ? 'animate-bounce-once' : ''}`}>
-                                    {getCartCount()}
-                                </span>
-                            )}
-                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap">
-                                Mon Panier
-                            </span>
-                        </Link>
-                    )}
+            <button
+              type="button"
+              onClick={() => router.push('/cart')}
+              className="relative flex h-11 w-11 items-center justify-center rounded-full border border-transparent transition hover:border-[var(--brand-100)] hover:bg-white/70 hover:text-[var(--brand-700)]"
+              aria-label="Panier"
+            >
+              <ShoppingBag className="h-5 w-5" />
+              {cartCount > 0 ? (
+                <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--brand-600)] px-1 text-[10px] font-semibold text-white">
+                  {cartCount}
+                </span>
+              ) : null}
+            </button>
+          </div>
+        </div>
 
-                    {/* Desktop Search Input */}
-                    <div className="relative">
-                        <FaSearch
-                            className="w-5 h-5 cursor-pointer text-gray-700 hover:scale-105 hover:text-blue-700 transition-transform"
-                            onClick={toggleDesktopSearchVisibility}
-                        />
-                        {isDesktopSearchInputVisible && (
-                            <input
-                                type="text"
-                                placeholder="Rechercher..."
-                                value={searchTerm}
-                                onChange={handleSearchChange}
-                                ref={desktopSearchInputRef}
-                                className="absolute right-0 top-full mt-2 p-2 border border-gray-300 rounded-md shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 z-10 bg-white text-zinc-950"
-                                onBlur={() => {
-                                    if (!searchTerm) {
-                                        setIsDesktopSearchInputVisible(false);
-                                    }
-                                }}
-                                autoFocus
-                            />
-                        )}
-                    </div>
+        <div className="ml-auto flex items-center gap-2 md:hidden">
+          <button
+            type="button"
+            onClick={() => router.push('/cart')}
+            className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[var(--brand-100)] bg-white/80 text-slate-700"
+            aria-label="Panier"
+          >
+            <ShoppingBag className="h-5 w-5" />
+            {cartCount > 0 ? (
+              <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--brand-600)] px-1 text-[10px] font-semibold text-white">
+                {cartCount}
+              </span>
+            ) : null}
+          </button>
 
-                    {/* Account Button/Dropdown */}
-                    <div className="relative" ref={accountButtonRef}> {/* ref est sur la div ici */}
-                        {status !== 'loading' ? (
-                            <button
-                                onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
-                                className={`flex items-center justify-center p-2 rounded-full transition-transform focus:outline-none relative group
-                                    ${isLoggedIn ? `${getAvatarColorClass(userInitial)} text-white w-9 h-9 text-lg font-bold hover:scale-110` : 'text-zinc-950 hover:bg-zinc-200 w-auto'}`}
-                                title={isLoggedIn && userFullName ? userFullName : "Mon Compte"}
-                            >
-                                {isLoggedIn ? (
-                                    userInitial || <FaUser className="w-5 h-5" />
-                                ) : (
-                                    <>
-                                        <FaUser className="w-5 h-5 mr-2" />
-                                        <span>Compte</span>
-                                    </>
-                                )}
-                                {isLoggedIn && userFullName && (
-                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap">
-                                        {userFullName}
-                                    </span>
-                                )}
-                            </button>
-                        ) : (
-                            <div className="w-9 h-9 bg-gray-300 rounded-full animate-pulse"></div>
-                        )}
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen((previous) => !previous)}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--brand-100)] bg-white/80 text-slate-700"
+            aria-label="Menu"
+          >
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+      </div>
 
-                        {isAccountDropdownOpen && (
-                            <div
-                                ref={dropdownRef}
-                                className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg py-1 z-20"
-                            >
-                                {status !== 'loading' ? (
-                                    !isLoggedIn ? (
-                                        <>
-                                            <Link href="/register"
-                                                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 w-full text-left"
-                                                onClick={() => setIsAccountDropdownOpen(false)}
-                                            >
-                                                <FaUserPlus className="w-4 h-4" />
-                                                S&#39;inscrire
-                                            </Link>
-                                            <Link href="/login"
-                                                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 w-full text-left"
-                                                onClick={() => setIsAccountDropdownOpen(false)}
-                                            >
-                                                <FaSignInAlt className="w-4 h-4" />
-                                                Se connecter
-                                            </Link>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="px-4 py-2 border-b border-gray-200 text-sm">
-                                                <p className="font-semibold text-gray-800">{userFullName}</p>
-                                                <p className="text-gray-500 truncate">{session?.user?.email}</p>
-                                            </div>
-                                            <Link href="/cart"
-                                                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 w-full text-left"
-                                                onClick={() => setIsAccountDropdownOpen(false)}
-                                            >
-                                                <FaShoppingCart className="w-4 h-4" />
-                                                Mon Panier
-                                            </Link>
-                                            <Link href="/my-orders"
-                                                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 w-full text-left"
-                                                onClick={() => setIsAccountDropdownOpen(false)}
-                                            >
-                                                <FaShoppingBag className="w-4 h-4" />
-                                                Mes Commandes
-                                            </Link>
-                                            {isAdmin && ( // Maintenant, seul l'admin a accès au tableau de bord /seller
-                                                <Link href="/seller"
-                                                    className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 w-full text-left"
-                                                    onClick={() => setIsAccountDropdownOpen(false)}
-                                                >
-                                                    <MdOutlineDashboard className="w-4 h-4" />
-                                                    Tableau de bord (Admin)
-                                                </Link>
-                                            )}
-                                            {/* SUPPRIMEZ OU COMMENTEZ LE BLOC 'isSeller' DANS LE DROPDOWN */}
-                                            {/* {!isAdmin && isSeller && (
-                                                <Link href="/seller"
-                                                    className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 w-full text-left"
-                                                    onClick={() => setIsAccountDropdownOpen(false)}
-                                                >
-                                                    <MdOutlineDashboard className="w-4 h-4" />
-                                                    Tableau de bord (Vendeur)
-                                                </Link>
-                                            )} */}
-                                            <button
-                                                onClick={handleLogoutConfirmation}
-                                                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 w-full text-left"
-                                            >
-                                                <FaSignOutAlt className="w-4 h-4" />
-                                                Déconnexion
-                                            </button>
-                                        </>
-                                    )
-                                ) : (
-                                    <div className="px-4 py-2 text-gray-500">Chargement...</div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
+      {isMenuOpen ? (
+        <div className="bg-[oklch(97%_0.014_254.604)] px-6 py-5 md:hidden">
+          <label className="flex items-center gap-3 rounded-full border border-[var(--brand-100)] bg-white/72 px-4 py-3 text-sm text-slate-500 transition duration-200 focus-within:border-[var(--brand-100)] focus-within:bg-white/92 focus-within:shadow-[0_10px_30px_rgba(148,163,184,0.10)]">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => handleSearch(event.target.value)}
+              placeholder="Rechercher un produit"
+              className="w-full bg-transparent text-slate-800 outline-none placeholder:text-slate-400 caret-[var(--brand-600)]"
+            />
+          </label>
 
-                {/* Mobile Hamburger Icon */}
-                <div className="md:hidden flex items-center gap-3">
-                    {/* Mobile Shopping Cart Icon (visible only if logged in and status is not loading) */}
-                    {status !== 'loading' && (
-                        <Link href="/cart" className={`relative cursor-pointer group ${!isLoggedIn ? 'hidden' : ''}`}>
-                            <FaShoppingCart className="w-7 h-7 text-gray-700 hover:scale-105 hover:text-blue-700 transition-transform" />
-                            {getCartCount() > 0 && (
-                                <span className={`absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center ${animateCart ? 'animate-bounce-once' : ''}`}>
-                                    {getCartCount()}
-                                </span>
-                            )}
-                        </Link>
-                    )}
-                    <button
-                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className="p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        {isMobileMenuOpen ? (
-                            <FaTimes className="w-7 h-7 text-zinc-950" />
-                        ) : (
-                            <FaBars className="w-7 h-7 text-zinc-950" />
-                        )}
-                    </button>
-                </div>
+          <div className="mt-5 flex flex-col gap-2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setIsMenuOpen(false)}
+                className={`rounded-2xl px-4 py-3 text-sm font-medium ${
+                  (link.href === '/' ? pathname === '/' : pathname.startsWith(link.href))
+                    ? 'bg-white text-[var(--brand-700)]'
+                    : 'text-slate-700 hover:bg-white/70 hover:text-[var(--brand-700)]'
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
 
-                {/* Mobile Menu Overlay */}
-                {isMobileMenuOpen && (
-                    <div className="md:hidden absolute top-full left-0 w-full bg-zinc-100 border-b shadow-lg z-20 flex flex-col items-start px-6 py-4 space-y-2 animate-fade-in-down">
-                        {/* Mobile Search Input */}
-                        <div className="w-full mb-4">
-                            <div className="relative">
-                                <FaSearch className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                                <input
-                                    type="text"
-                                    placeholder="Rechercher..."
-                                    value={searchTerm}
-                                    onChange={handleSearchChange}
-                                    className="w-full p-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-zinc-950"
-                                />
-                            </div>
-                        </div>
-
-                        {status !== 'loading' && (
-                            <>
-                                {isLoggedIn && (
-                                    <div className="w-full px-3 py-2 border-b border-gray-200 text-sm mb-2">
-                                        <p className="font-semibold text-gray-800">{userFullName}</p>
-                                        <p className="text-gray-500 truncate">{session?.user?.email}</p>
-                                    </div>
-                                )}
-
-                                {/* Mobile Navigation Links with Icons */}
-                                <Link
-                                    href="/"
-                                    className={getMobileMenuItemClassName("/")}
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    <FaHome className="w-5 h-5" />
-                                    Accueil
-                                </Link>
-                                <Link
-                                    href="/all-products"
-                                    className={getMobileMenuItemClassName("/all-products")}
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    <FaShoppingBag className="w-5 h-5" />
-                                    Boutique
-                                </Link>
-                                <Link
-                                    href="/offer"
-                                    className={getMobileMenuItemClassName("/offer")}
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    <FaGift className="w-5 h-5" />
-                                    Offres
-                                </Link>
-                                <Link
-                                    href="/contact"
-                                    className={getMobileMenuItemClassName("/contact")}
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    <FaEnvelope className="w-5 h-5" />
-                                    Contact
-                                </Link>
-
-                                {!isLoggedIn ? (
-                                    <>
-                                        <Link
-                                            href="/register"
-                                            className={getMobileMenuItemClassName("/register")}
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            <FaUserPlus className="w-5 h-5" />
-                                            S&#39;inscrire
-                                        </Link>
-                                        <Link
-                                            href="/login"
-                                            className={getMobileMenuItemClassName("/login")}
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            <FaSignInAlt className="w-5 h-5" />
-                                            Se connecter
-                                        </Link>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Link
-                                            href="/cart"
-                                            className={getMobileMenuItemClassName("/cart")}
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            <FaShoppingCart className="w-5 h-5" />
-                                            Mon Panier
-                                        </Link>
-                                        <Link
-                                            href="/my-orders"
-                                            className={getMobileMenuItemClassName("/my-orders")}
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            <FaShoppingBag className="w-5 h-5" />
-                                            Mes Commandes
-                                        </Link>
-                                        {isAdmin && ( // Maintenant, seul l'admin a accès au tableau de bord /seller
-                                            <Link href="/seller"
-                                                className={getMobileMenuItemClassName("/seller")}
-                                                onClick={() => setIsMobileMenuOpen(false)}
-                                            >
-                                                <MdOutlineDashboard className="w-5 h-5" />
-                                                Tableau de bord (Admin)
-                                            </Link>
-                                        )}
-                                        {/* SUPPRIMEZ OU COMMENTEZ LE BLOC 'isSeller' POUR LE MOBILE */}
-                                        {/* {!isAdmin && isSeller && (
-                                            <Link href="/seller"
-                                                className={getMobileMenuItemClassName("/seller")}
-                                                onClick={() => setIsMobileMenuOpen(false)}
-                                            >
-                                                <MdOutlineDashboard className="w-5 h-5" />
-                                                Tableau de bord (Vendeur)
-                                            </Link>
-                                        )} */}
-                                        <button
-                                            onClick={handleLogoutConfirmation}
-                                            className="flex items-center gap-3 text-lg w-full py-2 px-3 rounded-md text-red-600 hover:bg-red-50 transition duration-200 ease-in-out text-left"
-                                        >
-                                            <FaSignOutAlt className="w-5 h-5" />
-                                            Déconnexion
-                                        </button>
-                                    </>
-                                )}
-                            </>
-                        )}
-                    </div>
-                )}
-            </nav>
-        </>
-    );
-};
-
-export default Navbar;
+            {isLoggedIn ? (
+              <>
+                <Link
+                  href="/my-orders"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 hover:bg-white/70 hover:text-[var(--brand-700)]"
+                >
+                  Mes commandes
+                </Link>
+                {isAdmin ? (
+                  <Link
+                    href="/seller"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 hover:bg-white/70 hover:text-[var(--brand-700)]"
+                  >
+                    Tableau de bord
+                  </Link>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className="rounded-2xl px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  Deconnexion
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 hover:bg-white/70 hover:text-[var(--brand-700)]"
+                >
+                  Se connecter
+                </Link>
+                <Link
+                  href="/register"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 hover:bg-white/70 hover:text-[var(--brand-700)]"
+                >
+                  Creer un compte
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </header>
+  );
+}

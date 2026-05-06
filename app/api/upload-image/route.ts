@@ -1,99 +1,127 @@
-// app/api/upload-image/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary'; // Importation de la librairie Cloudinary
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { v2 as cloudinary } from 'cloudinary';
 
-// Assurez-vous d'avoir une utilité pour l'autorisation si nécessaire
-// Par exemple, si seuls les administrateurs peuvent télécharger des images
-// import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
-
-// Définition d'une interface pour le résultat attendu de l'upload Cloudinary
 interface CloudinaryUploadResult {
-    secure_url: string;
-    public_id: string;
-    // Ajoutez d'autres propriétés si vous les utilisez (ex: width, height, format)
-    // [key: string]: any; // Permet d'ajouter d'autres propriétés dynamiquement si nécessaire, mais essayez d'être plus spécifique
+  secure_url: string;
+  public_id: string;
 }
 
-// Configuration de Cloudinary avec les variables d'environnement
-// Ces variables doivent être définies dans votre fichier .env.local et sur Vercel
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const cloudinaryConfig = {
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+};
+
+const hasCloudinaryConfig = Boolean(
+  cloudinaryConfig.cloud_name &&
+    cloudinaryConfig.api_key &&
+    cloudinaryConfig.api_secret
+);
+
+if (hasCloudinaryConfig) {
+  cloudinary.config(cloudinaryConfig);
+}
+
+function getFileExtension(file: File): string {
+  const extensionFromName = path.extname(file.name || '').toLowerCase();
+
+  if (extensionFromName) {
+    return extensionFromName;
+  }
+
+  const mimeTypeMap: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/gif': '.gif',
+    'image/svg+xml': '.svg',
+    'image/avif': '.avif',
+  };
+
+  return mimeTypeMap[file.type] || '.jpg';
+}
+
+async function saveImageLocally(file: File, buffer: Buffer): Promise<string> {
+  const uploadsDirectory = path.join(process.cwd(), 'public', 'images', 'uploads');
+  const fileName = `${randomUUID()}${getFileExtension(file)}`;
+
+  await mkdir(uploadsDirectory, { recursive: true });
+  await writeFile(path.join(uploadsDirectory, fileName), buffer);
+
+  return `/images/uploads/${fileName}`;
+}
+
+async function uploadToCloudinary(buffer: Buffer): Promise<string> {
+  const uploadResult: CloudinaryUploadResult = await new Promise((resolve, reject) => {
+    cloudinary.uploader
+      .upload_stream(
+        {
+          folder: 'plawimadd_products',
+          resource_type: 'image',
+        },
+        (error, result) => {
+          if (error) {
+            return reject(error);
+          }
+
+          if (result?.secure_url) {
+            return resolve(result as CloudinaryUploadResult);
+          }
+
+          reject(new Error('Cloudinary result is missing secure_url.'));
+        }
+      )
+      .end(buffer);
+  });
+
+  return uploadResult.secure_url;
+}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-    // --- Section d'autorisation (optionnelle, à adapter selon vos besoins) ---
-    // Si vous avez une fonction d'autorisation, vous pouvez l'utiliser ici.
-    // Exemple:
-    /*
-    const authResult: AuthResult = await authorizeAdminRequest(req);
-    if (!authResult.authorized) {
-        return authResult.response!; // Retourne la réponse d'erreur d'autorisation
+  try {
+    const formData = await req.formData();
+    const file = formData.get('image');
+
+    if (!(file instanceof File)) {
+      return NextResponse.json({ message: 'Aucun fichier image fourni.' }, { status: 400 });
     }
-    */
-    // --- Fin de la section d'autorisation ---
 
-    try {
-        // Récupère les données du formulaire envoyées par le client
-        const formData = await req.formData();
-        // Le nom du champ 'image' doit correspondre à celui utilisé dans le frontend
-        const file = formData.get('image') as File;
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-        // Vérifie si un fichier a été fourni
-        if (!file) {
-            return NextResponse.json({ message: 'Aucun fichier image fourni.' }, { status: 400 });
-        }
+    let imageUrl: string;
 
-        // Convertit le fichier en Buffer pour l'envoi à Cloudinary
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        // Télécharge l'image sur Cloudinary
-        // La méthode upload_stream permet de streamer le fichier directement
-        const uploadResult: CloudinaryUploadResult = await new Promise((resolve, reject) => {
-            cloudinary.uploader.upload_stream(
-                {
-                    folder: 'plawimadd_products', // Dossier sur Cloudinary où les images seront stockées
-                    resource_type: 'image' // S'assurer que c'est traité comme une image
-                },
-                (error, result) => {
-                    if (error) {
-                        console.error("Erreur de téléchargement Cloudinary:", error);
-                        return reject(error);
-                    }
-                    // S'assurer que le résultat est du bon type avant de résoudre
-                    if (result && result.secure_url) {
-                        resolve(result as CloudinaryUploadResult);
-                    } else {
-                        reject(new Error('Cloudinary result is missing secure_url or is null.'));
-                    }
-                }
-            ).end(buffer); // Envoie le buffer du fichier à Cloudinary
-        });
-
-        // Vérifie si le téléchargement a réussi et si une URL sécurisée est disponible
-        if (!uploadResult || !uploadResult.secure_url) {
-            throw new Error('Échec du téléchargement de l\'image sur Cloudinary: URL non retournée.');
-        }
-
-        // Retourne l'URL sécurisée de l'image téléchargée
-        return NextResponse.json(
-            { success: true, message: 'Image téléchargée avec succès.', imageUrl: uploadResult.secure_url },
-            { status: 200 }
-        );
-
-    } catch (error: unknown) { // Type l'erreur comme 'unknown'
-        console.error('Erreur lors du traitement du téléchargement de l\'image:', error);
-        let errorMessage = 'Erreur serveur inconnue lors du téléchargement de l\'image.';
-        if (error instanceof Error) {
-            errorMessage = error.message;
-        } else if (typeof error === 'string') {
-            errorMessage = error;
-        }
-        return NextResponse.json(
-            { message: `Erreur serveur lors du téléchargement de l'image: ${errorMessage}` },
-            { status: 500 }
-        );
+    if (hasCloudinaryConfig) {
+      imageUrl = await uploadToCloudinary(buffer);
+    } else {
+      imageUrl = await saveImageLocally(file, buffer);
     }
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Image telechargee avec succes.',
+        imageUrl,
+        storage: hasCloudinaryConfig ? 'cloudinary' : 'local',
+      },
+      { status: 200 }
+    );
+  } catch (error: unknown) {
+    console.error("Erreur lors du traitement du telechargement de l'image:", error);
+
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : "Erreur serveur inconnue lors du telechargement de l'image.";
+
+    return NextResponse.json(
+      { message: `Erreur serveur lors du telechargement de l'image: ${errorMessage}` },
+      { status: 500 }
+    );
+  }
 }

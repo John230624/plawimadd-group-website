@@ -1,32 +1,25 @@
-// components/seller/Footer.jsx
 'use client';
 
-import React from "react";
-import { assets } from "@/assets/assets";
-import Image from "next/image";
+import React from 'react';
 
-const Footer = () => {
+import SellerBrand from '@/components/seller/SellerBrand';
+
+export default function Footer(): React.ReactElement {
   return (
-    <footer className="w-full px-6 md:px-10 py-6 bg-zinc-100 border-t border-gray-200 shadow-inner">
-      <div className="flex flex-col md:flex-row items-center md:justify-between gap-4 md:gap-0 max-w-7xl mx-auto">
-        {/* Logo Plawimadd */}
-        <div className="flex justify-center md:justify-start w-full md:w-auto">
-          <Image
-            src={assets.logo}
-            alt="Logo Plawimadd Group"
-            width={120}
-            height={40}
-            priority
-          />
+    <footer className="mt-10 border-t border-[rgba(148,163,184,0.14)] pt-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <SellerBrand compact />
+          <p className="mt-2 text-sm text-slate-500">
+            Administration du catalogue, des commandes et du suivi client.
+          </p>
         </div>
 
-        {/* Texte du copyright */}
-        <p className="w-full md:w-auto text-center md:text-right text-gray-600 text-sm font-medium">
-          © {new Date().getFullYear()} Plawimadd Group. Tous droits réservés.
-        </p>
+        <div className="text-sm text-slate-500 md:text-right">
+          <p>Dashboard Plawimadd Group</p>
+          <p className="mt-1">© {new Date().getFullYear()} Tous droits reserves.</p>
+        </div>
       </div>
     </footer>
   );
-};
-
-export default Footer;
+}

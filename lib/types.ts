@@ -33,6 +33,12 @@ export enum UserRole {
     // SELLER = 'SELLER', // Décommentez si vous utilisez un rôle 'SELLER'
 }
 
+export enum StudentInstallmentRequestStatus {
+    PENDING = 'PENDING',
+    APPROVED = 'APPROVED',
+    REJECTED = 'REJECTED',
+}
+
 // --- INTERFACES DE BASE ---
 
 /**
@@ -181,6 +187,29 @@ export interface Order {
     shippingAddress?: Address | null; // La relation complète si incluse
 }
 
+export interface StudentInstallmentRequest {
+    id: string;
+    userId: string;
+    fullName: string;
+    phoneNumber: string;
+    schoolName: string;
+    studentEmail: string;
+    studentIdNumber: string;
+    requestedMonths: number;
+    documentUrl: string;
+    notes?: string | null;
+    status: StudentInstallmentRequestStatus;
+    adminNote?: string | null;
+    reviewedAt?: string | Date | null;
+    createdAt: string | Date;
+    updatedAt: string | Date;
+    user?: {
+        firstName?: string | null;
+        lastName?: string | null;
+        email?: string | null;
+    } | null;
+}
+
 export type NextRouter = ReturnType<typeof useRouter>;
 
 /**
@@ -223,4 +252,8 @@ export interface AppContextType {
     loadCartData: () => Promise<void>;
     loadingCart: boolean;
     fetchProducts: () => Promise<void>;
+    wishlistItems: string[];
+    toggleWishlist: (productId: string) => void;
+    isInWishlist: (productId: string) => boolean;
+    getWishlistCount: () => number;
 }

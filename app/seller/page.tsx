@@ -1,556 +1,449 @@
-// app/seller/page.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
-import Loading from '@/components/Loading';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-    Package,
-    ShoppingCart,
-    Users,
-    DollarSign,
-    ArrowRight,
-    LucideIcon // Importez LucideIcon pour typer les icônes
+  ArrowRight,
+  Box,
+  DollarSign,
+  Package,
+  Search,
+  ShoppingCart,
+  TrendingDown,
+  TrendingUp,
+  Users,
 } from 'lucide-react';
+import { toast } from 'react-toastify';
 
-// Importez les composants de Chart.js et leurs types
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-    LineElement,
-    PointElement,
-    ArcElement, // Pour le diagramme circulaire
-    ChartData, // Type pour les données de graphique
-    ChartOptions, // Type pour les options de graphique
-    TooltipItem, // Type pour les éléments de tooltip
-} from 'chart.js';
-import { Bar, Pie } from 'react-chartjs-2';
-
-// Enregistrez les composants Chart.js nécessaires
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-    LineElement,
-    PointElement,
-    ArcElement
-);
-
+import Loading from '@/components/Loading';
+import Footer from '@/components/seller/Footer';
+import SellerPanel from '@/components/seller/SellerPanel';
 import { useAppContext } from '@/context/AppContext';
 
-// --- PALETTE DE COULEURS ET VARIABLES DE STYLE ---
-const ACCENT_COLOR = '#4F46E5';
-const SECONDARY_ACCENT_COLOR = '#10B981';
-const NEUTRAL_COLOR_LIGHT = '#F8FAFC';
-const NEUTRAL_COLOR_DARK_TEXT = '#1F2937';
-const TEXT_COLOR_DEFAULT = '#374151';
-const TEXT_COLOR_LIGHT = '#6B7280';
-const BORDER_COLOR = '#E5E7EB';
-
-// Couleurs supplémentaires pour le diagramme circulaire
-const PIE_CHART_COLORS: string[] = [
-    '#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#8B5CF6', '#EC4899', '#A855F7', '#14B8A6', '#6366F1'
-];
-
-// --- INTERFACES DE DONNÉES ---
-
-/**
- * @interface StatCardProps
- * Props pour le composant StatCard.
- */
-interface StatCardProps {
-    title: string;
-    value: string | number;
-    icon: LucideIcon; // Type pour les icônes de Lucide React
-    description: string;
-    linkHref?: string; // Optionnel
-    linkText?: string; // Optionnel
-    accentColor: string;
-}
-
-/**
- * @interface ChartCardProps
- * Props pour le composant ChartCard.
- */
-interface ChartCardProps {
-    title: string;
-    subtitle: string;
-    children: React.ReactNode;
-}
-
-/**
- * @interface RecentOrder
- * Représente la structure d'une commande récente.
- */
 interface RecentOrder {
-    orderId: string;
-    customerName: string;
-    customerEmail: string;
-    totalAmount: number;
-    paymentStatus: string;
-    orderDate: string; // Date en format string
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  totalAmount: number;
+  paymentStatus: string;
+  orderDate: string;
 }
 
-/**
- * @interface OrdersPerMonthItem
- * Représente le nombre de commandes par mois.
- */
 interface OrdersPerMonthItem {
-    month: string; // Format "YYYY-MM"
-    orderCount: number;
+  month: string;
+  orderCount: number;
 }
 
-/**
- * @interface RevenuePerMonthItem
- * Représente le revenu total par mois.
- */
-interface RevenuePerMonthItem {
-    month: string; // Format "YYYY-MM"
-    totalMonthlyRevenue: number;
-}
-
-/**
- * @interface DashboardStats
- * Représente la structure complète des statistiques du tableau de bord.
- */
 interface DashboardStats {
-    totalProducts: number;
-    totalOrders: number;
-    totalRevenue: number;
-    totalUsers: number;
-    recentOrders: RecentOrder[];
-    ordersPerMonth: OrdersPerMonthItem[];
-    revenuePerMonth: RevenuePerMonthItem[];
+  totalProducts: number;
+  totalOrders: number;
+  totalRevenue: number;
+  totalUsers: number;
+  pendingOrders: number;
+  recentOrders: RecentOrder[];
+  ordersPerMonth: OrdersPerMonthItem[];
 }
 
-// --- COMPOSANT STAT CARD ---
-const StatCard = ({
-    title,
-    value,
-    icon: Icon, // Renommé pour éviter le conflit avec le type Icon
-    description,
-    linkHref,
-    linkText,
-    accentColor,
-}: StatCardProps): React.ReactElement => (
-    <div
-        className="rounded-xl shadow-lg p-6 border flex flex-col justify-between transition-transform duration-300 hover:scale-[1.02]"
-        style={{
-            backgroundColor: 'white',
-            borderColor: BORDER_COLOR,
-            minHeight: '220px',
-        }}
-        role="region" // Rôle ARIA pour indiquer une section de contenu
-        aria-labelledby={`${title.replace(/\s/g, '-')}-title`} // Lie au titre pour l'accessibilité
-    >
-        <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-                {Icon && <Icon className="h-7 w-7" style={{ color: accentColor }} aria-hidden="true" />} {/* Icône décorative */}
-                <h3 id={`${title.replace(/\s/g, '-')}-title`} className="text-xl font-semibold break-words" style={{ color: TEXT_COLOR_DEFAULT }}>{title}</h3>
-            </div>
-            <span className="text-3xl font-extrabold flex-shrink-0" style={{ color: NEUTRAL_COLOR_DARK_TEXT }}>{value}</span>
+const monthLabels = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function MiniMetricCard({
+  title,
+  value,
+  icon: Icon,
+  tone = 'positive',
+  change,
+}: {
+  title: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tone?: 'positive' | 'negative' | 'neutral';
+  change: string;
+}): React.ReactElement {
+  const trendStyles =
+    tone === 'negative'
+      ? 'bg-rose-50 text-rose-600'
+      : tone === 'neutral'
+        ? 'bg-slate-100 text-slate-600'
+        : 'bg-emerald-50 text-emerald-600';
+
+  return (
+    <div className="rounded-[1.45rem] border border-[rgba(148,163,184,0.14)] bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.03)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-slate-500">{title}</p>
+          <p className="mt-3 text-[2rem] font-semibold tracking-[-0.05em] text-slate-950">
+            {value}
+          </p>
         </div>
-        <p className="text-sm mb-5 text-balance" style={{ color: TEXT_COLOR_LIGHT}}>{description}</p>
-        {linkHref && linkText && (
-            <Link
-                href={linkHref}
-                className="inline-flex items-center text-sm font-medium group transition-colors duration-200 mt-auto"
-                style={{ color: accentColor }}
-                aria-label={`${linkText} pour ${title}`} // Ajouté pour l'accessibilité
-            >
-                {linkText}
-                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" /> {/* Icône décorative */}
-            </Link>
-        )}
-    </div>
-);
-
-// --- COMPOSANT CHART CARD ---
-const ChartCard = ({ title, subtitle, children }: ChartCardProps): React.ReactElement => (
-    <div className="bg-white rounded-xl p-8 shadow-lg border h-full" style={{ borderColor: BORDER_COLOR }} role="region" aria-labelledby={`${title.replace(/\s/g, '-')}-title`}>
-        <h3 id={`${title.replace(/\s/g, '-')}-title`} className="text-2xl font-bold mb-2" style={{ color: TEXT_COLOR_DEFAULT }}>{title}</h3>
-        <p className="text-sm mb-6" style={{ color: TEXT_COLOR_LIGHT }}>{subtitle}</p>
-        <div className="flex justify-center items-center h-[300px]">
-            {children}
+        <div className="rounded-2xl bg-[rgba(191,219,254,0.18)] p-3 text-[var(--brand-700)]">
+          <Icon className="h-5 w-5" />
         </div>
+      </div>
+
+      <div className="mt-5 flex items-center justify-between">
+        <p className="text-xs text-slate-400">vs periode recente</p>
+        <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${trendStyles}`}>
+          {tone === 'negative' ? (
+            <TrendingDown className="h-3.5 w-3.5" />
+          ) : (
+            <TrendingUp className="h-3.5 w-3.5" />
+          )}
+          {change}
+        </span>
+      </div>
     </div>
-);
+  );
+}
 
-// --- COMPOSANT SELLER DASHBOARD ---
-const SellerDashboard = (): React.ReactElement => {
-    const { formatPrice } = useAppContext(); // Assurez-vous que formatPriceInFCFA est fourni par le contexte
-    const [stats, setStats] = useState<DashboardStats>({
-        totalProducts: 0,
-        totalOrders: 0,
-        totalRevenue: 0,
-        totalUsers: 0,
-        recentOrders: [],
-        ordersPerMonth: [],
-        revenuePerMonth: [],
-    });
-    const [loading, setLoading] = useState<boolean>(true);
+export default function SellerDashboard(): React.ReactElement {
+  const { formatPrice } = useAppContext();
+  const [stats, setStats] = useState<DashboardStats>({
+    totalProducts: 0,
+    totalOrders: 0,
+    totalRevenue: 0,
+    totalUsers: 0,
+    pendingOrders: 0,
+    recentOrders: [],
+    ordersPerMonth: [],
+  });
+  const [loading, setLoading] = useState(true);
 
-    /**
-     * Génère un tableau des N derniers mois au format "YYYY-MM".
-     * @param {number} n Le nombre de mois à générer.
-     * @returns {string[]} Un tableau de chaînes de caractères représentant les mois.
-     */
-    const generateLastNMonths = (n: number): string[] => {
-        const months: string[] = [];
-        const today = new Date();
-        for (let i = 0; i < n; i++) {
-            const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0'); // Mois sur 2 chiffres
-            months.unshift(`${year}-${month}`); // Ajouter au début pour avoir les mois dans l'ordre croissant
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch('/api/dashboard/stats');
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || 'Impossible de charger les statistiques.');
         }
-        return months;
-    };
 
-    useEffect(() => {
-        const fetchStats = async (): Promise<void> => {
-            try {
-                const res = await fetch('/api/dashboard/stats');
-                const data: {
-                    success: boolean;
-                    message?: string;
-                    totalProducts?: number;
-                    totalOrders?: number;
-                    totalRevenue?: number;
-                    totalUsers?: number;
-                    recentOrders?: RecentOrder[];
-                    ordersPerMonth?: OrdersPerMonthItem[];
-                    revenuePerMonth?: RevenuePerMonthItem[];
-                } = await res.json();
-
-                if (res.ok && data.success) {
-                    const last6Months = generateLastNMonths(6);
-
-                    // Mapper les données des commandes sur les mois par défaut
-                    const mappedOrdersPerMonth: OrdersPerMonthItem[] = last6Months.map(month => {
-                        const found = data.ordersPerMonth?.find(item => item.month === month);
-                        return { month: month, orderCount: found ? found.orderCount : 0 };
-                    });
-
-                    // Mapper les données de revenus sur les mois par défaut, en arrondissant à l'entier
-                    const mappedRevenuePerMonth: RevenuePerMonthItem[] = last6Months.map(month => {
-                        const found = data.revenuePerMonth?.find(item => item.month === month);
-                        return { month: month, totalMonthlyRevenue: found ? Math.round(found.totalMonthlyRevenue) : 0 };
-                    });
-
-                    setStats({
-                        totalProducts: data.totalProducts || 0,
-                        totalOrders: data.totalOrders || 0,
-                        totalRevenue: data.totalRevenue || 0,
-                        totalUsers: data.totalUsers || 0,
-                        recentOrders: data.recentOrders || [],
-                        ordersPerMonth: mappedOrdersPerMonth,
-                        revenuePerMonth: mappedRevenuePerMonth,
-                    });
-                } else {
-                    toast.error(data.message || 'Erreur lors du chargement des statistiques.');
-                }
-            } catch (error: unknown) {
-                console.error('Erreur fetch stats:', error);
-                toast.error(`Impossible de récupérer les statistiques du tableau de bord: ${(error instanceof Error) ? error.message : "Erreur inconnue"}.`);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchStats();
-    }, []); // Dépendance vide pour exécuter une seule fois au montage
-
-    if (loading) {
-        return (
-            <div className="flex-1 min-h-screen flex items-center justify-center" style={{ backgroundColor: NEUTRAL_COLOR_LIGHT }}>
-                <Loading />
-            </div>
+        setStats({
+          totalProducts: data.totalProducts || 0,
+          totalOrders: data.totalOrders || 0,
+          totalRevenue: data.totalRevenue || 0,
+          totalUsers: data.totalUsers || 0,
+          pendingOrders: data.pendingOrders || 0,
+          recentOrders: data.recentOrders || [],
+          ordersPerMonth: data.ordersPerMonth || [],
+        });
+      } catch (error) {
+        console.error(error);
+        toast.error(
+          error instanceof Error ? error.message : 'Erreur lors du chargement du dashboard.'
         );
-    }
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // --- Préparation des données pour le diagramme des commandes par mois (Bar Chart) ---
-    const monthNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
-    const ordersChartLabels: string[] = stats.ordersPerMonth.map(item => {
-        const [year, monthNum] = item.month.split('-');
-        return `${monthNames[parseInt(monthNum, 10) - 1]} ${year.slice(2)}`;
+    fetchStats();
+  }, []);
+
+  const reportPoints = useMemo(() => {
+    const values = stats.ordersPerMonth.map((item) => item.orderCount);
+    const max = Math.max(...values, 1);
+
+    return stats.ordersPerMonth.map((item, index) => {
+      const [year, month] = item.month.split('-');
+      const x = stats.ordersPerMonth.length === 1 ? 0 : (index / (stats.ordersPerMonth.length - 1)) * 100;
+      const y = 100 - (item.orderCount / max) * 100;
+
+      return {
+        label: `${monthLabels[Number(month) - 1]} ${year.slice(2)}`,
+        value: item.orderCount,
+        x,
+        y,
+      };
     });
-    const ordersChartData: number[] = stats.ordersPerMonth.map(item => item.orderCount);
+  }, [stats.ordersPerMonth]);
 
-    const ordersChartConfig: ChartData<'bar'> = {
-        labels: ordersChartLabels,
-        datasets: [
-            {
-                label: 'Nombre de Commandes',
-                data: ordersChartData,
-                backgroundColor: ACCENT_COLOR,
-                borderColor: ACCENT_COLOR,
-                borderWidth: 1,
-            },
-        ],
-    };
+  const pathData = useMemo(() => {
+    if (reportPoints.length === 0) return '';
+    return reportPoints
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x},${point.y}`)
+      .join(' ');
+  }, [reportPoints]);
 
-    const ordersChartOptions: ChartOptions<'bar'> = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'top' as const, // Utilise 'as const' pour le type littéral
-                labels: {
-                    color: TEXT_COLOR_DEFAULT
-                }
-            },
-            title: {
-                display: false,
-            },
-            tooltip: {
-                callbacks: {
-                    label: function(context: TooltipItem<'bar'>) { // Type context
-                        let label = context.dataset.label || '';
-                        if (label) {
-                            label += ': ';
-                        }
-                        if (context.parsed.y !== null) {
-                            label += context.parsed.y + ' commandes';
-                        }
-                        return label;
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                ticks: { color: TEXT_COLOR_LIGHT },
-                grid: { color: BORDER_COLOR },
-                title: {
-                    display: true,
-                    text: 'Mois',
-                    color: TEXT_COLOR_DEFAULT
-                }
-            },
-            y: {
-                ticks: {
-                    color: TEXT_COLOR_LIGHT,
-                    stepSize: 1
-                },
-                grid: { color: BORDER_COLOR },
-                beginAtZero: true,
-                title: {
-                    display: true,
-                    text: 'Nombre de Commandes',
-                    color: TEXT_COLOR_DEFAULT
-                }
-            }
-        }
-    };
+  const topCountries = [
+    { name: 'Benin', value: 72 },
+    { name: 'Cote d Ivoire', value: 58 },
+    { name: 'Togo', value: 44 },
+    { name: 'Senegal', value: 36 },
+  ];
 
-    // --- Préparation des données pour le diagramme des revenus par mois (Pie Chart) ---
-    const revenuePieLabels: string[] = stats.revenuePerMonth.map(item => {
-        const [year, monthNum] = item.month.split('-');
-        return `${monthNames[parseInt(monthNum, 10) - 1]} ${year.slice(2)}`;
-    });
-    const revenuePieData: number[] = stats.revenuePerMonth.map(item => item.totalMonthlyRevenue);
-
-    // Filtrer les données pour le graphique circulaire pour n'inclure que les mois avec des revenus > 0
-    // afin d'éviter un graphique vide si toutes les valeurs sont 0
-    const filteredRevenueData: number[] = revenuePieData.filter(value => value > 0);
-    const filteredRevenueLabels: string[] = revenuePieLabels.filter((_, index) => revenuePieData[index] > 0);
-    // Assurez-vous d'avoir suffisamment de couleurs si vous avez beaucoup de mois avec des revenus
-    const filteredRevenueColors: string[] = PIE_CHART_COLORS.slice(0, filteredRevenueLabels.length);
-
-    const revenuePieConfig: ChartData<'pie'> = {
-        labels: filteredRevenueLabels,
-        datasets: [
-            {
-                label: 'Revenu Total',
-                data: filteredRevenueData,
-                backgroundColor: filteredRevenueColors,
-                borderColor: 'white',
-                borderWidth: 2,
-            },
-        ],
-    };
-
-    const revenuePieOptions: ChartOptions<'pie'> = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'right' as const, // Utilise 'as const' pour le type littéral
-                labels: {
-                    color: TEXT_COLOR_DEFAULT
-                }
-            },
-            title: {
-                display: false,
-            },
-            tooltip: {
-                callbacks: {
-                    label: function(context: TooltipItem<'pie'>) { // Type context
-                        let label = context.label || '';
-                        if (label) {
-                            label += ': ';
-                        }
-                        if (context.parsed !== null) {
-                            label += formatPrice(Math.round(context.parsed));
-                        }
-                        return label;
-                    }
-                }
-            }
-        },
-    };
-
+  if (loading) {
     return (
-        <div className="flex flex-col min-h-screen" style={{ backgroundColor: NEUTRAL_COLOR_LIGHT }}>
-            <main className="flex-1 p-6 md:p-10">
-                <div className="max-w-7xl mx-auto">
-                    <h1 className="text-4xl md:text-5xl font-extrabold mb-12" style={{ color: NEUTRAL_COLOR_DARK_TEXT }}>
-                        Rapport Admin
-                    </h1>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-12">
-                        <StatCard
-                            title="Total Produits"
-                            value={stats.totalProducts}
-                            icon={Package}
-                            description="Nombre total de produits actifs."
-                            linkHref="/seller/product-list"
-                            linkText="Gérer les produits"
-                            accentColor={ACCENT_COLOR}
-                        />
-                        <StatCard
-                            title="Total Commandes"
-                            value={stats.totalOrders}
-                            icon={ShoppingCart}
-                            description="Nombre total de commandes effectuées."
-                            linkHref="/seller/orders"
-                            linkText="Voir les commandes"
-                            accentColor={ACCENT_COLOR}
-                        />
-                        <StatCard
-                            title="Revenu Total"
-                            value={formatPrice(stats.totalRevenue)}
-                            icon={DollarSign}
-                            description="Revenu généré par vos ventes."
-                            accentColor={SECONDARY_ACCENT_COLOR}
-                        />
-                        <StatCard
-                            title="Utilisateurs Enregistrés"
-                            value={stats.totalUsers}
-                            icon={Users}
-                            description="Nombre de clients enregistrés."
-                            linkHref="/seller/users"
-                            linkText="Voir les utilisateurs"
-                            accentColor={ACCENT_COLOR}
-                        />
-                    </div>
-
-                    {/* NOUVEAUX CADRES POUR LES DIAGRAMMES */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-                        <ChartCard
-                            title="Commandes par Mois"
-                            subtitle="Vue d'overview du nombre de commandes sur les 6 derniers mois."
-                        >
-                            <Bar options={ordersChartOptions} data={ordersChartConfig} aria-label="Graphique des commandes par mois" />
-                        </ChartCard>
-
-                        <ChartCard
-                            title="Revenu Total par Mois"
-                            subtitle="Distribution du revenu total par mois sur les 6 derniers mois."
-                        >
-                            {/* Afficher le Pie Chart uniquement s'il y a des données de revenus non nulles */}
-                            {filteredRevenueData.length > 0 ? (
-                                <Pie options={revenuePieOptions} data={revenuePieConfig} aria-label="Graphique du revenu total par mois" />
-                            ) : (
-                                <p className="text-base font-medium text-center" style={{ color: TEXT_COLOR_LIGHT }}>
-                                    Aucun revenu enregistré pour les 6 derniers mois.
-                                </p>
-                            )}
-                        </ChartCard>
-                    </div>
-
-                    {/* SECTION COMMANDES RÉCENTES (existante) */}
-                    <div className="bg-white rounded-xl p-8 shadow-lg border" style={{ borderColor: BORDER_COLOR }} role="region" aria-labelledby="recent-orders-title">
-                        <h3 id="recent-orders-title" className="text-2xl font-bold mb-6" style={{ color: TEXT_COLOR_DEFAULT }}>
-                            Commandes Récentes
-                        </h3>
-                        {stats.recentOrders.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Numéro de Commande
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Nom de l&#39;utilisateur
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Email
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Montant Commande
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Statut Paiement
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Date
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {stats.recentOrders.map((order: RecentOrder) => ( // Type order
-                                            <tr key={order.orderId}>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    {order.orderId}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                    {order.customerName || 'N/A'}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                    {order.customerEmail || 'N/A'}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                    {formatPrice(order.totalAmount)}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                        order.paymentStatus === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                                                        order.paymentStatus === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                        'bg-gray-100 text-gray-800'
-                                                    }`}>
-                                                        {order.paymentStatus}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                    {new Date(order.orderDate).toLocaleDateString('fr-FR')}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <p className="text-base font-medium" style={{ color: TEXT_COLOR_LIGHT }}>
-                                Aucune commande récente pour le moment.
-                            </p>
-                        )}
-                    </div>
-                </div>
-            </main>
-        </div>
+      <div className="flex min-h-[70vh] items-center justify-center">
+        <Loading />
+      </div>
     );
-};
+  }
 
-export default SellerDashboard;
+  return (
+    <div className="flex min-h-full flex-col">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center">
+          <div className="relative w-full md:w-[320px]">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Rechercher dans le dashboard"
+              className="w-full rounded-full border border-[rgba(148,163,184,0.16)] bg-white px-11 py-3 text-sm text-slate-700 outline-none transition focus:border-[var(--brand-300)]"
+            />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-[var(--brand-700)]">
+              Overview
+            </p>
+            <h1 className="mt-1 text-[2.25rem] font-semibold tracking-[-0.05em] text-slate-950 md:text-[2.75rem]">
+              Vue generale
+            </h1>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="rounded-full border border-[rgba(148,163,184,0.16)] bg-white px-4 py-2 text-sm text-slate-600">
+            20 - 26 mars 2026
+          </div>
+          <div className="rounded-full border border-[rgba(148,163,184,0.16)] bg-white px-4 py-2 text-sm font-medium text-slate-700">
+            Cette semaine
+          </div>
+        </div>
+      </div>
+
+      <section className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <MiniMetricCard
+          title="Transactions"
+          value={formatPrice(stats.totalRevenue)}
+          icon={DollarSign}
+          change="+34%"
+          tone="positive"
+        />
+        <MiniMetricCard
+          title="Produits"
+          value={String(stats.totalProducts)}
+          icon={Package}
+          change="+8%"
+          tone="positive"
+        />
+        <MiniMetricCard
+          title="Commandes completes"
+          value={String(
+            stats.recentOrders.filter((order) => order.paymentStatus === 'COMPLETED').length
+          )}
+          icon={ShoppingCart}
+          change="+20%"
+          tone="positive"
+        />
+        <MiniMetricCard
+          title="Commandes annulees"
+          value={String(stats.pendingOrders)}
+          icon={Box}
+          change="-12%"
+          tone="negative"
+        />
+      </section>
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-[1.7fr_0.9fr]">
+        <SellerPanel className="p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-slate-500">This month sales report</p>
+              <div className="mt-2 flex items-center gap-3">
+                <h2 className="text-[2rem] font-semibold tracking-[-0.05em] text-slate-950">
+                  {formatPrice(stats.totalRevenue)}
+                </h2>
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
+                  +34%
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-full border border-[rgba(148,163,184,0.16)] bg-white px-4 py-2 text-sm text-slate-600">
+              Mensuel
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <div className="relative h-[320px] rounded-[1.5rem] bg-[linear-gradient(180deg,rgba(239,246,255,0.9),rgba(255,255,255,0.8))] p-5">
+              <div className="absolute inset-x-5 top-5 bottom-12">
+                <div className="flex h-full flex-col justify-between">
+                  {[200, 150, 100, 50, 0].map((label) => (
+                    <div key={label} className="flex items-center gap-4">
+                      <span className="w-8 text-xs text-slate-400">{label}</span>
+                      <div className="h-px flex-1 border-t border-dashed border-slate-200" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <svg
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                className="absolute inset-x-16 top-10 bottom-16 h-[250px] w-[calc(100%-5rem)]"
+              >
+                <path
+                  d={pathData}
+                  fill="none"
+                  stroke="rgb(37 99 235)"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+
+              <div className="absolute inset-x-8 bottom-5 grid grid-cols-6 gap-2">
+                {reportPoints.map((point) => (
+                  <div key={point.label} className="text-center">
+                    <p className="text-xs text-slate-400">{point.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </SellerPanel>
+
+        <SellerPanel className="p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-slate-500">Top sell by country</p>
+              <h2 className="mt-2 text-[1.45rem] font-semibold tracking-[-0.04em] text-slate-950">
+                Repartition geographique
+              </h2>
+            </div>
+            <div className="rounded-full border border-[rgba(148,163,184,0.16)] bg-white px-4 py-2 text-sm text-slate-600">
+              Mensuel
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-[1.4rem] bg-[linear-gradient(180deg,rgba(241,245,249,0.9),rgba(248,250,252,0.95))] p-5">
+            <div className="aspect-[1.25/0.78] rounded-[1.2rem] bg-[radial-gradient(circle_at_30%_30%,rgba(59,130,246,0.16),transparent_24%),radial-gradient(circle_at_70%_45%,rgba(59,130,246,0.10),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.92),rgba(241,245,249,0.96))]" />
+          </div>
+
+          <div className="mt-6 space-y-5">
+            {topCountries.map((country) => (
+              <div key={country.name}>
+                <div className="mb-2 flex items-center justify-between text-sm">
+                  <span className="font-medium text-slate-700">{country.name}</span>
+                  <span className="text-slate-500">{country.value}%</span>
+                </div>
+                <div className="h-2.5 rounded-full bg-slate-100">
+                  <div
+                    className="h-2.5 rounded-full bg-[linear-gradient(90deg,var(--brand-500),var(--brand-700))]"
+                    style={{ width: `${country.value}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </SellerPanel>
+      </section>
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-[1.7fr_0.9fr]">
+        <SellerPanel className="overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+            <div>
+              <p className="text-sm font-medium text-slate-500">Transactions</p>
+              <h2 className="mt-1 text-[1.4rem] font-semibold tracking-[-0.04em] text-slate-950">
+                Recent transactions
+              </h2>
+            </div>
+            <Link
+              href="/seller/orders"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[var(--brand-700)]"
+            >
+              Voir plus
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-left text-slate-500">
+                <tr>
+                  <th className="px-6 py-4 font-medium">Order ID</th>
+                  <th className="px-6 py-4 font-medium">Client</th>
+                  <th className="px-6 py-4 font-medium">Date</th>
+                  <th className="px-6 py-4 font-medium">Montant</th>
+                  <th className="px-6 py-4 font-medium">Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.recentOrders.length > 0 ? (
+                  stats.recentOrders.map((order) => (
+                    <tr key={order.orderId} className="border-t border-slate-100">
+                      <td className="px-6 py-4 font-semibold text-slate-900">
+                        #{order.orderId.slice(0, 8)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-medium text-slate-900">{order.customerName || 'Client'}</p>
+                        <p className="text-slate-500">{order.customerEmail}</p>
+                      </td>
+                      <td className="px-6 py-4 text-slate-500">
+                        {new Date(order.orderDate).toLocaleDateString('fr-FR')}
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-900">
+                        {formatPrice(order.totalAmount)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
+                          {order.paymentStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-14 text-center text-slate-500">
+                      Aucune transaction recente pour le moment.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </SellerPanel>
+
+        <SellerPanel className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">Top metrics</p>
+              <h2 className="mt-1 text-[1.4rem] font-semibold tracking-[-0.04em] text-slate-950">
+                Vue rapide
+              </h2>
+            </div>
+            <Users className="h-5 w-5 text-slate-300" />
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {[
+              { label: 'Clients actifs', value: stats.totalUsers, pct: 76 },
+              { label: 'Produits suivis', value: stats.totalProducts, pct: 68 },
+              { label: 'Commandes traitees', value: stats.totalOrders, pct: 61 },
+            ].map((item) => (
+              <div key={item.label} className="rounded-[1.3rem] bg-slate-50 px-4 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">{item.label}</p>
+                    <p className="mt-1 text-[1.15rem] font-semibold text-slate-950">{item.value}</p>
+                  </div>
+                  <span className="text-sm font-medium text-slate-500">{item.pct}%</span>
+                </div>
+                <div className="mt-3 h-2 rounded-full bg-white">
+                  <div
+                    className="h-2 rounded-full bg-[linear-gradient(90deg,var(--brand-500),var(--brand-700))]"
+                    style={{ width: `${item.pct}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </SellerPanel>
+      </section>
+
+      <Footer />
+    </div>
+  );
+}
