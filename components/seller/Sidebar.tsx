@@ -22,7 +22,6 @@ import {
   Upload,
   Users,
   Home,
-  Palette,
   ChevronUp,
   ChevronDown,
   Languages,
@@ -33,7 +32,6 @@ import {
 import SellerBrand from '@/components/seller/SellerBrand';
 import SellerNotifications from '@/components/seller/SellerNotifications';
 import HelpModal from '@/components/seller/HelpModal';
-import { useTheme } from '@/context/ThemeContext';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface MenuItem {
@@ -98,7 +96,6 @@ export const sellerMenuItems: MenuItem[] = menuSections.flatMap((section) => sec
 export default function Sidebar(): React.ReactElement {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const { theme, toggleTheme } = useTheme();
   const { locale, toggleLocale, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -214,18 +211,6 @@ export default function Sidebar(): React.ReactElement {
                 <Settings className="h-4 w-4" />
                 <span>{t('profile.settings')}</span>
               </Link>
-              <button
-                onClick={toggleTheme}
-                className="flex w-full items-center justify-between px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth"
-              >
-                <div className="flex items-center gap-3">
-                  <Palette className="h-4 w-4" />
-                  <span>{t('profile.theme')}</span>
-                </div>
-                <span className="text-[10px] text-[var(--text-tertiary)]">
-                  {theme === 'dark' ? t('theme.dark') : t('theme.light')}
-                </span>
-              </button>
               <button
                 onClick={toggleLocale}
                 className="flex w-full items-center justify-between px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth"
