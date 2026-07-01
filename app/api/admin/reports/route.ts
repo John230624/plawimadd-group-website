@@ -72,21 +72,23 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       for (const p of products) productsMap.set(p.id, p.name);
     }
 
-    const formattedTopProducts = topProducts.map((item) => ({
-      productId: item.productId,
-      productName: productsMap.get(item.productId) || 'Produit inconnu',
-      totalSold: item._sum.quantity || 0,
-    }));
+    const formattedTopProducts: { rank: number; name: string; totalSold: number; revenue: number }[] = [];
+    for (let i = 0; i < topProducts.length; i++) {
+      const item = topProducts[i];
+      formattedTopProducts.push({
+        rank: i + 1,
+        name: productsMap.get(item.productId) || 'Produit inconnu',
+        totalSold: item._sum.quantity || 0,
+        revenue: 0,
+      });
+    }
 
     const formattedRecentOrders = recentOrders.map((order) => ({
       id: order.id,
-      userEmail: order.user?.email || '',
-      userName: `${order.user?.firstName || ''} ${order.user?.lastName || ''}`.trim(),
-      totalAmount: parseFloat(order.totalAmount.toString()),
+      client: `${order.user?.firstName || ''} ${order.user?.lastName || ''}`.trim() || order.user?.email || 'Inconnu',
+      total: parseFloat(order.totalAmount.toString()),
       status: order.status,
-      paymentStatus: order.payment?.status || order.paymentStatus,
-      paymentMethod: order.payment?.paymentMethod || null,
-      orderDate: order.orderDate.toISOString(),
+      date: order.orderDate.toISOString(),
     }));
 
     const monthlyRevenueMap = new Map<string, number>();
@@ -111,10 +113,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         totalRevenue: totalRevenueResult._sum.totalAmount?.toNumber() || 0,
         totalOrders,
         totalProducts,
-        totalUsers,
+        totalCustomers: totalUsers,
         topProducts: formattedTopProducts,
         recentOrders: formattedRecentOrders,
-        revenueByMonth,
+        monthlyRevenues: revenueByMonth,
       },
       { status: 200 }
     );
