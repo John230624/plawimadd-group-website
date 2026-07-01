@@ -183,10 +183,10 @@ export default function Sidebar(): React.ReactElement {
       </nav>
 
       {/* Section Profil Pop-up */}
-      <div className="relative mt-auto px-3 pb-3 pt-4 border-t border-[var(--border)]" ref={profileRef}>
+      <div className="relative mt-auto px-3 pb-2 pt-3 border-t border-[var(--border)]" ref={profileRef}>
         {/* Pop-up Menu */}
         {isProfileOpen && (
-          <div className="absolute bottom-full left-0 mb-2 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-dark)] py-1 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="absolute bottom-full left-0 mb-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-dark)] py-1 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
             {/* User Info Header */}
             <div className="flex items-center gap-3 px-3 py-3 border-b border-[var(--border)]">
               <div className="h-9 w-9 overflow-hidden rounded-full bg-[var(--bg-hover)] flex items-center justify-center border border-[var(--border)]">
