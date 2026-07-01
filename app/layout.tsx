@@ -2,6 +2,7 @@
 import "./globals.css";
 import AppChrome from "@/components/AppChrome";
 import SessionProvider from "./SessionProvider";
+import Providers from "./Providers";
 import { AppProvider } from "@/context/AppContext";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: RootLayoutProps): React.ReactNo
         <html lang="fr" data-scroll-behavior="smooth">
             <body>
                 <SessionProvider>
+                    <Providers>
                     <AppProvider>
                         <AppChrome>{children}</AppChrome>
                         {/* ToastContainer est correctement configuré ici */}
@@ -39,6 +41,7 @@ export default function RootLayout({ children }: RootLayoutProps): React.ReactNo
                             className="text-sm font-white flex p-3"
                         />
                     </AppProvider>
+                    </Providers>
                 </SessionProvider>
 
                 {/* Script Kkiapay chargé proprement avec la nouvelle URL */}

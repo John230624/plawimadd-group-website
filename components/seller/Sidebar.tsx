@@ -32,6 +32,9 @@ import {
 
 import SellerBrand from '@/components/seller/SellerBrand';
 import SellerNotifications from '@/components/seller/SellerNotifications';
+import HelpModal from '@/components/seller/HelpModal';
+import { useTheme } from '@/context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface MenuItem {
   name: string;
@@ -49,42 +52,42 @@ interface MenuSection {
 
 const menuSections: MenuSection[] = [
   {
-    title: 'Admin',
+    title: 'sidebar.admin',
     items: [
-      { name: 'Tableau de bord', path: '/seller', icon: LayoutGrid },
-      { name: 'Utilisateurs', path: '/seller/users', icon: Users },
-      { name: 'Commandes', path: '/seller/orders', icon: ShoppingCart },
+      { name: 'sidebar.dashboard', path: '/seller', icon: LayoutGrid },
+      { name: 'sidebar.users', path: '/seller/users', icon: Users },
+      { name: 'sidebar.orders', path: '/seller/orders', icon: ShoppingCart },
     ],
   },
   {
-    title: 'Produits',
+    title: 'sidebar.products',
     items: [
-      { name: 'Produits', path: '/seller/product-list', icon: Box },
-      { name: 'Catégories', path: '/seller/categories', icon: Layers3 },
-      { name: 'Stocks', path: '/seller/stocks', icon: Package2 },
+      { name: 'sidebar.products', path: '/seller/product-list', icon: Box },
+      { name: 'sidebar.categories', path: '/seller/categories', icon: Layers3 },
+      { name: 'sidebar.stocks', path: '/seller/stocks', icon: Package2 },
     ],
   },
   {
-    title: 'Ventes',
+    title: 'sidebar.sales',
     items: [
-      { name: 'Promotions', path: '/seller/promotions', icon: Tag },
-      { name: 'Avis clients', path: '/seller/reviews', icon: MessageSquareText },
-      { name: 'Journal paiements', path: '/seller/payments', icon: CreditCard },
+      { name: 'sidebar.promotions', path: '/seller/promotions', icon: Tag },
+      { name: 'sidebar.reviews', path: '/seller/reviews', icon: MessageSquareText },
+      { name: 'sidebar.payments', path: '/seller/payments', icon: CreditCard },
     ],
   },
   {
-    title: 'Contenu',
+    title: 'sidebar.content',
     items: [
-      { name: 'Pages CMS', path: '/seller/pages', icon: FileText },
-      { name: 'Import / Export', path: '/seller/import-export', icon: Upload },
+      { name: 'sidebar.cmsPages', path: '/seller/pages', icon: FileText },
+      { name: 'sidebar.importExport', path: '/seller/import-export', icon: Upload },
     ],
   },
   {
-    title: 'Configuration',
+    title: 'sidebar.config',
     items: [
-      { name: 'Paramètres', path: '/seller/settings', icon: Settings },
-      { name: 'Rapports', path: '/seller/reports', icon: BarChart3 },
-      { name: "Journal d'activité", path: '/seller/activity-logs', icon: History },
+      { name: 'sidebar.settings', path: '/seller/settings', icon: Settings },
+      { name: 'sidebar.reports', path: '/seller/reports', icon: BarChart3 },
+      { name: 'sidebar.activityLog', path: '/seller/activity-logs', icon: History },
     ],
   },
 ];
@@ -95,8 +98,11 @@ export const sellerMenuItems: MenuItem[] = menuSections.flatMap((section) => sec
 export default function Sidebar(): React.ReactElement {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { theme, toggleTheme } = useTheme();
+  const { locale, toggleLocale, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
   // Close profile menu when clicking outside
@@ -117,11 +123,11 @@ export default function Sidebar(): React.ReactElement {
       .map((section) => ({
         ...section,
         items: section.items.filter((item) =>
-          item.name.toLowerCase().includes(searchQuery.toLowerCase())
+          t(item.name).toLowerCase().includes(searchQuery.toLowerCase())
         ),
       }))
       .filter((section) => section.items.length > 0);
-  }, [searchQuery]);
+  }, [searchQuery, t]);
 
   const user = session?.user || {
     name: 'Utilisateur',
@@ -144,7 +150,7 @@ export default function Sidebar(): React.ReactElement {
         <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-tertiary)]" />
         <input
           type="text"
-          placeholder="Rechercher..."
+          placeholder={t('sidebar.search')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-hover)] px-3 py-2 pl-9 text-xs text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
@@ -156,7 +162,7 @@ export default function Sidebar(): React.ReactElement {
         {filteredSections.map((section) => (
           <div key={section.title}>
             <p className="px-2 py-1.5 text-xs font-600 uppercase tracking-wider text-[var(--text-tertiary)]">
-              {section.title}
+              {t(section.title)}
             </p>
             <div className="mt-2 space-y-0.5">
               {section.items.map(({ name, path, icon: Icon }) => {
@@ -173,7 +179,7 @@ export default function Sidebar(): React.ReactElement {
                     }`}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
-                    <span className="truncate">{name}</span>
+                    <span className="truncate">{t(name)}</span>
                   </Link>
                 );
               })}
@@ -206,21 +212,31 @@ export default function Sidebar(): React.ReactElement {
             <div className="py-1 border-b border-[var(--border)]">
               <Link href="/seller/settings" className="flex items-center gap-3 px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth">
                 <Settings className="h-4 w-4" />
-                <span>Paramètres</span>
+                <span>{t('profile.settings')}</span>
               </Link>
-              <button className="flex w-full items-center justify-between px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth">
+              <button
+                onClick={toggleTheme}
+                className="flex w-full items-center justify-between px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth"
+              >
                 <div className="flex items-center gap-3">
                   <Palette className="h-4 w-4" />
-                  <span>Thème</span>
+                  <span>{t('profile.theme')}</span>
                 </div>
-                <ChevronDown className="h-3 w-3 opacity-50 -rotate-90" />
+                <span className="text-[10px] text-[var(--text-tertiary)]">
+                  {theme === 'dark' ? t('theme.dark') : t('theme.light')}
+                </span>
               </button>
-              <button className="flex w-full items-center justify-between px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth">
+              <button
+                onClick={toggleLocale}
+                className="flex w-full items-center justify-between px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth"
+              >
                 <div className="flex items-center gap-3">
                   <Languages className="h-4 w-4" />
-                  <span>Langue</span>
+                  <span>{t('profile.language')}</span>
                 </div>
-                <ChevronDown className="h-3 w-3 opacity-50 -rotate-90" />
+                <span className="text-[10px] text-[var(--text-tertiary)]">
+                  {locale === 'fr' ? t('lang.french') : t('lang.english')}
+                </span>
               </button>
             </div>
 
@@ -228,15 +244,18 @@ export default function Sidebar(): React.ReactElement {
             <div className="py-1 border-b border-[var(--border)]">
               <Link href="/" className="flex items-center gap-3 px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth">
                 <Home className="h-4 w-4" />
-                <span>Accueil</span>
+                <span>{t('profile.home')}</span>
               </Link>
             </div>
 
             {/* Menu Items Group 3 */}
             <div className="py-1 border-b border-[var(--border)]">
-              <button className="flex w-full items-center gap-3 px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth">
+              <button
+                onClick={() => setIsHelpOpen(true)}
+                className="flex w-full items-center gap-3 px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth"
+              >
                 <Bug className="h-4 w-4" />
-                <span>Aide</span>
+                <span>{t('profile.help')}</span>
               </button>
             </div>
 
@@ -247,7 +266,7 @@ export default function Sidebar(): React.ReactElement {
                 className="flex w-full items-center gap-3 px-3 py-2 text-xs text-[var(--accent-red)] hover:bg-[var(--bg-hover)] transition-smooth"
               >
                 <LogOut className="h-4 w-4" />
-                <span>Déconnexion</span>
+                <span>{t('profile.logout')}</span>
               </button>
             </div>
           </div>
@@ -279,6 +298,7 @@ export default function Sidebar(): React.ReactElement {
           )}
         </button>
       </div>
+      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </aside>
   );
 }
