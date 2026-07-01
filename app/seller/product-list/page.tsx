@@ -647,19 +647,19 @@ export default function ProductListPage(): React.ReactElement {
                   <SellerTableCell>
                     <div className="flex flex-wrap gap-2">
                       <Link href={`/product/${product.id}`} target="_blank">
-                        <SellerButton variant="outline" size="icon" icon={ExternalLink} className="!h-8 !w-8 text-[var(--accent-blue)] border-[var(--accent-blue)]/50 hover:bg-[var(--accent-blue)]/10">Voir</SellerButton>
+                        <SellerButton variant="ghost" size="sm" icon={ExternalLink} className="text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10"><span className="sr-only">Voir</span></SellerButton>
                       </Link>
-                      <SellerButton variant="outline" size="icon" icon={Eye} onClick={() => setSelectedProduct(product)} className="!h-8 !w-8 text-[var(--accent-green)] border-[var(--accent-green)]/50 hover:bg-[var(--accent-green)]/10">Details</SellerButton>
+                      <SellerButton variant="ghost" size="sm" icon={Eye} onClick={() => setSelectedProduct(product)} className="text-[var(--accent-green)] hover:bg-[var(--accent-green)]/10"><span className="sr-only">Details</span></SellerButton>
                       <Link href={`/seller/product-list/edit/${product.id}`}>
-                        <SellerButton variant="outline" size="icon" icon={Pencil} className="!h-8 !w-8 text-[var(--accent-blue)] border-[var(--accent-blue)]/50 hover:bg-[var(--accent-blue)]/10">Modifier</SellerButton>
+                        <SellerButton variant="ghost" size="sm" icon={Pencil} className="text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10"><span className="sr-only">Modifier</span></SellerButton>
                       </Link>
                       <SellerButton
-                        variant="outline"
-                        size="icon"
+                        variant="ghost"
+                        size="sm"
                         icon={Trash2}
-                        className="!h-8 !w-8 text-[var(--accent-red)] border-[var(--accent-red)]/50 hover:bg-[var(--accent-red)]/10"
+                        className="text-[var(--accent-red)] hover:bg-[var(--accent-red)]/10"
                         onClick={() => setProductToDelete(product)}
-                      >Supprimer</SellerButton>
+                      ><span className="sr-only">Supprimer</span></SellerButton>
                     </div>
                   </SellerTableCell>
                 </SellerTableRow>
@@ -684,11 +684,11 @@ export default function ProductListPage(): React.ReactElement {
         footer={
           <div className="flex justify-between">
             <Link href={`/product/${selectedProduct?.id}`} target="_blank">
-              <SellerButton variant="outline" size="icon" icon={ExternalLink} className="text-[var(--accent-blue)] border-[var(--accent-blue)]/50 hover:bg-[var(--accent-blue)]/10">Voir en boutique</SellerButton>
+              <SellerButton variant="ghost" size="sm" icon={ExternalLink} className="text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10"><span className="sr-only">Voir en boutique</span></SellerButton>
             </Link>
             {selectedProduct && (
               <Link href={`/seller/product-list/edit/${selectedProduct.id}`}>
-                <SellerButton variant="outline" size="icon" icon={Pencil} className="text-[var(--accent-blue)] border-[var(--accent-blue)]/50 hover:bg-[var(--accent-blue)]/10">Modifier la fiche</SellerButton>
+                <SellerButton variant="ghost" size="sm" icon={Pencil} className="text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10"><span className="sr-only">Modifier la fiche</span></SellerButton>
               </Link>
             )}
           </div>
