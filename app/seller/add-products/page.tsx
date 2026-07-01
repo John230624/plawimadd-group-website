@@ -10,6 +10,7 @@ import SellerButton from '@/components/seller/SellerButton';
 import SellerPanel from '@/components/seller/SellerPanel';
 import SellerSectionHeader from '@/components/seller/SellerSectionHeader';
 import SellerSelect from '@/components/seller/SellerSelect';
+import { useAppContext } from '@/context/AppContext';
 
 interface CategoryOption {
   id: string;
@@ -25,6 +26,7 @@ const initialErrors: FieldError[] = [];
 
 export default function AddProductPage(): React.ReactElement {
   const router = useRouter();
+  const { fetchProducts } = useAppContext();
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null, null]);
   const [name, setName] = useState('');
@@ -170,6 +172,7 @@ export default function AddProductPage(): React.ReactElement {
       if (!response.ok) throw new Error(data.message || "Impossible d'ajouter le produit.");
 
       toast.success('Produit ajoute avec succes.');
+      fetchProducts();
       return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erreur lors de la creation du produit.');
