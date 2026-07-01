@@ -647,19 +647,19 @@ export default function ProductListPage(): React.ReactElement {
                   <SellerTableCell>
                     <div className="flex flex-wrap gap-2">
                       <Link href={`/product/${product.id}`} target="_blank">
-                        <SellerButton variant="ghost" size="sm" icon={ExternalLink} className="text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10"><span className="sr-only">Voir</span></SellerButton>
+                        <SellerButton variant="outline" size="sm" icon={ExternalLink}>Voir</SellerButton>
                       </Link>
-                      <SellerButton variant="ghost" size="sm" icon={Eye} onClick={() => setSelectedProduct(product)} className="text-[var(--accent-green)] hover:bg-[var(--accent-green)]/10"><span className="sr-only">Details</span></SellerButton>
+                      <SellerButton variant="outline" size="sm" icon={Eye} onClick={() => setSelectedProduct(product)}>Details</SellerButton>
                       <Link href={`/seller/product-list/edit/${product.id}`}>
-                        <SellerButton variant="ghost" size="sm" icon={Pencil} className="text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10"><span className="sr-only">Modifier</span></SellerButton>
+                        <SellerButton variant="outline" size="sm" icon={Pencil}>Modifier</SellerButton>
                       </Link>
                       <SellerButton
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         icon={Trash2}
-                        className="text-[var(--accent-red)] hover:bg-[var(--accent-red)]/10"
+                        className="border-[var(--accent-red)]/50 text-[var(--accent-red)] hover:bg-[var(--accent-red)]/10"
                         onClick={() => setProductToDelete(product)}
-                      ><span className="sr-only">Supprimer</span></SellerButton>
+                      >Supprimer</SellerButton>
                     </div>
                   </SellerTableCell>
                 </SellerTableRow>
@@ -684,11 +684,11 @@ export default function ProductListPage(): React.ReactElement {
         footer={
           <div className="flex justify-between">
             <Link href={`/product/${selectedProduct?.id}`} target="_blank">
-              <SellerButton variant="ghost" size="sm" icon={ExternalLink} className="text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10"><span className="sr-only">Voir en boutique</span></SellerButton>
+              <SellerButton variant="outline" icon={ExternalLink}>Voir en boutique</SellerButton>
             </Link>
             {selectedProduct && (
               <Link href={`/seller/product-list/edit/${selectedProduct.id}`}>
-                <SellerButton variant="ghost" size="sm" icon={Pencil} className="text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10"><span className="sr-only">Modifier la fiche</span></SellerButton>
+                <SellerButton icon={Pencil}>Modifier la fiche</SellerButton>
               </Link>
             )}
           </div>
