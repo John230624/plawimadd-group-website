@@ -25,13 +25,11 @@ import {
   ChevronUp,
   ChevronDown,
   Languages,
-  Bug,
   User,
 } from 'lucide-react';
 
 import SellerBrand from '@/components/seller/SellerBrand';
 import SellerNotifications from '@/components/seller/SellerNotifications';
-import HelpModal from '@/components/seller/HelpModal';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface MenuItem {
@@ -99,7 +97,6 @@ export default function Sidebar(): React.ReactElement {
   const { locale, toggleLocale, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
   // Close profile menu when clicking outside
@@ -233,17 +230,6 @@ export default function Sidebar(): React.ReactElement {
               </Link>
             </div>
 
-            {/* Menu Items Group 3 */}
-            <div className="py-1 border-b border-[var(--border)]">
-              <button
-                onClick={() => setIsHelpOpen(true)}
-                className="flex w-full items-center gap-3 px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth"
-              >
-                <Bug className="h-4 w-4" />
-                <span>{t('profile.help')}</span>
-              </button>
-            </div>
-
             {/* Logout */}
             <div className="py-1">
               <button
@@ -283,7 +269,6 @@ export default function Sidebar(): React.ReactElement {
           )}
         </button>
       </div>
-      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </aside>
   );
 }
