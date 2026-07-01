@@ -186,9 +186,9 @@ export default function Sidebar(): React.ReactElement {
       <div className="relative mt-auto px-3 pb-3 pt-4 border-t border-[var(--border)]" ref={profileRef}>
         {/* Pop-up Menu */}
         {isProfileOpen && (
-          <div className="absolute bottom-full left-0 mb-2 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-dark)] shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="absolute bottom-full left-0 mb-2 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-dark)] py-1 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
             {/* User Info Header */}
-            <div className="flex items-center gap-3 px-3 py-2 border-b border-[var(--border)]">
+            <div className="flex items-center gap-3 px-3 py-3 border-b border-[var(--border)]">
               <div className="h-9 w-9 overflow-hidden rounded-full bg-[var(--bg-hover)] flex items-center justify-center border border-[var(--border)]">
                 {user.image ? (
                   <img src={user.image} alt={user.name || ''} className="h-full w-full object-cover" />
@@ -203,14 +203,14 @@ export default function Sidebar(): React.ReactElement {
             </div>
 
             {/* Menu Items Group 1 */}
-            <div className="border-b border-[var(--border)]">
-              <Link href="/seller/settings" className="flex items-center gap-3 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth">
+            <div className="py-1 border-b border-[var(--border)]">
+              <Link href="/seller/settings" className="flex items-center gap-3 px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth">
                 <Settings className="h-4 w-4" />
                 <span>{t('profile.settings')}</span>
               </Link>
               <button
                 onClick={toggleLocale}
-                className="flex w-full items-center justify-between px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth"
+                className="flex w-full items-center justify-between px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth"
               >
                 <div className="flex items-center gap-3">
                   <Languages className="h-4 w-4" />
@@ -223,18 +223,18 @@ export default function Sidebar(): React.ReactElement {
             </div>
 
             {/* Menu Items Group 2 */}
-            <div className="border-b border-[var(--border)]">
-              <Link href="/" className="flex items-center gap-3 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth">
+            <div className="py-1 border-b border-[var(--border)]">
+              <Link href="/" className="flex items-center gap-3 px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth">
                 <Home className="h-4 w-4" />
                 <span>{t('profile.home')}</span>
               </Link>
             </div>
 
             {/* Logout */}
-            <div>
+            <div className="py-1">
               <button
                 onClick={() => signOut({ callbackUrl: '/' })}
-                className="flex w-full items-center gap-3 px-3 py-1.5 text-xs text-[var(--accent-red)] hover:bg-[var(--bg-hover)] transition-smooth"
+                className="flex w-full items-center gap-3 px-3 py-2 text-xs text-[var(--accent-red)] hover:bg-[var(--bg-hover)] transition-smooth"
               >
                 <LogOut className="h-4 w-4" />
                 <span>{t('profile.logout')}</span>
@@ -246,7 +246,7 @@ export default function Sidebar(): React.ReactElement {
         {/* Profile Trigger Button */}
         <button
           onClick={() => setIsProfileOpen(!isProfileOpen)}
-          className={`flex w-full items-center gap-3 rounded-lg border border-[var(--border)] bg-transparent p-2 transition-smooth hover:bg-[var(--bg-hover)] ${isProfileOpen ? 'bg-[var(--bg-hover)]' : ''}`}
+          className={`flex w-full items-center gap-3 rounded-lg border border-[var(--border)] bg-transparent p-2.5 transition-smooth hover:bg-[var(--bg-hover)] ${isProfileOpen ? 'bg-[var(--bg-hover)]' : ''}`}
         >
           <div className="h-8 w-8 overflow-hidden rounded-full bg-[var(--bg-hover)] flex items-center justify-center border border-[var(--border)]">
             {user.image ? (
