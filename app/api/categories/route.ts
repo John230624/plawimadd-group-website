@@ -4,6 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { categorySchema } from '@/lib/validation';
+import { ZodError } from 'zod';
 
 // GET: Récupérer toutes les catégories (Accessible publiquement)
 export async function GET(): Promise<NextResponse> { // Pas de 'req' nécessaire ici, donc pas de modification de signature
@@ -13,9 +15,8 @@ export async function GET(): Promise<NextResponse> { // Pas de 'req' nécessaire
         });
         return NextResponse.json(categories, { status: 200 });
     } catch (_error: unknown) {
-        const message = _error instanceof Error ? _error.message : String(_error);
         console.error('Erreur lors de la récupération des catégories:', _error);
-        return NextResponse.json({ message: 'Erreur interne du serveur lors de la récupération des catégories.', error: message }, { status: 500 });
+        return NextResponse.json({ message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }
 
@@ -25,17 +26,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!authResult.authorized) return authResult.response!;
 
     try {
-        const { name, description, imageUrl } = await req.json();
-
-        if (!name || typeof name !== 'string' || name.trim() === '') {
-            return NextResponse.json({ message: 'Le nom de la catégorie (chaîne non vide) est requis.' }, { status: 400 });
-        }
-        if (description !== undefined && typeof description !== 'string' && description !== null) {
-            return NextResponse.json({ message: 'La description doit être une chaîne ou null.' }, { status: 400 });
-        }
-        if (imageUrl !== undefined && typeof imageUrl !== 'string' && imageUrl !== null) {
-            return NextResponse.json({ message: 'L\'URL de l\'image doit être une chaîne ou null.' }, { status: 400 });
-        }
+        const body = await req.json();
+        const parsed = categorySchema.parse(body);
+        const { name, description, imageUrl } = parsed;
 
         const newCategory = await prisma.category.create({
             data: {
@@ -48,7 +41,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ message: 'Catégorie créée avec succès !', category: newCategory }, { status: 201 });
 
     } catch (_error: unknown) {
-        const message = _error instanceof Error ? _error.message : String(_error);
+        if (_error instanceof ZodError) {
+            return NextResponse.json(
+                { message: _error.issues[0].message },
+                { status: 400 }
+            );
+        }
         console.error('Erreur lors de la création de la catégorie:', _error);
 
         if (
@@ -57,9 +55,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             'code' in _error &&
             (_error as { code?: string }).code === 'P2002'
         ) {
-            return NextResponse.json({ message: 'Cette catégorie existe déjà (nom en double).', error: message }, { status: 409 });
+            return NextResponse.json({ message: 'Cette catégorie existe déjà (nom en double).' }, { status: 409 });
         }
 
-        return NextResponse.json({ message: 'Erreur interne du serveur lors de la création de la catégorie.', error: message }, { status: 500 });
+        return NextResponse.json({ message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }

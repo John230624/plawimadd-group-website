@@ -117,9 +117,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
     } catch (_error: unknown) { // CORRECTION: Renommé 'error' en '_error'
         console.error('Erreur lors de la demande de réinitialisation du mot de passe:', _error);
-        const errorMessage = _error instanceof Error ? _error.message : 'Erreur inconnue.';
         return NextResponse.json(
-            { message: `Erreur interne du serveur lors de la demande de réinitialisation : ${errorMessage}` },
+            { message: "Erreur serveur. Veuillez réessayer plus tard." },
             { status: 500 }
         );
     }

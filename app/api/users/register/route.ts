@@ -3,9 +3,11 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import prisma from '@/lib/prisma'; // Importez votre client Prisma
+import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-// Les imports de 'pool', 'ResultSetHeader', 'uuidv4' ne sont plus nécessaires
+import { validatePassword } from '@/lib/passwordPolicy';
+import { registerSchema } from '@/lib/validation';
+import { ZodError } from 'zod';
 
 interface RegisterRequestBody {
     email: string;
@@ -15,16 +17,15 @@ interface RegisterRequestBody {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-    // La variable 'connection' n'est plus nécessaire avec Prisma
     try {
         const body: RegisterRequestBody = await req.json();
+        const parsed = registerSchema.parse(body);
+        const { email, password, firstName, lastName } = parsed;
 
-        const { email, password, firstName, lastName } = body;
-
-        // 1. Validation basique des données
-        if (!email || !password) {
+        const passwordCheck = validatePassword(password);
+        if (!passwordCheck.valid) {
             return NextResponse.json(
-                { message: "L'email et le mot de passe sont requis pour l l'inscription." },
+                { message: passwordCheck.message },
                 { status: 400 }
             );
         }
@@ -74,11 +75,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             { message: 'Inscription réussie !', user: newUser }, // Retournez l'objet utilisateur créé (sans mot de passe)
             { status: 201 } // 201 Created est plus approprié pour une inscription réussie
         );
-    } catch (_error: unknown) { // Renommé 'error' en '_error'
+    } catch (_error: unknown) {
+        if (_error instanceof ZodError) {
+            return NextResponse.json(
+                { message: _error.issues[0].message },
+                { status: 400 }
+            );
+        }
         console.error("Erreur lors de l'inscription de l'utilisateur:", _error);
-        const errorMessage = _error instanceof Error ? _error.message : 'Erreur inconnue.';
         return NextResponse.json(
-            { message: `Erreur interne du serveur lors de l'inscription : ${errorMessage}` },
+            { message: "Erreur serveur. Veuillez réessayer plus tard." },
             { status: 500 }
         );
     }

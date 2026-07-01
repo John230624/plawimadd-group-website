@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import React, { ChangeEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Grid2x2, Heart, LayoutList, SlidersHorizontal } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -109,7 +109,15 @@ function buildQueryString(
   return query ? `/all-products?${query}` : '/all-products';
 }
 
-export default function AllProductsPage(): React.ReactElement {
+export default function AllProductsPageWrapper(): React.ReactElement {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600" /></div>}>
+      <AllProductsPage />
+    </Suspense>
+  );
+}
+
+function AllProductsPage(): React.ReactElement {
   const {
     products,
     loadingProducts,

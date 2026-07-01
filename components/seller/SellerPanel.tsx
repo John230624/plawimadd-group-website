@@ -5,15 +5,20 @@ import React from 'react';
 interface SellerPanelProps {
   children: React.ReactNode;
   className?: string;
+  interactive?: boolean;
 }
 
 export default function SellerPanel({
   children,
   className = '',
+  interactive = false,
 }: SellerPanelProps): React.ReactElement {
+  const baseClasses = `rounded-[10px] bg-[var(--bg-card)] transition-all duration-300`;
+  const interactiveClasses = interactive ? 'hover:shadow-lg hover:shadow-[var(--accent-blue)]/10' : '';
+
   return (
     <section
-      className={`rounded-[1.75rem] border border-[rgba(148,163,184,0.18)] bg-white shadow-[0_18px_40px_rgba(15,23,42,0.04)] ${className}`}
+      className={`${baseClasses} ${interactiveClasses} ${className}`}
     >
       {children}
     </section>

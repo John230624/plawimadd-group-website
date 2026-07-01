@@ -1,7 +1,7 @@
 // app/reinitialiser-mot-de-passe/page.tsx
 'use client';
 
-import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react'; // Importez React, FormEvent, ChangeEvent
+import React, { useState, useEffect, FormEvent, ChangeEvent, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { FiLock, FiCheckCircle, FiAlertCircle, FiArrowRight } from 'react-icons/fi'; // Import des icônes
@@ -11,7 +11,15 @@ import { FiLock, FiCheckCircle, FiAlertCircle, FiArrowRight } from 'react-icons/
  * Permet à un utilisateur de définir un nouveau mot de passe en utilisant un jeton de réinitialisation.
  * @returns {React.ReactElement} Le JSX de la page de réinitialisation de mot de passe.
  */
-export default function ResetPasswordPage(): React.ReactElement { // Type le composant comme retournant un React.ReactElement
+export default function ResetPasswordPageWrapper(): React.ReactElement {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600" /></div>}>
+      <ResetPasswordPage />
+    </Suspense>
+  );
+}
+
+function ResetPasswordPage(): React.ReactElement { // Type le composant comme retournant un React.ReactElement
     const router = useRouter();
     const searchParams = useSearchParams();
     const [token, setToken] = useState<string>(''); // Type l'état comme string

@@ -2,6 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { assets } from "@/assets/assets";
 import { FaFacebook, FaInstagram } from 'react-icons/fa';
 import { SiTiktok } from 'react-icons/si';
 
@@ -13,9 +15,14 @@ export default function HomeFooter(): React.ReactElement {
       <div className="mx-auto max-w-[1440px]">
         <div className="grid gap-10 border-b border-slate-200 pb-10 lg:grid-cols-[1.15fr_1fr_1fr_1fr_auto]">
           <div>
-            <Link href="/" className="inline-flex items-baseline whitespace-nowrap font-['Playwrite_PL',cursive] text-[1.12rem] font-[400] leading-none tracking-[-0.025em] md:text-[1.28rem] lg:text-[1.45rem]">
-              <span className="text-slate-600">Plawimadd</span>
-              <span className="ml-1 text-[var(--brand-800)]">Group</span>
+            <Link href="/" className="inline-flex items-baseline whitespace-nowrap">
+              <Image
+                src={assets.logo}
+                alt="Plawimadd Group Logo"
+                width={280}
+                height={70}
+                className="h-auto w-[150px] md:w-[190px]"
+              />
             </Link>
             <p className="mt-4 max-w-[34ch] text-sm leading-7 text-slate-600">
               Plawimadd Group accompagne le quotidien avec une selection tech moderne, claire et

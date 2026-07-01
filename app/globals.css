@@ -1,63 +1,127 @@
-    /* C:\xampp\htdocs\plawimadd_group\app\globals.css */
+/* Importation des polices */
+@import url('https://fonts.googleapis.com/css2?family=Playwrite+PL:wght@100..400&family=Poppins:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-    /* Importation de la police Poppins */
-    @import url('https://fonts.googleapis.com/css2?family=Playwrite+PL:wght@100..400&family=Poppins:wght@400;600;700&display=swap');
+/* Importations des directives Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-    /* Importations des directives Tailwind CSS (méthode recommandée) */
-    @tailwind base;
-    @tailwind components;
-    @tailwind utilities;
+:root {
+  /* Palette Light Mode (par défaut pour toute l'app) */
+  --brand-950: oklch(28.2% 0.091 267.935);
+  --brand-900: oklch(37.9% 0.146 265.522);
+  --brand-800: oklch(42.4% 0.199 265.638);
+  --brand-700: oklch(48.8% 0.243 264.376);
+  --brand-600: oklch(54.6% 0.245 262.881);
+  --brand-500: oklch(62.3% 0.214 259.815);
+  --brand-400: oklch(70.7% 0.165 254.624);
+  --brand-300: oklch(80.9% 0.105 251.813);
+  --brand-200: oklch(88.2% 0.059 254.128);
+  --brand-100: oklch(93.2% 0.032 255.585);
+  --brand-50: oklch(97% 0.014 254.604);
+}
 
-    :root {
-        --brand-950: oklch(28.2% 0.091 267.935);
-        --brand-900: oklch(37.9% 0.146 265.522);
-        --brand-800: oklch(42.4% 0.199 265.638);
-        --brand-700: oklch(48.8% 0.243 264.376);
-        --brand-600: oklch(54.6% 0.245 262.881);
-        --brand-500: oklch(62.3% 0.214 259.815);
-        --brand-400: oklch(70.7% 0.165 254.624);
-        --brand-300: oklch(80.9% 0.105 251.813);
-        --brand-200: oklch(88.2% 0.059 254.128);
-        --brand-100: oklch(93.2% 0.032 255.585);
-        --brand-50: oklch(97% 0.014 254.604);
-    }
+/* Palette Dark Mode (appliquée uniquement au dashboard vendeur) */
+.dark-theme {
+  --bg-dark: rgb(31, 31, 30);
+  --bg-card: rgb(31, 31, 30);
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-tertiary: #666666;
+  --accent-blue: rgb(12, 140, 232);
+  --accent-blue-light: rgb(30, 160, 245);
+  --accent-red: #ef4444;
+  --accent-green: #10b981;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --bg-outer: rgb(38, 38, 37);
+}
 
-    /* Styles globaux personnalisés */
-    * {
-        scroll-behavior: smooth;
-    }
+/* Styles globaux personnalisés */
+* {
+  scroll-behavior: smooth;
+}
 
-    /* Styles pour cacher les flèches des inputs de type number */
-    @layer base {
+/* Cacher les flèches des inputs de type number */
+@layer base {
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
 
-        input[type="number"]::-webkit-inner-spin-button,
-        input[type="number"]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-    }
+/* Cacher la barre de défilement */
+::-webkit-scrollbar {
+  display: none;
+}
 
-    /* Styles pour cacher la barre de défilement */
-    ::-webkit-scrollbar {
-        display: none;
-    }
+.catalog-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
 
-    .catalog-scroll {
-        overflow-x: auto;
-        overflow-y: hidden;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-    }
+.catalog-scroll::-webkit-scrollbar {
+  display: none;
+}
 
-    .catalog-scroll::-webkit-scrollbar {
-        display: none;
-    }
+/* Définition de la police par défaut */
+body {
+  font-family: 'Poppins', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--brand-50);
+  color: var(--brand-950);
+}
 
-    /* Définition de la police par défaut pour le corps */
-    body {
-        font-family: 'Poppins', sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        background: var(--brand-50);
-        color: var(--brand-950);
-    }
+/* Styles pour le thème dark du dashboard */
+.dark-theme {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-outer);
+  color: var(--text-primary);
+}
+
+.dark-theme ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark-theme ::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+
+.dark-theme ::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 4px;
+}
+
+.dark-theme ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* Styles pour les transitions fluides */
+@layer components {
+  .transition-smooth {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .text-sm-secondary {
+    @apply text-sm text-[var(--text-secondary)];
+  }
+
+  .text-xs-tertiary {
+    @apply text-xs text-[var(--text-tertiary)];
+  }
+
+  .card-dark {
+    @apply rounded-lg border border-[var(--border)] bg-[var(--bg-card)] transition-smooth;
+  }
+
+  .card-dark:hover {
+    @apply border-[var(--accent-blue)] border-opacity-50;
+  }
+}

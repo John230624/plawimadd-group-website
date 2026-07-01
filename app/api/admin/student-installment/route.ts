@@ -24,9 +24,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, requests }, { status: 200 });
   } catch (error) {
-    console.error(error);
+    console.error('Erreur lors de la récupération des demandes étudiantes (admin):', error);
     return NextResponse.json(
-      { success: false, message: 'Impossible de recuperer les demandes etudiantes.' },
+      { success: false, message: 'Erreur serveur. Veuillez réessayer plus tard.' },
       { status: 500 }
     );
   }

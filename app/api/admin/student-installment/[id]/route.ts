@@ -9,14 +9,14 @@ interface UpdateStudentInstallmentPayload {
 
 export async function PUT(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const authResult = await authorizeAdminRequest(req);
   if (!authResult.authorized) {
     return authResult.response!;
   }
 
-  const { id } = context.params;
+  const { id } = await context.params;
 
   try {
     const body = (await req.json()) as UpdateStudentInstallmentPayload;
@@ -39,9 +39,9 @@ export async function PUT(
 
     return NextResponse.json({ success: true, request }, { status: 200 });
   } catch (error) {
-    console.error(error);
+    console.error('Erreur lors de la mise à jour de la demande étudiante:', error);
     return NextResponse.json(
-      { success: false, message: 'Erreur lors de la mise a jour de la demande.' },
+      { success: false, message: 'Erreur serveur. Veuillez réessayer plus tard.' },
       { status: 500 }
     );
   }

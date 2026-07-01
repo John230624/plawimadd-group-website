@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeLoggedInUser } from '@/lib/authUtils';
+import { studentInstallmentSchema } from '@/lib/validation';
+import { ZodError } from 'zod';
 
 interface StudentInstallmentPayload {
   fullName: string;
@@ -26,9 +28,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, requests }, { status: 200 });
   } catch (error) {
-    console.error(error);
+    console.error('Erreur lors de la récupération des demandes étudiantes:', error);
     return NextResponse.json(
-      { success: false, message: 'Impossible de recuperer les demandes etudiantes.' },
+      { success: false, message: 'Erreur serveur. Veuillez réessayer plus tard.' },
       { status: 500 }
     );
   }
@@ -42,29 +44,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   try {
     const body = (await req.json()) as StudentInstallmentPayload;
+    const parsed = studentInstallmentSchema.omit({ requestedMonths: true }).parse(body);
     const {
       fullName,
       phoneNumber,
       schoolName,
       studentEmail,
       studentIdNumber,
-      documentUrl,
       notes,
-    } = body;
-
-    if (
-      !fullName ||
-      !phoneNumber ||
-      !schoolName ||
-      !studentEmail ||
-      !studentIdNumber ||
-      !documentUrl
-    ) {
-      return NextResponse.json(
-        { success: false, message: 'Veuillez remplir tous les champs obligatoires.' },
-        { status: 400 }
-      );
-    }
+    } = parsed;
+    const { documentUrl } = body;
 
     const existingPendingRequest = await prisma.studentInstallmentRequest.findFirst({
       where: {
@@ -99,9 +88,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, request }, { status: 201 });
   } catch (error) {
-    console.error(error);
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { success: false, message: error.issues[0].message },
+        { status: 400 }
+      );
+    }
+    console.error('Erreur lors de la création de la demande étudiante:', error);
     return NextResponse.json(
-      { success: false, message: 'Erreur lors de la creation de la demande etudiante.' },
+      { success: false, message: 'Erreur serveur. Veuillez réessayer plus tard.' },
       { status: 500 }
     );
   }

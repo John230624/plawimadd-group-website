@@ -199,7 +199,7 @@ export default function ProductCarouselSection({
                     </article>
                   );
                 })
-              : visibleItems.map((item) => (
+              : showcaseItems.map((item) => (
                   <article
                     key={item.id}
                     className="min-w-0 overflow-hidden rounded-[1.75rem] bg-white shadow-[0_14px_36px_rgba(15,23,42,0.06)]"

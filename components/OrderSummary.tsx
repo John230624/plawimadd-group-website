@@ -10,44 +10,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Address, Product, CreateOrderPayload, OrderItemForCreatePayload } from '@/lib/types';
-
-// Définitions de types pour la réponse Kkiapay
-type KkiapayErrorResponse = {
-    transactionId?: string;
-    reason?: { code?: string; message?: string };
-    message?: string;
-};
-
-type KkiapaySuccessResponse = {
-    transactionId: string;
-    data?: string;
-    amount?: number;
-    paymentMethod?: string;
-    reference?: string;
-    status?: string;
-    email?: string;
-    phone?: string;
-};
-
-// Déclaration de l'interface globale pour window.kkiapay
-declare global {
-    interface Window {
-        openKkiapayWidget: (options: {
-            amount: number;
-            api_key: string;
-            callback: string;
-            email?: string;
-            phone?: string;
-            position?: string;
-            sandbox?: boolean;
-            data?: string;
-        }) => void;
-        addSuccessListener: (callback: (response: KkiapaySuccessResponse) => void) => void;
-        removeSuccessListener: (callback: (response: KkiapaySuccessResponse) => void) => void;
-        addFailedListener: (callback: (error: KkiapayErrorResponse) => void) => void;
-        removeFailedListener: (callback: (error: KkiapayErrorResponse) => void) => void;
-    }
-}
+import type { KkiapayErrorResponse, KkiapaySuccessResponse } from '@/types/kkiapay';
 
 const OrderSummary = () => {
     const router = useRouter();
@@ -291,7 +254,7 @@ const OrderSummary = () => {
             return;
         }
 
-        if (!currentUser || !currentUser.id || !currentUser.email || !currentUser.token) {
+        if (!currentUser || !currentUser.id || !currentUser.email) {
             console.log("[Create Order] ERREUR: Utilisateur non connecté ou informations manquantes.");
             toast.error("Veuillez vous connecter pour passer commande.");
             router.push('/login');
@@ -422,7 +385,7 @@ const OrderSummary = () => {
                                 const createOrderBackendResponse = await axios.post<{ success: boolean; orderId: string; message?: string }>(
                                     `${url}/api/orders/create-after-payment`, 
                                     createOrderPayload,
-                                    { headers: { 'Content-Type': 'application/json', 'auth-token': currentUser!.token } }
+                                    { headers: { 'Content-Type': 'application/json' } }
                                 );
 
                                 if (createOrderBackendResponse.status === 200 && createOrderBackendResponse.data.success) {

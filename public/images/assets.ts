@@ -5,7 +5,7 @@
 // We are exporting their direct paths as strings, not importing them as modules.
 
 // SVG Icons
-export const logo = "/images/logo.svg";
+export const logo = "/images/seller-logo.svg";
 export const search_icon = "/images/search_icon.svg";
 export const user_icon = "/images/user_icon.svg";
 export const cart_icon = "/images/cart_icon.svg";

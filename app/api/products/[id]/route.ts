@@ -6,11 +6,10 @@ import { Decimal, PrismaClientKnownRequestError } from '@prisma/client/runtime/l
 // Importez les types générés par Prisma directement pour une meilleure compatibilité
 import { Product as PrismaProduct, Category } from '@prisma/client';
 
-// Define a type for the context object to ensure type safety for params
 interface RouteContext {
-    params: {
-        id: string; // The ID from the dynamic route segment
-    };
+    params: Promise<{
+        id: string;
+    }>;
 }
 
 // Définir le type du produit tel qu'il est retourné par Prisma avec la catégorie incluse
@@ -22,7 +21,8 @@ type ProductWithCategory = PrismaProduct & { category: Category };
 type ApiResponseProduct = Omit<ProductWithCategory, 'price' | 'offerPrice' | 'imgUrl' | 'categoryId'> & {
     price: number;
     offerPrice: number | null;
-    imgUrl: string[]; // Always an array of strings for the API response
+    imgUrl: string[];
+    visible: boolean;
 };
 
 // Interface for the request body when creating/updating a product
@@ -41,7 +41,7 @@ interface ProductRequest {
 
 // --- GET (Récupérer un produit par ID) ---
 export async function GET(req: NextRequest, context: RouteContext): Promise<NextResponse> {
-    const { id } = context.params;
+    const { id } = await context.params;
 
     if (!id) {
         return NextResponse.json({ success: false, message: 'ID du produit manquant.' }, { status: 400 });
@@ -66,8 +66,8 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
             ...product,
             price: parseFloat(product.price.toString()),
             offerPrice: product.offerPrice ? parseFloat(product.offerPrice.toString()) : null,
-            imgUrl: [], // Initialiser comme tableau vide
-            // categoryId est omis car 'category' est inclus
+            imgUrl: [],
+            visible: product.visible,
         };
 
         // Parser imgUrl: si c'est une chaîne JSON, la parser. Si null, cela reste un tableau vide.
@@ -90,8 +90,7 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
 
     } catch (_error: unknown) {
         console.error('Erreur lors de la récupération du produit par ID:', _error);
-        const errorMessage = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ success: false, message: `Erreur serveur lors de la récupération du produit : ${errorMessage}` }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }
 
@@ -102,7 +101,7 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
         return authResult.response!;
     }
 
-    const { id } = context.params;
+    const { id } = await context.params;
     const { name, description, categoryId, price, offerPrice, stock, imgUrl, brand, color } = await req.json() as ProductRequest;
 
     if (!id) {
@@ -133,9 +132,9 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
                 offerPrice: finalOfferPrice,
                 stock: stock,
                 imgUrl: imgUrlString,
-                brand: brand, // Le champ 'brand' devrait maintenant être reconnu si ajouté à schema.prisma
-                color: color, // Le champ 'color' devrait maintenant être reconnu si ajouté à schema.prisma
-                category: { connect: { id: categoryId } }, // Connect to category by ID
+                brand: brand,
+                color: color,
+                category: { connect: { id: categoryId } },
                 updatedAt: new Date(),
             },
             include: {
@@ -148,8 +147,8 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
             ...updatedProduct,
             price: parseFloat(updatedProduct.price.toString()),
             offerPrice: updatedProduct.offerPrice ? parseFloat(updatedProduct.offerPrice.toString()) : null,
-            imgUrl: [], // Initialiser pour le parsing
-            // categoryId est omis car 'category' est inclus
+            imgUrl: [],
+            visible: updatedProduct.visible,
         };
 
         if (updatedProduct.imgUrl) {
@@ -180,8 +179,81 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
                 return NextResponse.json({ success: false, message: 'Un produit avec ce nom existe déjà.' }, { status: 409 });
             }
         }
-        const errorMessage = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ success: false, message: `Erreur serveur lors de la mise à jour du produit : ${errorMessage}` }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
+    }
+}
+
+// --- PATCH (Mise à jour partielle inline: stock, price, visible) ---
+export async function PATCH(req: NextRequest, context: RouteContext): Promise<NextResponse> {
+    const authResult: AuthResult = await authorizeAdminRequest(req);
+    if (!authResult.authorized) {
+        return authResult.response!;
+    }
+
+    const { id } = await context.params;
+    if (!id) {
+        return NextResponse.json({ success: false, message: 'ID du produit manquant.' }, { status: 400 });
+    }
+
+    try {
+        const body = await req.json() as Record<string, unknown>;
+        const data: Record<string, unknown> = {};
+
+        if (body.stock !== undefined) {
+            data.stock = Number(body.stock);
+        }
+        if (body.price !== undefined) {
+            data.price = new Decimal(Number(body.price));
+        }
+        if (body.offerPrice !== undefined) {
+            data.offerPrice = body.offerPrice !== null ? new Decimal(Number(body.offerPrice)) : null;
+        }
+        if (body.visible !== undefined) {
+            data.visible = Boolean(body.visible);
+        }
+        if (body.name !== undefined) {
+            data.name = String(body.name);
+        }
+
+        if (Object.keys(data).length === 0) {
+            return NextResponse.json({ success: false, message: 'Aucun champ à mettre à jour.' }, { status: 400 });
+        }
+
+        data.updatedAt = new Date();
+
+        const updatedProduct = await prisma.product.update({
+            where: { id },
+            data,
+            include: { category: true },
+        });
+
+        const responseProduct: ApiResponseProduct = {
+            ...updatedProduct,
+            price: parseFloat(updatedProduct.price.toString()),
+            offerPrice: updatedProduct.offerPrice ? parseFloat(updatedProduct.offerPrice.toString()) : null,
+            imgUrl: [],
+            visible: updatedProduct.visible,
+        };
+
+        if (updatedProduct.imgUrl) {
+            try {
+                const parsed = JSON.parse(updatedProduct.imgUrl);
+                if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+                    responseProduct.imgUrl = parsed;
+                } else if (typeof parsed === 'string') {
+                    responseProduct.imgUrl = [parsed];
+                }
+            } catch {
+                if (typeof updatedProduct.imgUrl === 'string') {
+                    responseProduct.imgUrl = [updatedProduct.imgUrl];
+                }
+            }
+        }
+
+        return NextResponse.json({ success: true, product: responseProduct }, { status: 200 });
+    } catch (_error: unknown) {
+        console.error('Erreur lors de la mise à jour partielle du produit:', _error);
+        return NextResponse.json({ success: false, message: 'Erreur serveur.' }, { status: 500 });
     }
 }
 
@@ -192,7 +264,7 @@ export async function DELETE(req: NextRequest, context: RouteContext): Promise<N
         return authResult.response!;
     }
 
-    const { id } = context.params;
+    const { id } = await context.params;
 
     if (!id) {
         return NextResponse.json({ success: false, message: 'ID du produit manquant.' }, { status: 400 });
@@ -218,7 +290,6 @@ export async function DELETE(req: NextRequest, context: RouteContext): Promise<N
                 }, { status: 409 });
             }
         }
-        const errorMessage = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ success: false, message: `Erreur serveur lors de la suppression : ${errorMessage}` }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }

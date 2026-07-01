@@ -9,8 +9,7 @@ import { UserRole } from "@/lib/types"; // <-- IMPORTATION CRUCIALE DE VOTRE ENU
 declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id: string;
-    role: UserRole; // Utilise l'enum UserRole importée
-    accessToken: string; // Le token d'accès personnalisé
+    role: UserRole;
     name: string;
     email: string;
     firstName: string;
@@ -21,11 +20,10 @@ declare module "next-auth/jwt" {
 declare module "next-auth" {
   // IMPORTANT : Utiliser 'extends DefaultSession' pour augmenter le type de session par défaut
   interface Session extends DefaultSession {
-    user: User & { // L'objet 'user' dans la session aura toutes les propriétés de 'User' PLUS 'token'
-      token: string; // C'est ici que le token d'accès est attaché à la session
-      role: UserRole; // Ajouté pour être cohérent avec JWT
-      firstName: string; // Ajouté pour être cohérent
-      lastName: string; // Ajouté pour être cohérent
+    user: User & {
+      role: UserRole;
+      firstName: string;
+      lastName: string;
     };
   }
 

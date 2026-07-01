@@ -45,7 +45,7 @@ export default function StudentInstallmentRequestModal({
   if (!isOpen) return null;
 
   const updateField = (
-    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));

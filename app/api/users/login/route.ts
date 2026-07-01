@@ -2,21 +2,17 @@
 // Cette route gère la connexion des utilisateurs.
 
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma'; // Importez votre client Prisma
+import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-// L'import de 'pool' n'est plus nécessaire
+import { loginSchema } from '@/lib/validation';
+import { ZodError } from 'zod';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
     // La variable 'connection' n'est plus nécessaire avec Prisma
     try {
-        const { email, password } = await req.json();
-
-        if (!email || !password) {
-            return NextResponse.json(
-                { message: "L'email et le mot de passe sont requis." },
-                { status: 400 }
-            );
-        }
+        const body = await req.json();
+        const parsed = loginSchema.parse(body);
+        const { email, password } = parsed;
 
         // Utiliser Prisma pour trouver l'utilisateur par email
         const user = await prisma.user.findUnique({
@@ -61,11 +57,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             { message: 'Connexion réussie !', user: userWithoutPassword },
             { status: 200 }
         );
-    } catch (_error: unknown) { // Renommé 'error' en '_error'
+    } catch (_error: unknown) {
+        if (_error instanceof ZodError) {
+            return NextResponse.json(
+                { message: _error.issues[0].message },
+                { status: 400 }
+            );
+        }
         console.error("Erreur lors de la connexion de l'utilisateur:", _error);
-        const errorMessage = _error instanceof Error ? _error.message : 'Erreur interne du serveur.';
         return NextResponse.json(
-            { message: 'Erreur interne du serveur.', error: errorMessage },
+            { message: "Erreur serveur. Veuillez réessayer plus tard." },
             { status: 500 }
         );
     }

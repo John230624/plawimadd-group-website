@@ -3,13 +3,12 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import prisma from '@/lib/prisma'; // Importez votre client Prisma
+import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { validatePassword } from '@/lib/passwordPolicy';
 
-// L'ID de l'utilisateur est un String (UUID) dans votre schema.prisma
 interface UserWithResetToken {
     id: string;
-    // CORRECTION ICI: resetPasswordExpires peut être Date ou null selon votre schema.prisma
     resetPasswordExpires: Date | null;
 }
 
@@ -22,7 +21,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
         const { token, newPassword }: ResetPasswordRequestBody = await req.json();
 
-        // 1. Validation de l'entrée
         if (!token || !newPassword) {
             return NextResponse.json(
                 { message: 'Le jeton de réinitialisation et le nouveau mot de passe sont requis.' },
@@ -30,9 +28,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             );
         }
 
-        if (newPassword.length < 6) {
+        const passwordCheck = validatePassword(newPassword);
+        if (!passwordCheck.valid) {
             return NextResponse.json(
-                { message: 'Le nouveau mot de passe doit contenir au moins 6 caractères.' },
+                { message: passwordCheck.message },
                 { status: 400 }
             );
         }
@@ -78,9 +77,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         );
     } catch (_error: unknown) {
         console.error('Erreur lors de la réinitialisation du mot de passe:', _error);
-        const errorMessage = _error instanceof Error ? _error.message : 'Erreur inconnue.';
         return NextResponse.json(
-            { message: `Erreur interne du serveur lors de la réinitialisation du mot de passe : ${errorMessage}` },
+            { message: "Erreur serveur. Veuillez réessayer plus tard." },
             { status: 500 }
         );
     }

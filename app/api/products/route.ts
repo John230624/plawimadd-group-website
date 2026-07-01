@@ -3,6 +3,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { productSchema } from '@/lib/validation';
+import { ZodError } from 'zod';
 
 import { Decimal, PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
@@ -29,8 +31,17 @@ type ProductWithRelations = {
     updatedAt: Date;
     offerPrice: Decimal | null;
     rating: number | null; // Ajouté pour correspondre au schéma Prisma
-    brand: string | null; // Ajouté pour correspondre au schéma Prisma
-    color: string | null; // Ajouté pour correspondre au schéma Prisma
+    brand: string | null;
+    color: string | null;
+    visible: boolean;
+    weight: number | null;
+    length: number | null;
+    width: number | null;
+    height: number | null;
+    costPrice: Decimal | null;
+    metaTitle: string | null;
+    metaDescription: string | null;
+    tags: string | null;
     categoryId: string;
     category: CategoryFromPrisma;
     reviews: { rating: number }[];
@@ -44,11 +55,19 @@ interface ProductRequest {
     offerPrice?: number | null;
     stock: number;
     imgUrl: string | string[];
-    brand?: string | null; // Ajouté pour le POST
-    color?: string | null; // Ajouté pour le POST
+    brand?: string | null;
+    color?: string | null;
+    visible?: boolean;
+    weight?: number | null;
+    length?: number | null;
+    width?: number | null;
+    height?: number | null;
+    costPrice?: number | null;
+    metaTitle?: string | null;
+    metaDescription?: string | null;
+    tags?: string[] | null;
 }
 
-// Type pour le produit tel qu'il sera retourné par l'API (après formatage)
 type ApiResponseProduct = {
     id: string;
     name: string;
@@ -56,7 +75,7 @@ type ApiResponseProduct = {
     price: number;
     offerPrice: number | null;
     stock: number;
-    imgUrl: string[]; // Tableau de chaînes pour le client
+    imgUrl: string[];
     createdAt: Date;
     updatedAt: Date;
     category: {
@@ -64,8 +83,17 @@ type ApiResponseProduct = {
         name: string;
     };
     rating: number | null;
-    brand: string | null; // Ajouté pour la réponse API
-    color: string | null; // Ajouté pour la réponse API
+    brand: string | null;
+    color: string | null;
+    visible: boolean;
+    weight: number | null;
+    length: number | null;
+    width: number | null;
+    height: number | null;
+    costPrice: number | null;
+    metaTitle: string | null;
+    metaDescription: string | null;
+    tags: string[] | null;
 };
 
 
@@ -135,62 +163,63 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     try {
-        const { name, description, category, price, offerPrice, stock, imgUrl, brand, color } = await req.json() as ProductRequest;
-
-        if (!name || !description || !category || price === undefined || stock === undefined || !imgUrl) {
-            return NextResponse.json(
-                { message: 'Tous les champs obligatoires (nom, description, catégorie, prix, stock, URL image) sont requis.' },
-                { status: 400 }
-            );
-        }
+        const body = await req.json() as ProductRequest;
+        const parsed = productSchema.omit({ categoryId: true }).parse(body);
+        const { name, description, price, offerPrice, stock, imgUrl, brand, color } = parsed;
+        const { category, visible, weight, length: dimLength, width, height, costPrice, metaTitle, metaDescription, tags } = body;
 
         const finalOfferPrice =
             (offerPrice !== undefined && offerPrice !== null && offerPrice > 0)
                 ? new Decimal(offerPrice)
                 : null;
 
-        // Appelez parseImgUrl pour obtenir le tableau propre,
-        // puis stringifiez-le UNE SEULE FOIS pour la base de données.
         const cleanedImgUrlArray = parseImgUrl(Array.isArray(imgUrl) ? JSON.stringify(imgUrl) : String(imgUrl));
-        const imgUrlToSave = JSON.stringify(cleanedImgUrlArray); // Stringifier une seule fois
+        const imgUrlToSave = JSON.stringify(cleanedImgUrlArray);
 
-
-        // --- GESTION DE LA CATÉGORIE ---
         let existingCategory = await prisma.category.findUnique({
             where: { name: category },
         });
 
         if (!existingCategory) {
             existingCategory = await prisma.category.create({
-                data: {
-                    name: category,
-                },
+                data: { name: category },
             });
-            console.log(`Catégorie "${category}" créée.`);
         }
         const categoryId = existingCategory.id;
-        // --- FIN GESTION DE LA CATÉGORIE ---
+
+        const finalCostPrice =
+            costPrice !== undefined && costPrice !== null && costPrice > 0
+                ? new Decimal(costPrice)
+                : null;
+
+        const tagsToSave = tags && tags.length > 0 ? JSON.stringify(tags) : null;
 
         const newProduct = await prisma.product.create({
             data: {
-                name: name,
-                description: description,
-                category: {
-                    connect: { id: categoryId },
-                },
+                name,
+                description,
+                category: { connect: { id: categoryId } },
                 price: new Decimal(price),
                 offerPrice: finalOfferPrice,
-                stock: stock,
-                imgUrl: imgUrlToSave, // Utilise la chaîne JSON propre
+                stock,
+                imgUrl: imgUrlToSave,
                 brand: brand || null,
                 color: color || null,
+                visible: visible !== undefined ? visible : true,
+                weight: weight || null,
+                length: dimLength || null,
+                width: width || null,
+                height: height || null,
+                costPrice: finalCostPrice,
+                metaTitle: metaTitle || null,
+                metaDescription: metaDescription || null,
+                tags: tagsToSave,
             },
-            include: {
-                category: true,
-            },
+            include: { category: true },
         });
 
         const parsedImgUrls = parseImgUrl(newProduct.imgUrl);
+        const parsedTags = newProduct.tags ? (() => { try { const t = JSON.parse(newProduct.tags); return Array.isArray(t) ? t : null; } catch { return null; } })() : null;
 
         const responseNewProduct: ApiResponseProduct = {
             id: newProduct.id,
@@ -202,13 +231,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             createdAt: newProduct.createdAt,
             updatedAt: newProduct.updatedAt,
             imgUrl: parsedImgUrls,
-            category: {
-                id: newProduct.category.id,
-                name: newProduct.category.name,
-            },
+            category: { id: newProduct.category.id, name: newProduct.category.name },
             rating: newProduct.rating,
             brand: newProduct.brand,
             color: newProduct.color,
+            visible: newProduct.visible,
+            weight: newProduct.weight,
+            length: newProduct.length,
+            width: newProduct.width,
+            height: newProduct.height,
+            costPrice: newProduct.costPrice ? parseFloat(newProduct.costPrice.toString()) : null,
+            metaTitle: newProduct.metaTitle,
+            metaDescription: newProduct.metaDescription,
+            tags: parsedTags,
         };
 
         return NextResponse.json(
@@ -217,24 +252,38 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         );
 
     } catch (error: unknown) {
+        if (error instanceof ZodError) {
+            return NextResponse.json(
+                { message: error.issues[0].message },
+                { status: 400 }
+            );
+        }
         console.error('Erreur lors de l\'ajout du produit:', error);
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {
                 return NextResponse.json({ success: false, message: 'Un produit avec ces caractéristiques existe déjà.' }, { status: 409 });
             }
         }
-        const errorMessage = error instanceof Error ? error.message : String(error);
         return NextResponse.json(
-            { message: `Erreur serveur lors de l'ajout du produit : ${errorMessage}` },
+            { message: "Erreur serveur. Veuillez réessayer plus tard." },
             { status: 500 }
         );
     }
 }
 
 // --- GET (Récupérer tous les produits) ---
-export async function GET(_req: NextRequest): Promise<NextResponse> {
+export async function GET(req: NextRequest): Promise<NextResponse> {
     try {
+        const { searchParams } = req.nextUrl;
+        const sortBy = searchParams.get('sortBy') || 'createdAt';
+        const sortOrder = searchParams.get('sortOrder') || 'desc';
+
+        const allowedSortFields = ['name', 'price', 'stock', 'createdAt', 'updatedAt', 'brand'];
+        const field = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+        const order = sortOrder === 'asc' ? 'asc' : 'desc';
+
         const products = await prisma.product.findMany({
+            orderBy: { [field]: order },
             include: {
                 category: true,
                 reviews: true,
@@ -245,8 +294,8 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
             const totalRating = product.reviews.reduce((sum, review) => sum + review.rating, 0);
             const averageRating = product.reviews.length > 0 ? totalRating / product.reviews.length : null;
 
-            // Utilisez la fonction d'aide pour parser product.imgUrl avant de l'assigner
             const parsedImgUrls = parseImgUrl(product.imgUrl);
+            const parsedTags = product.tags ? (() => { try { const t = JSON.parse(product.tags); return Array.isArray(t) ? t : null; } catch { return null; } })() : null;
 
             const formattedProduct: ApiResponseProduct = {
                 id: product.id,
@@ -257,14 +306,20 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
                 updatedAt: product.updatedAt,
                 price: parseFloat(product.price.toString()),
                 offerPrice: product.offerPrice ? parseFloat(product.offerPrice.toString()) : null,
-                imgUrl: parsedImgUrls, // Assignez le tableau parsé ici
-                category: {
-                    id: product.category.id,
-                    name: product.category.name,
-                },
+                imgUrl: parsedImgUrls,
+                category: { id: product.category.id, name: product.category.name },
                 rating: averageRating,
                 brand: product.brand,
                 color: product.color,
+                visible: product.visible,
+                weight: product.weight,
+                length: product.length,
+                width: product.width,
+                height: product.height,
+                costPrice: product.costPrice ? parseFloat(product.costPrice.toString()) : null,
+                metaTitle: product.metaTitle,
+                metaDescription: product.metaDescription,
+                tags: parsedTags,
             };
             return formattedProduct;
         });
@@ -274,9 +329,8 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
 
     } catch (error: unknown) {
         console.error('Erreur lors de la récupération des produits:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
         return NextResponse.json(
-            { success: false, message: `Erreur serveur lors de la récupération des produits : ${errorMessage}` },
+            { success: false, message: "Erreur serveur. Veuillez réessayer plus tard." },
             { status: 500 }
         );
     }

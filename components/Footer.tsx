@@ -25,18 +25,18 @@ const fixedCategories: string[] = [
   "Ordinateurs",
 ];
 
-const logoWidth = 128;
-const logoHeight = 128;
+const logoWidth = 600;
+const logoHeight = 150;
 
 export default function Footer() {
   return (
     <footer className="bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-gray-300 rounded-t-xl shadow-lg">
-      <div className="container mx-auto px-6 py-12 lg:py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+      <div className="container mx-auto p-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0">
           {/* Logo + Présentation */}
-          <div className="flex flex-col items-start space-y-4 lg:pr-4">
+          <div className="flex flex-col items-start space-y-0">
             <Image
-              className="w-32 rounded-lg shadow-lg transition-transform duration-300 transform hover:scale-105"
+              className="h-auto w-44 rounded-lg shadow-lg transition-transform duration-300 transform hover:scale-105 md:w-56"
               src={assets.logo as StaticImageData}
               alt="Company Logo"
               width={logoWidth}

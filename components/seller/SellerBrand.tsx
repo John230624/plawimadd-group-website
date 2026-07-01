@@ -2,10 +2,13 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface SellerBrandProps {
   compact?: boolean;
 }
+
+// Note: Les styles dark-theme sont appliqués via la classe .dark-theme du parent
 
 export default function SellerBrand({
   compact = false,
@@ -13,12 +16,19 @@ export default function SellerBrand({
   return (
     <Link
       href="/seller"
-      className={`inline-flex items-baseline whitespace-nowrap font-['Playwrite_PL',cursive] leading-none tracking-[-0.025em] text-slate-950 ${
-        compact ? 'text-[0.96rem]' : 'text-[1.08rem]'
-      }`}
+      aria-label="Retour au tableau de bord vendeur"
+      className="flex h-full w-full items-center justify-center overflow-hidden"
     >
-      <span className="text-slate-600">Plawimadd</span>
-      <span className="ml-1 text-[var(--brand-800)]">Group</span>
+      <Image
+        src="/images/seller-logo.svg"
+        alt="Plawimadd Group"
+        width={248}
+        height={40}
+        priority
+        className={`max-w-full object-contain brightness-0 invert ${
+          compact ? 'w-[166px]' : 'w-[190px] md:w-[205px]'
+        }`}
+      />
     </Link>
   );
 }

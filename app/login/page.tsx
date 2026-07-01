@@ -37,7 +37,6 @@ export default function LoginPage(): React.ReactElement {
                     name: session.user.name || null,
                     email: session.user.email || null,
                     image: session.user.image || null,
-                    token: session.user.token, // Direct access, no more 'as any'
                     role: session.user.role,   // Direct access, no more 'as any'
                 };
                 setCurrentUser(userFromSession);

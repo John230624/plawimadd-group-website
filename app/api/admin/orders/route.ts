@@ -149,9 +149,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json(formattedOrders, { status: 200 });
 
     } catch (_error: unknown) {
-        const message = _error instanceof Error ? _error.message : String(_error);
         console.error('Erreur GET commandes:', _error);
-        return NextResponse.json({ message: 'Erreur serveur lors de la récupération des commandes.', error: message }, { status: 500 });
+        return NextResponse.json({ message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }
 
@@ -185,9 +184,8 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
 
         return NextResponse.json({ success: true, message: 'Statut de la commande mis à jour.', order: updatedOrder }, { status: 200 });
     } catch (_error: unknown) {
-        const message = _error instanceof Error ? _error.message : String(_error);
         console.error('Erreur PUT commande:', _error);
-        return NextResponse.json({ success: false, message: 'Erreur serveur lors de la mise à jour du statut de la commande.', error: message }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }
 
@@ -232,7 +230,6 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
         ) {
             return NextResponse.json({ success: false, message: 'Commande non trouvée.' }, { status: 404 });
         }
-        const message = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ success: false, message: 'Erreur serveur lors de la suppression de la commande.', error: message }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }

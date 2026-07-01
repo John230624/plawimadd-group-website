@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeUser, AuthResult } from '@/lib/authUtils';
+import { addressSchema } from '@/lib/validation';
+import { ZodError } from 'zod';
 
 interface Context {
-  params: {
+  params: Promise<{
     userId: string;
-  };
+  }>;
 }
 
 // Structure de données de l'adresse (Doit correspondre au schéma Prisma)
@@ -59,18 +61,9 @@ export async function POST(req: NextRequest, context: Context): Promise<NextResp
 
   try {
     const data: AddressPayload = await req.json();
+    const parsed = addressSchema.parse(data);
 
-    // Validation basique: Ajout d'une vérification stricte pour les champs requis
-    if (!data.fullName || !data.phoneNumber || !data.area || !data.city || !data.state) {
-      // ⚠️ IMPORTANT: Ceci attrape les erreurs si le formulaire côté client n'envoie pas ces champs.
-      return NextResponse.json(
-        { success: false, message: 'Champs obligatoires manquants: fullName, phoneNumber, area, city, state.' },
-        { status: 400 }
-      );
-    }
-
-    // Si adresse par défaut, retirer le default sur les autres
-    if (data.isDefault) {
+    if (parsed.isDefault) {
       await prisma.address.updateMany({
         where: { userId, isDefault: true },
         data: { isDefault: false },
@@ -80,15 +73,15 @@ export async function POST(req: NextRequest, context: Context): Promise<NextResp
     const newAddress = await prisma.address.create({
       data: {
         userId,
-        fullName: data.fullName,
-        phoneNumber: data.phoneNumber,
-        pincode: data.pincode ?? null, // Utilisation de ?? pour s'assurer que si undefined, c'est null
-        area: data.area,
-        city: data.city,
-        state: data.state,
-        street: data.street ?? null,
-        country: data.country ?? 'Unknown',
-        isDefault: data.isDefault ?? false,
+        fullName: parsed.fullName,
+        phoneNumber: parsed.phoneNumber,
+        pincode: parsed.pincode ?? null,
+        area: parsed.area,
+        city: parsed.city,
+        state: parsed.state,
+        street: parsed.street ?? null,
+        country: parsed.country ?? 'Unknown',
+        isDefault: parsed.isDefault ?? false,
       },
     });
 
@@ -97,10 +90,15 @@ export async function POST(req: NextRequest, context: Context): Promise<NextResp
       { status: 201 }
     );
   } catch (error) {
-    // ⚠️ Très important pour le débogage côté serveur
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { success: false, message: error.issues[0].message },
+        { status: 400 }
+      );
+    }
     console.error('Erreur ajout adresse Prisma:', error); 
     return NextResponse.json(
-      { success: false, message: 'Erreur serveur lors de l’ajout de l’adresse.' },
+      { success: false, message: 'Erreur serveur lors de l\u2019ajout de l\u2019adresse.' },
       { status: 500 }
     );
   }
@@ -117,33 +115,35 @@ export async function PUT(req: NextRequest, context: Context): Promise<NextRespo
 
   try {
     const data: AddressPayload = await req.json();
+    const { id: addressId, ...rest } = data;
+    const parsed = addressSchema.parse(rest);
 
-    if (!data.id || !data.fullName || !data.phoneNumber || !data.area || !data.city || !data.state) {
+    if (!addressId) {
       return NextResponse.json(
-        { success: false, message: 'ID et champs obligatoires manquants.' },
+        { success: false, message: 'ID requis.' },
         { status: 400 }
       );
     }
 
-    if (data.isDefault) {
+    if (parsed.isDefault) {
       await prisma.address.updateMany({
-        where: { userId, isDefault: true, NOT: { id: data.id } },
+        where: { userId, isDefault: true, NOT: { id: addressId } },
         data: { isDefault: false },
       });
     }
 
     const updated = await prisma.address.updateMany({
-      where: { id: data.id, userId },
+      where: { id: addressId, userId },
       data: {
-        fullName: data.fullName,
-        phoneNumber: data.phoneNumber,
-        pincode: data.pincode ?? null,
-        area: data.area,
-        city: data.city,
-        state: data.state,
-        street: data.street ?? null,
-        country: data.country ?? 'Unknown',
-        isDefault: data.isDefault ?? false,
+        fullName: parsed.fullName,
+        phoneNumber: parsed.phoneNumber,
+        pincode: parsed.pincode ?? null,
+        area: parsed.area,
+        city: parsed.city,
+        state: parsed.state,
+        street: parsed.street ?? null,
+        country: parsed.country ?? 'Unknown',
+        isDefault: parsed.isDefault ?? false,
       },
     });
 
@@ -153,6 +153,12 @@ export async function PUT(req: NextRequest, context: Context): Promise<NextRespo
 
     return NextResponse.json({ success: true, message: 'Adresse mise à jour.' }, { status: 200 });
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { success: false, message: error.issues[0].message },
+        { status: 400 }
+      );
+    }
     console.error('Erreur mise à jour adresse:', error);
     return NextResponse.json(
       { success: false, message: 'Erreur serveur lors de la mise à jour.' },

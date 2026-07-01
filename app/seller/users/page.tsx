@@ -3,15 +3,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
-import { Mail, Search, ShieldCheck, UserRound, Users } from 'lucide-react';
+import {
+  Ban, CheckCircle, Eye, Mail, Pencil, Plus, Search, ShieldCheck,
+  Trash2, UserRound, Users, XCircle, MapPin, ShoppingCart, Star,
+  GraduationCap, Package, CreditCard, Clock, ChevronDown, ChevronUp
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 
-import Footer from '@/components/seller/Footer';
-import SellerEmptyState from '@/components/seller/SellerEmptyState';
+import SellerModal from '@/components/seller/SellerModal';
+import SellerPagination from '@/components/seller/SellerPagination';
 import SellerPanel from '@/components/seller/SellerPanel';
-import SellerSectionHeader from '@/components/seller/SellerSectionHeader';
-import SellerSelect from '@/components/seller/SellerSelect';
-import SellerStatCard from '@/components/seller/SellerStatCard';
+import StatCard from '@/components/seller/StatCard';
 import Loading from '@/components/Loading';
 import { UserRole } from '@/lib/types';
 
@@ -22,8 +24,101 @@ interface AdminUser {
   lastName?: string;
   email: string;
   phoneNumber?: string | null;
-  createdAt: string;
   role?: string;
+  banned: boolean;
+  bannedAt?: string | null;
+  createdAt: string;
+}
+
+interface AddressInfo {
+  id: string;
+  fullName: string;
+  phoneNumber: string;
+  area: string;
+  city: string;
+  state: string;
+  country: string;
+  street: string | null;
+  pincode: string | null;
+  isDefault: boolean;
+}
+
+interface CartItemInfo {
+  id: string;
+  quantity: number;
+  product: { id: string; name: string; price: number };
+}
+
+interface OrderInfo {
+  id: string;
+  totalAmount: number;
+  status: string;
+  paymentStatus: string;
+  createdAt: string;
+  currency: string;
+  orderItems: {
+    id: string;
+    quantity: number;
+    priceAtOrder: number;
+    product: { id: string; name: string };
+  }[];
+}
+
+interface ReviewInfo {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  product: { id: string; name: string };
+}
+
+interface StudentRequestInfo {
+  id: string;
+  fullName: string;
+  schoolName: string;
+  studentEmail: string;
+  status: string;
+  requestedMonths: number;
+  createdAt: string;
+}
+
+interface UserDetail extends AdminUser {
+  addresses: AddressInfo[];
+  cartItems: CartItemInfo[];
+  orders: OrderInfo[];
+  reviews: ReviewInfo[];
+  studentInstallmentRequests: StudentRequestInfo[];
+  totalOrders: number;
+  totalReviews: number;
+  totalAddresses: number;
+  cartValue: number;
+}
+
+type StatusFilter = 'ALL' | 'ACTIVE' | 'BANNED';
+type ModalMode = 'create' | 'edit' | 'view' | 'confirm' | null;
+
+interface FormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  role: 'USER' | 'ADMIN';
+  password: string;
+}
+
+const pageSize = 10;
+
+const emptyForm: FormData = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phoneNumber: '',
+  role: 'USER',
+  password: '',
+};
+
+function getDisplayName(user: AdminUser): string {
+  return user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Utilisateur';
 }
 
 export default function UserManagementPage(): React.ReactElement {
@@ -32,6 +127,16 @@ export default function UserManagementPage(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'USER' | 'ADMIN'>('USER');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [page, setPage] = useState(1);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [modalMode, setModalMode] = useState<ModalMode>(null);
+  const [formData, setFormData] = useState<FormData>(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'ban' | 'unban' | 'delete'; user: AdminUser } | null>(null);
+  const [userDetail, setUserDetail] = useState<UserDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
     if (status !== 'authenticated' || session?.user?.role !== UserRole.ADMIN) {
@@ -41,12 +146,11 @@ export default function UserManagementPage(): React.ReactElement {
 
     setLoading(true);
     try {
-      const query = roleFilter === 'ALL' ? '' : `?role=${roleFilter.toLowerCase()}`;
-      const response = await axios.get<AdminUser[]>(`/api/admin/users${query}`, {
-        headers: {
-          'auth-token': session.user.token,
-        },
-      });
+      const params = new URLSearchParams();
+      if (roleFilter !== 'ALL') params.set('role', roleFilter.toLowerCase());
+      if (statusFilter !== 'ALL') params.set('status', statusFilter.toLowerCase());
+      const query = params.toString() ? `?${params.toString()}` : '';
+      const response = await axios.get<AdminUser[]>(`/api/admin/users${query}`);
       setUsers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error(error);
@@ -54,11 +158,15 @@ export default function UserManagementPage(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [roleFilter, session?.user?.role, session?.user?.token, status]);
+  }, [roleFilter, statusFilter, session?.user?.role, status]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, roleFilter, statusFilter]);
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
@@ -70,19 +178,163 @@ export default function UserManagementPage(): React.ReactElement {
       ]
         .join(' ')
         .toLowerCase();
-
       return haystack.includes(searchTerm.toLowerCase());
     });
   }, [searchTerm, users]);
 
+  const paginatedUsers = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredUsers.slice(start, start + pageSize);
+  }, [filteredUsers, page]);
+
   const customerCount = useMemo(
-    () => users.filter((user) => (user.role || 'USER').toUpperCase() === 'USER').length,
+    () => users.filter((u) => (u.role || 'USER').toUpperCase() === 'USER').length,
     [users]
   );
   const adminCount = useMemo(
-    () => users.filter((user) => (user.role || '').toUpperCase() === 'ADMIN').length,
+    () => users.filter((u) => (u.role || '').toUpperCase() === 'ADMIN').length,
     [users]
   );
+
+  function openCreate() {
+    setFormData(emptyForm);
+    setSelectedUser(null);
+    setModalMode('create');
+  }
+
+  function openEdit(user: AdminUser) {
+    setSelectedUser(user);
+    setFormData({
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      email: user.email,
+      phoneNumber: user.phoneNumber || '',
+      role: (user.role as 'USER' | 'ADMIN') || 'USER',
+      password: '',
+    });
+    setModalMode('edit');
+  }
+
+  function openView(user: AdminUser) {
+    setSelectedUser(user);
+    setModalMode('view');
+    setExpandedSection(null);
+    setLoadingDetail(true);
+    setUserDetail(null);
+    axios.get<UserDetail>(`/api/admin/users/${user.id}`)
+      .then((res) => setUserDetail(res.data))
+      .catch(() => toast.error('Erreur lors du chargement des détails.'))
+      .finally(() => setLoadingDetail(false));
+  }
+
+  function closeModal() {
+    setModalMode(null);
+    setSelectedUser(null);
+    setFormData(emptyForm);
+    setConfirmAction(null);
+    setUserDetail(null);
+    setLoadingDetail(false);
+    setExpandedSection(null);
+  }
+
+  async function handleCreate() {
+    if (!formData.email || !formData.password) {
+      toast.error('Email et mot de passe sont requis.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await axios.post('/api/admin/users', formData);
+      toast.success('Utilisateur créé avec succès.');
+      closeModal();
+      fetchUsers();
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error("Erreur lors de la création de l'utilisateur.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleUpdate() {
+    if (!selectedUser) return;
+    setSubmitting(true);
+    try {
+      const payload: Record<string, unknown> = {
+        id: selectedUser.id,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+        role: formData.role,
+      };
+      await axios.patch('/api/admin/users', payload);
+      toast.success('Utilisateur modifié avec succès.');
+      closeModal();
+      fetchUsers();
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error("Erreur lors de la modification de l'utilisateur.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleBanToggle(user: AdminUser) {
+    setSubmitting(true);
+    try {
+      await axios.patch('/api/admin/users', { id: user.id, banned: !user.banned });
+      toast.success(user.banned ? 'Utilisateur débanni avec succès.' : 'Utilisateur banni avec succès.');
+      closeModal();
+      fetchUsers();
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error("Erreur lors de la mise à jour du statut.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(user: AdminUser) {
+    setSubmitting(true);
+    try {
+      await axios.delete('/api/admin/users', { data: { id: user.id } });
+      toast.success('Utilisateur supprimé avec succès.');
+      closeModal();
+      fetchUsers();
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error("Erreur lors de la suppression de l'utilisateur.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function openConfirm(type: 'ban' | 'unban' | 'delete', user: AdminUser) {
+    setConfirmAction({ type, user });
+    setModalMode('confirm');
+  }
+
+  function handleConfirm() {
+    if (!confirmAction) return;
+    if (confirmAction.type === 'delete') {
+      handleDelete(confirmAction.user);
+    } else {
+      handleBanToggle(confirmAction.user);
+    }
+  }
 
   if (loading) {
     return (
@@ -93,131 +345,215 @@ export default function UserManagementPage(): React.ReactElement {
   }
 
   return (
-    <div className="flex min-h-full flex-col">
-      <SellerSectionHeader
-        eyebrow="Relations clients"
-        title="Gestion des clients"
-        description="Consultez les comptes clients, retrouvez rapidement un profil et gardez un suivi simple des inscriptions."
-      />
+    <div className="flex min-h-full flex-col gap-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-700 text-[var(--text-primary)]">Utilisateurs</h1>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">Gestion des clients et administrateurs</p>
+        </div>
+        <button
+          onClick={openCreate}
+          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-600 text-white shadow-lg transition-all duration-300 hover:from-emerald-400 hover:to-cyan-400 hover:shadow-xl"
+        >
+          <Plus className="h-4 w-4" />
+          Nouvel utilisateur
+        </button>
+      </div>
 
-      <section className="mt-8 grid gap-5 md:grid-cols-3">
-        <SellerStatCard
-          title="Comptes affiches"
+      {/* Stats Grid */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard
+          title="Comptes affichés"
           value={String(users.length)}
-          description="Nombre de profils remontes avec le filtre actif."
+          description="Nombre de profils avec le filtre actif"
           icon={Users}
-          tone="blue"
         />
-        <SellerStatCard
+        <StatCard
           title="Clients"
           value={String(customerCount)}
-          description="Profils standards utilises pour l'achat et le suivi de commandes."
+          description="Profils standards pour l'achat"
           icon={UserRound}
-          tone="emerald"
         />
-        <SellerStatCard
+        <StatCard
           title="Admins"
           value={String(adminCount)}
-          description="Comptes de gestion avec acces a l'espace d'administration."
+          description="Comptes avec accès admin"
           icon={ShieldCheck}
-          tone="slate"
         />
-      </section>
+      </div>
 
-      <SellerPanel className="mt-6 p-5 md:p-6">
-        <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
+      {/* Filters */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex-1">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
               type="text"
+              placeholder="Rechercher par nom, email ou téléphone"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Rechercher par nom, email ou telephone"
-              className="w-full rounded-full border border-slate-200 bg-white px-11 py-3.5 text-sm text-slate-700 outline-none transition focus:border-[var(--brand-300)]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-4 py-2 pl-10 text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
             />
           </div>
-
-          <SellerSelect
-            value={roleFilter}
-            onChange={(value) => setRoleFilter(value as 'ALL' | 'USER' | 'ADMIN')}
-            options={[
-              { value: 'USER', label: 'Clients' },
-              { value: 'ADMIN', label: 'Admins' },
-              { value: 'ALL', label: 'Tous les roles' },
-            ]}
-          />
         </div>
-      </SellerPanel>
+        <div className="flex items-center gap-2">
+          {/* Status filter */}
+          <div className="flex items-center gap-1 rounded-xl p-0.5" style={{ backgroundColor: '#121212' }}>
+            {(['ALL', 'ACTIVE', 'BANNED'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-3 py-2 rounded-lg text-xs font-600 transition-all duration-300 ease-out whitespace-nowrap ${
+                  statusFilter === s
+                    ? s === 'BANNED'
+                      ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-md'
+                      : s === 'ACTIVE'
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md'
+                      : 'bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-md'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]/50'
+                }`}
+              >
+                {s === 'ALL' ? 'Tous' : s === 'ACTIVE' ? 'Actifs' : 'Bannis'}
+              </button>
+            ))}
+          </div>
+          {/* Role filter */}
+          <div className="flex items-center gap-1 rounded-xl p-0.5" style={{ backgroundColor: '#121212' }}>
+            {(['USER', 'ADMIN', 'ALL'] as const).map((role) => (
+              <button
+                key={role}
+                onClick={() => setRoleFilter(role)}
+                className={`px-4 py-2 rounded-lg text-xs font-600 transition-all duration-300 ease-out ${
+                  roleFilter === role
+                    ? role === 'ADMIN'
+                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg'
+                      : role === 'USER'
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md hover:shadow-lg'
+                      : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md hover:shadow-lg'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]/50'
+                }`}
+              >
+                {role === 'USER' ? 'Clients' : role === 'ADMIN' ? 'Admins' : 'Tous les rôles'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
-      <SellerPanel className="mt-6 overflow-hidden">
+      {/* Table */}
+      <SellerPanel className="overflow-hidden">
         {filteredUsers.length === 0 ? (
-          <div className="p-6">
-            <SellerEmptyState
-              title="Aucun profil trouve"
-              description="Aucun utilisateur ne correspond a votre recherche ou au filtre de role choisi."
-              icon={Users}
-            />
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="mb-4 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 p-4">
+              <Users className="h-12 w-12 text-purple-400" />
+            </div>
+            <p className="text-[var(--text-secondary)]">Aucun utilisateur trouvé</p>
+            <p className="text-xs text-[var(--text-tertiary)]">Aucun utilisateur ne correspond à votre recherche</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-left text-slate-500">
-                <tr>
-                  <th className="px-6 py-4 font-medium">Profil</th>
-                  <th className="px-6 py-4 font-medium">Contact</th>
-                  <th className="px-6 py-4 font-medium">Role</th>
-                  <th className="px-6 py-4 font-medium">Inscription</th>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border)]">
+                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Profil</th>
+                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Contact</th>
+                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Rôle</th>
+                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Statut</th>
+                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Inscription</th>
+                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user) => {
-                  const displayName =
-                    user.name ||
-                    `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
-                    'Utilisateur';
+                {paginatedUsers.map((user) => {
+                  const displayName = getDisplayName(user);
                   const role = (user.role || 'USER').toUpperCase();
 
                   return (
-                    <tr key={user.id} className="border-t border-slate-100">
+                    <tr key={user.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)] transition-smooth">
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(191,219,254,0.18)] text-[var(--brand-700)]">
-                            <UserRound className="h-5 w-5" />
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400">
+                            <UserRound className="h-4 w-4" />
                           </div>
                           <div>
-                            <p className="font-semibold text-slate-950">{displayName}</p>
-                            <p className="mt-1 text-xs text-slate-400">#{user.id.slice(0, 8)}</p>
+                            <p className="font-500 text-[var(--text-primary)]">{displayName}</p>
+                            <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">#{user.id.slice(0, 8)}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-1">
-                          <p className="flex items-center gap-2 text-slate-600">
-                            <Mail className="h-3.5 w-3.5 text-slate-400" />
+                          <p className="flex items-center gap-2 text-[var(--text-secondary)] text-xs">
+                            <Mail className="h-3.5 w-3.5 text-emerald-400" />
                             {user.email}
                           </p>
-                          <p className="text-xs text-slate-400">
-                            {user.phoneNumber || 'Telephone non renseigne'}
+                          <p className="text-xs text-[var(--text-tertiary)]">
+                            {user.phoneNumber || 'Non renseigné'}
                           </p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                            role === 'ADMIN'
-                              ? 'bg-[rgba(191,219,254,0.22)] text-[var(--brand-700)]'
-                              : 'bg-emerald-100 text-emerald-700'
-                          }`}
-                        >
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-500 ${
+                          role === 'ADMIN'
+                            ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-400'
+                            : 'bg-gradient-to-r from-green-500/20 to-emerald-600/20 text-green-400'
+                        }`}>
                           {role}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-slate-500">
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-500 ${
+                          user.banned
+                            ? 'bg-gradient-to-r from-red-500/20 to-rose-600/20 text-red-400'
+                            : 'bg-gradient-to-r from-green-500/20 to-emerald-600/20 text-green-400'
+                        }`}>
+                          {user.banned ? <XCircle className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />}
+                          {user.banned ? 'Banni' : 'Actif'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-[var(--text-tertiary)] text-xs">
                         {new Date(user.createdAt).toLocaleDateString('fr-FR', {
                           day: '2-digit',
-                          month: 'long',
+                          month: 'short',
                           year: 'numeric',
                         })}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => openView(user)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-transparent bg-gradient-to-r from-indigo-500/20 to-purple-500/20 px-2.5 py-1.5 text-xs font-500 text-indigo-400 transition-all duration-300 hover:from-indigo-500/30 hover:to-purple-500/30 hover:shadow-lg"
+                            title="Détails"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => openEdit(user)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-transparent bg-gradient-to-r from-amber-500/20 to-orange-500/20 px-2.5 py-1.5 text-xs font-500 text-amber-400 transition-all duration-300 hover:from-amber-500/30 hover:to-orange-500/30 hover:shadow-lg"
+                            title="Modifier"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => openConfirm(user.banned ? 'unban' : 'ban', user)}
+                            className={`inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-500 transition-all duration-300 hover:shadow-lg ${
+                              user.banned
+                                ? 'bg-gradient-to-r from-green-500/20 to-emerald-600/20 text-green-400 hover:from-green-500/30 hover:to-emerald-600/30'
+                                : 'bg-gradient-to-r from-red-500/20 to-rose-600/20 text-red-400 hover:from-red-500/30 hover:to-rose-600/30'
+                            }`}
+                            title={user.banned ? 'Débannir' : 'Bannir'}
+                          >
+                            {user.banned ? <CheckCircle className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => openConfirm('delete', user)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-transparent bg-gradient-to-r from-gray-500/20 to-slate-600/20 px-2.5 py-1.5 text-xs font-500 text-gray-400 transition-all duration-300 hover:from-gray-500/30 hover:to-slate-600/30 hover:shadow-lg"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -226,9 +562,474 @@ export default function UserManagementPage(): React.ReactElement {
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        {filteredUsers.length > 0 && (
+          <div className="border-t border-[var(--border)] px-6 py-4">
+            <SellerPagination
+              page={page}
+              pageSize={pageSize}
+              totalItems={filteredUsers.length}
+              onPageChange={setPage}
+            />
+          </div>
+        )}
       </SellerPanel>
 
-      <Footer />
+      {/* View Modal */}
+      <SellerModal
+        isOpen={modalMode === 'view'}
+        onClose={closeModal}
+        title={selectedUser ? getDisplayName(selectedUser) : 'Profil client'}
+        description="Toutes les informations liées au compte."
+      >
+        {loadingDetail ? (
+          <div className="flex items-center justify-center py-12">
+            <Loading />
+          </div>
+        ) : userDetail ? (
+          <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
+            {/* Info de base */}
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg bg-[var(--bg-outer)] p-3">
+                <p className="text-xs text-[var(--text-tertiary)]">Email</p>
+                <p className="mt-1 text-sm font-500 text-[var(--text-primary)] break-all">{userDetail.email}</p>
+              </div>
+              <div className="rounded-lg bg-[var(--bg-outer)] p-3">
+                <p className="text-xs text-[var(--text-tertiary)]">Téléphone</p>
+                <p className="mt-1 text-sm font-500 text-[var(--text-primary)]">{userDetail.phoneNumber || 'Non renseigné'}</p>
+              </div>
+              <div className="rounded-lg bg-[var(--bg-outer)] p-3">
+                <p className="text-xs text-[var(--text-tertiary)]">Rôle</p>
+                <div className="mt-1">
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-500 ${
+                    (userDetail.role || 'USER').toUpperCase() === 'ADMIN'
+                      ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-400'
+                      : 'bg-gradient-to-r from-green-500/20 to-emerald-600/20 text-green-400'
+                  }`}>
+                    {(userDetail.role || 'USER').toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-lg bg-[var(--bg-outer)] p-3">
+                <p className="text-xs text-[var(--text-tertiary)]">Statut</p>
+                <div className="mt-1">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-500 ${
+                    userDetail.banned
+                      ? 'bg-gradient-to-r from-red-500/20 to-rose-600/20 text-red-400'
+                      : 'bg-gradient-to-r from-green-500/20 to-emerald-600/20 text-green-400'
+                  }`}>
+                    {userDetail.banned ? <XCircle className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />}
+                    {userDetail.banned ? 'Banni' : 'Actif'}
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-lg bg-[var(--bg-outer)] p-3">
+                <p className="text-xs text-[var(--text-tertiary)]">Inscription</p>
+                <p className="mt-1 text-sm font-500 text-[var(--text-primary)]">
+                  {new Date(userDetail.createdAt).toLocaleDateString('fr-FR')}
+                </p>
+              </div>
+              {userDetail.bannedAt && (
+                <div className="rounded-lg bg-[var(--bg-outer)] p-3">
+                  <p className="text-xs text-[var(--text-tertiary)]">Banni le</p>
+                  <p className="mt-1 text-sm font-500 text-[var(--text-primary)]">
+                    {new Date(userDetail.bannedAt).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Stats rapides */}
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div className="rounded-lg bg-gradient-to-br from-blue-500/10 to-indigo-500/10 p-3 text-center">
+                <Package className="mx-auto h-5 w-5 text-blue-400" />
+                <p className="mt-1 text-lg font-700 text-[var(--text-primary)]">{userDetail.totalOrders}</p>
+                <p className="text-[10px] text-[var(--text-tertiary)]">Commandes</p>
+              </div>
+              <div className="rounded-lg bg-gradient-to-br from-emerald-500/10 to-green-500/10 p-3 text-center">
+                <MapPin className="mx-auto h-5 w-5 text-emerald-400" />
+                <p className="mt-1 text-lg font-700 text-[var(--text-primary)]">{userDetail.totalAddresses}</p>
+                <p className="text-[10px] text-[var(--text-tertiary)]">Adresses</p>
+              </div>
+              <div className="rounded-lg bg-gradient-to-br from-amber-500/10 to-orange-500/10 p-3 text-center">
+                <Star className="mx-auto h-5 w-5 text-amber-400" />
+                <p className="mt-1 text-lg font-700 text-[var(--text-primary)]">{userDetail.totalReviews}</p>
+                <p className="text-[10px] text-[var(--text-tertiary)]">Avis</p>
+              </div>
+              <div className="rounded-lg bg-gradient-to-br from-purple-500/10 to-pink-500/10 p-3 text-center">
+                <ShoppingCart className="mx-auto h-5 w-5 text-purple-400" />
+                <p className="mt-1 text-lg font-700 text-[var(--text-primary)]">
+                  {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF' }).format(userDetail.cartValue || 0)}
+                </p>
+                <p className="text-[10px] text-[var(--text-tertiary)]">Panier</p>
+              </div>
+            </div>
+
+            {/* Sections dépliables */}
+            <div className="space-y-2">
+              {/* Adresses */}
+              <SectionBlock
+                title="Adresses"
+                icon={MapPin}
+                count={userDetail.addresses.length}
+                isOpen={expandedSection === 'addresses'}
+                onToggle={() => setExpandedSection(expandedSection === 'addresses' ? null : 'addresses')}
+              >
+                {userDetail.addresses.length === 0 ? (
+                  <p className="py-3 text-center text-xs text-[var(--text-tertiary)]">Aucune adresse enregistrée</p>
+                ) : (
+                  <div className="space-y-2">
+                    {userDetail.addresses.map((addr) => (
+                      <div key={addr.id} className="rounded-lg border border-[var(--border)] p-3 text-xs">
+                        <div className="flex items-center justify-between">
+                          <p className="font-500 text-[var(--text-primary)]">{addr.fullName}</p>
+                          {addr.isDefault && (
+                            <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-500 text-blue-400">Défaut</span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[var(--text-secondary)]">
+                          {[addr.street, addr.area, addr.city, addr.state, addr.country].filter(Boolean).join(', ')}
+                        </p>
+                        <p className="text-[var(--text-tertiary)]">{addr.phoneNumber}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SectionBlock>
+
+              {/* Commandes */}
+              <SectionBlock
+                title="Commandes"
+                icon={Package}
+                count={userDetail.orders.length}
+                isOpen={expandedSection === 'orders'}
+                onToggle={() => setExpandedSection(expandedSection === 'orders' ? null : 'orders')}
+              >
+                {userDetail.orders.length === 0 ? (
+                  <p className="py-3 text-center text-xs text-[var(--text-tertiary)]">Aucune commande</p>
+                ) : (
+                  <div className="space-y-2">
+                    {userDetail.orders.map((order) => (
+                      <div key={order.id} className="rounded-lg border border-[var(--border)] p-3 text-xs">
+                        <div className="flex items-center justify-between">
+                          <p className="font-500 text-[var(--text-primary)]">#{order.id.slice(0, 8)}</p>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-500 ${
+                            order.status === 'DELIVERED' || order.status === 'PAID_SUCCESS'
+                              ? 'bg-gradient-to-r from-green-500/20 to-emerald-600/20 text-green-400'
+                              : order.status === 'CANCELLED' || order.status === 'PAYMENT_FAILED'
+                              ? 'bg-gradient-to-r from-red-500/20 to-rose-600/20 text-red-400'
+                              : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400'
+                          }`}>
+                            {order.status}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-3 text-[var(--text-secondary)]">
+                          <span className="flex items-center gap-1">
+                            <CreditCard className="h-3 w-3" />
+                            {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: order.currency || 'XOF' }).format(Number(order.totalAmount))}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(order.createdAt).toLocaleDateString('fr-FR')}
+                          </span>
+                        </div>
+                        {order.orderItems.length > 0 && (
+                          <div className="mt-2 border-t border-[var(--border)] pt-2 text-[var(--text-tertiary)]">
+                            {order.orderItems.map((item) => (
+                              <p key={item.id}>{item.product.name} × {item.quantity}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SectionBlock>
+
+              {/* Panier */}
+              <SectionBlock
+                title="Panier"
+                icon={ShoppingCart}
+                count={userDetail.cartItems.length}
+                isOpen={expandedSection === 'cart'}
+                onToggle={() => setExpandedSection(expandedSection === 'cart' ? null : 'cart')}
+              >
+                {userDetail.cartItems.length === 0 ? (
+                  <p className="py-3 text-center text-xs text-[var(--text-tertiary)]">Panier vide</p>
+                ) : (
+                  <div className="space-y-2">
+                    {userDetail.cartItems.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] p-3 text-xs">
+                        <div>
+                          <p className="font-500 text-[var(--text-primary)]">{item.product.name}</p>
+                          <p className="text-[var(--text-tertiary)]">Qté: {item.quantity}</p>
+                        </div>
+                        <p className="font-500 text-[var(--text-primary)]">
+                          {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF' }).format(Number(item.product.price) * item.quantity)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SectionBlock>
+
+              {/* Avis */}
+              <SectionBlock
+                title="Avis"
+                icon={Star}
+                count={userDetail.reviews.length}
+                isOpen={expandedSection === 'reviews'}
+                onToggle={() => setExpandedSection(expandedSection === 'reviews' ? null : 'reviews')}
+              >
+                {userDetail.reviews.length === 0 ? (
+                  <p className="py-3 text-center text-xs text-[var(--text-tertiary)]">Aucun avis</p>
+                ) : (
+                  <div className="space-y-2">
+                    {userDetail.reviews.map((review) => (
+                      <div key={review.id} className="rounded-lg border border-[var(--border)] p-3 text-xs">
+                        <div className="flex items-center justify-between">
+                          <p className="font-500 text-[var(--text-primary)]">{review.product.name}</p>
+                          <div className="flex items-center gap-0.5">
+                            {Array.from({ length: 5 }, (_, i) => (
+                              <Star key={i} className={`h-3 w-3 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-[var(--border)]'}`} />
+                            ))}
+                          </div>
+                        </div>
+                        {review.comment && (
+                          <p className="mt-1 italic text-[var(--text-secondary)]">"{review.comment}"</p>
+                        )}
+                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">
+                          {new Date(review.createdAt).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SectionBlock>
+
+              {/* Demandes d'échelonnement */}
+              <SectionBlock
+                title="Demandes d'échelonnement"
+                icon={GraduationCap}
+                count={userDetail.studentInstallmentRequests.length}
+                isOpen={expandedSection === 'studentRequests'}
+                onToggle={() => setExpandedSection(expandedSection === 'studentRequests' ? null : 'studentRequests')}
+              >
+                {userDetail.studentInstallmentRequests.length === 0 ? (
+                  <p className="py-3 text-center text-xs text-[var(--text-tertiary)]">Aucune demande</p>
+                ) : (
+                  <div className="space-y-2">
+                    {userDetail.studentInstallmentRequests.map((req) => (
+                      <div key={req.id} className="rounded-lg border border-[var(--border)] p-3 text-xs">
+                        <div className="flex items-center justify-between">
+                          <p className="font-500 text-[var(--text-primary)]">{req.schoolName}</p>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-500 ${
+                            req.status === 'APPROVED'
+                              ? 'bg-gradient-to-r from-green-500/20 to-emerald-600/20 text-green-400'
+                              : req.status === 'REJECTED'
+                              ? 'bg-gradient-to-r from-red-500/20 to-rose-600/20 text-red-400'
+                              : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400'
+                          }`}>
+                            {req.status}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[var(--text-secondary)]">{req.fullName} — {req.requestedMonths} mois</p>
+                        <p className="text-[10px] text-[var(--text-tertiary)]">{new Date(req.createdAt).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SectionBlock>
+            </div>
+          </div>
+        ) : null}
+      </SellerModal>
+
+      {/* Create / Edit Modal */}
+      <SellerModal
+        isOpen={modalMode === 'create' || modalMode === 'edit'}
+        onClose={closeModal}
+        title={modalMode === 'create' ? 'Nouvel utilisateur' : 'Modifier l\'utilisateur'}
+        description={modalMode === 'create' ? 'Créez un nouveau compte utilisateur.' : 'Modifiez les informations du compte.'}
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Prénom</label>
+            <input
+              type="text"
+              value={formData.firstName}
+              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
+              placeholder="Jean"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Nom</label>
+            <input
+              type="text"
+              value={formData.lastName}
+              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
+              placeholder="Dupont"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Email *</label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
+              placeholder="jean@exemple.com"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Téléphone</label>
+            <input
+              type="text"
+              value={formData.phoneNumber}
+              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
+              placeholder="+229 01 23 45 67"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Rôle</label>
+            <select
+              value={formData.role}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value as 'USER' | 'ADMIN' })}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
+            >
+              <option value="USER">Utilisateur</option>
+              <option value="ADMIN">Administrateur</option>
+            </select>
+          </div>
+          {modalMode === 'create' && (
+            <div>
+              <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Mot de passe *</label>
+              <input
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
+                placeholder="••••••••"
+              />
+            </div>
+          )}
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={closeModal}
+            className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-500 text-[var(--text-secondary)] transition-smooth hover:bg-[var(--bg-hover)]"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={modalMode === 'create' ? handleCreate : handleUpdate}
+            disabled={submitting}
+            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-600 text-white shadow-lg transition-all duration-300 hover:from-emerald-400 hover:to-cyan-400 hover:shadow-xl disabled:opacity-50"
+          >
+            {submitting ? 'En cours...' : modalMode === 'create' ? 'Créer' : 'Enregistrer'}
+          </button>
+        </div>
+      </SellerModal>
+
+      {/* Confirm Modal */}
+      <SellerModal
+        isOpen={modalMode === 'confirm'}
+        onClose={closeModal}
+        title="Confirmation"
+        description=""
+      >
+        {confirmAction && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 rounded-lg bg-[var(--bg-outer)] p-4">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                confirmAction.type === 'delete'
+                  ? 'bg-gradient-to-br from-gray-500/20 to-slate-600/20 text-gray-400'
+                  : confirmAction.type === 'ban'
+                  ? 'bg-gradient-to-br from-red-500/20 to-rose-600/20 text-red-400'
+                  : 'bg-gradient-to-br from-green-500/20 to-emerald-600/20 text-green-400'
+              }`}>
+                {confirmAction.type === 'delete' ? <Trash2 className="h-5 w-5" /> :
+                 confirmAction.type === 'ban' ? <Ban className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
+              </div>
+              <div>
+                <p className="font-500 text-[var(--text-primary)]">{getDisplayName(confirmAction.user)}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{confirmAction.user.email}</p>
+              </div>
+            </div>
+            <p className="text-sm text-[var(--text-secondary)]">
+              {confirmAction.type === 'delete'
+                ? 'Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.'
+                : confirmAction.type === 'ban'
+                ? 'Êtes-vous sûr de vouloir bannir cet utilisateur ? Il ne pourra plus se connecter ni passer de commandes.'
+                : 'Êtes-vous sûr de vouloir débannir cet utilisateur ? Il retrouvera l\'accès à son compte.'}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={closeModal}
+                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-500 text-[var(--text-secondary)] transition-smooth hover:bg-[var(--bg-hover)]"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={submitting}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-600 text-white shadow-lg transition-all duration-300 hover:shadow-xl disabled:opacity-50 ${
+                  confirmAction.type === 'delete'
+                    ? 'bg-gradient-to-r from-gray-500 to-slate-600 hover:from-gray-400 hover:to-slate-500'
+                    : confirmAction.type === 'ban'
+                    ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500'
+                    : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500'
+                }`}
+              >
+                {submitting
+                  ? 'En cours...'
+                  : confirmAction.type === 'delete'
+                  ? 'Supprimer'
+                  : confirmAction.type === 'ban'
+                  ? 'Bannir'
+                  : 'Débannir'}
+              </button>
+            </div>
+          </div>
+        )}
+      </SellerModal>
+    </div>
+  );
+}
+
+function SectionBlock({
+  title,
+  icon: Icon,
+  count,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  count: number;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-[var(--border)]">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-4 py-3 text-left transition-smooth hover:bg-[var(--bg-hover)]"
+      >
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-[var(--text-secondary)]" />
+          <span className="text-sm font-500 text-[var(--text-primary)]">{title}</span>
+          <span className="rounded-full bg-[var(--bg-outer)] px-2 py-0.5 text-[10px] font-500 text-[var(--text-tertiary)]">{count}</span>
+        </div>
+        {isOpen ? <ChevronUp className="h-4 w-4 text-[var(--text-tertiary)]" /> : <ChevronDown className="h-4 w-4 text-[var(--text-tertiary)]" />}
+      </button>
+      {isOpen && <div className="border-t border-[var(--border)] px-4 py-3">{children}</div>}
     </div>
   );
 }

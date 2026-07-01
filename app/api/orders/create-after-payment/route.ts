@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth'; // Pour l'authentification de l'utilisateur
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'; // Assurez-vous que ce chemin est correct et que le fichier existe
+import { authOptions } from '@/lib/authOptions';
 
 // Interface pour le corps de la requête POST de ce endpoint
 interface CreateOrderAfterPaymentPayload {
@@ -49,14 +49,6 @@ export async function POST(req: NextRequest) {
         }
 
         const userId = session.user.id;
-        // Correction: Préfixer la variable inutilisée avec '_' pour éviter l'avertissement ESLint
-        const _authToken = req.headers.get('auth-token'); // Récupérer le token d'authentification
-
-        // Vérification du token d'authentification (si nécessaire, selon votre implémentation)
-        // if (!_authToken || _authToken !== session.user.token) {
-        //     console.error("[Create Order After Payment] Token d'authentification invalide.");
-        //     return NextResponse.json({ success: false, message: 'Token d\'authentification invalide' }, { status: 403});
-        // }
 
         const body: CreateOrderAfterPaymentPayload = await req.json();
         const {

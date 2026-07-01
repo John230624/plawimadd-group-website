@@ -1,14 +1,14 @@
 // app/api/admin/order-status/[orderId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/authOptions';
 import prisma from '@/lib/prisma';
 import { OrderStatus } from '@prisma/client';
 
 interface Context {
-  params: {
+  params: Promise<{
     orderId: string;
-  };
+  }>;
 }
 
 // ✅ GET une commande par ID
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, context: Context) {
     return NextResponse.json({ message: 'Non autorisé' }, { status: 401 });
   }
 
-  const { orderId } = context.params;
+    const { orderId } = await context.params;
 
   try {
     const order = await prisma.order.findUnique({
@@ -45,7 +45,7 @@ export async function PUT(request: NextRequest, context: Context) {
     return NextResponse.json({ message: 'Non autorisé' }, { status: 401 });
   }
 
-  const { orderId } = context.params;
+    const { orderId } = await context.params;
 
   let body: { status?: string };
   try {
@@ -83,7 +83,7 @@ export async function DELETE(request: NextRequest, context: Context) {
     return NextResponse.json({ message: 'Non autorisé' }, { status: 401 });
   }
 
-  const { orderId } = context.params;
+    const { orderId } = await context.params;
 
   try {
     await prisma.order.delete({

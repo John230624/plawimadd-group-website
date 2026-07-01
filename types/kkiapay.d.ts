@@ -38,8 +38,24 @@ export interface KkiapayErrorResponse {
     message?: string;
 }
 
+export interface LegacyKkiapayOptions {
+    amount: number;
+    api_key: string;
+    callback: string;
+    email?: string;
+    phone?: string;
+    position?: string;
+    sandbox?: boolean;
+    data?: string;
+}
+
 declare global {
     interface Window {
+        openKkiapayWidget?: (options: LegacyKkiapayOptions) => void;
+        addSuccessListener?: (callback: (response: KkiapaySuccessResponse) => void) => void;
+        removeSuccessListener?: (callback: (response: KkiapaySuccessResponse) => void) => void;
+        addFailedListener?: (callback: (error: KkiapayErrorResponse) => void) => void;
+        removeFailedListener?: (callback: (error: KkiapayErrorResponse) => void) => void;
         Kkiapay?: { // Seule la nouvelle API Kkiapay est déclarée ici
             open: (options: KkiapayOptions) => void;
             on_success: (callback: (response: KkiapaySuccessResponse) => void) => void;

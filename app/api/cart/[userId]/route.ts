@@ -7,9 +7,9 @@ import { authorizeUser, AuthResult } from '@/lib/authUtils'; // Importation de l
 import { Decimal } from '@prisma/client/runtime/library'; // Réintroduit car utilisé pour le typage de Prisma.Decimal
 
 interface Context {
-    params: {
+    params: Promise<{
         userId: string;
-    };
+    }>;
 }
 
 // Interface pour le format des articles du panier renvoyés au client
@@ -97,8 +97,7 @@ export async function GET(req: NextRequest, context: Context): Promise<NextRespo
         return NextResponse.json({ success: true, cartItems: formattedCartItems }, { status: 200 });
     } catch (_error: unknown) {
         console.error("Erreur lors de la récupération du panier:", _error);
-        const errorMessage = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ success: false, message: "Erreur serveur lors de la récupération du panier.", error: errorMessage }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }
 
@@ -178,8 +177,7 @@ export async function POST(req: NextRequest, context: Context): Promise<NextResp
         return NextResponse.json({ success: true, message: 'Article ajouté/mis à jour dans le panier.', cartItems: formattedUpdatedCartItems }, { status: 200 });
     } catch (_error: unknown) {
         console.error("Erreur lors de l'ajout au panier:", _error);
-        const errorMessage = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ success: false, message: "Erreur serveur lors de l'ajout au panier.", error: errorMessage }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }
 
@@ -265,8 +263,7 @@ export async function PUT(req: NextRequest, context: Context): Promise<NextRespo
         return NextResponse.json({ success: true, message: 'Quantité du panier mise à jour.', cartItems: formattedUpdatedCartItems }, { status: 200 });
     } catch (_error: unknown) {
         console.error("Erreur lors de la mise à jour de la quantité du panier:", _error);
-        const errorMessage = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ success: false, message: "Erreur serveur lors de la mise à jour de la quantité du panier.", error: errorMessage }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }
 
@@ -322,7 +319,6 @@ export async function DELETE(req: NextRequest, context: Context): Promise<NextRe
 
     } catch (_error: unknown) {
         console.error("Erreur lors de la suppression du panier:", _error);
-        const errorMessage = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ success: false, message: "Erreur serveur lors de la suppression du panier.", error: errorMessage }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }

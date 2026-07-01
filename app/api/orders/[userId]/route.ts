@@ -111,7 +111,6 @@ export async function GET(req: NextRequest, context: Context): Promise<NextRespo
         return NextResponse.json(formattedOrders, { status: 200 });
     } catch (_error: unknown) { // Correction ESLint: renommé 'error' en '_error'
         console.error('Erreur GET /api/orders/[userId]:', _error);
-        const message = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ message: 'Erreur serveur lors de la récupération des commandes.', error: message }, { status: 500 });
+        return NextResponse.json({ message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }

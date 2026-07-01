@@ -6,14 +6,14 @@ import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
 
 interface Context {
-    params: {
+    params: Promise<{
         id: string;
-    };
+    }>;
 }
 
 // GET: Récupérer une catégorie par son ID
 export async function GET(req: NextRequest, context: Context): Promise<NextResponse> {
-    const { id } = context.params;
+    const { id } = await context.params;
 
     try {
         if (!id || typeof id !== 'string') {
@@ -30,9 +30,8 @@ export async function GET(req: NextRequest, context: Context): Promise<NextRespo
 
         return NextResponse.json(category, { status: 200 });
     } catch (_error: unknown) {
-        const message = _error instanceof Error ? _error.message : String(_error);
         console.error('Erreur lors de la récupération de la catégorie:', _error);
-        return NextResponse.json({ message: 'Erreur interne du serveur lors de la récupération de la catégorie.', error: message }, { status: 500 });
+        return NextResponse.json({ message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }
 
@@ -41,7 +40,7 @@ export async function PUT(req: NextRequest, context: Context): Promise<NextRespo
     const authResult: AuthResult = await authorizeAdminRequest(req); // MODIFICATION : Passe 'req'
     if (!authResult.authorized) return authResult.response!;
 
-    const { id } = context.params;
+    const { id } = await context.params;
 
     try {
         const { name, description, imageUrl } = await req.json();
@@ -71,7 +70,6 @@ export async function PUT(req: NextRequest, context: Context): Promise<NextRespo
 
         return NextResponse.json({ message: 'Catégorie mise à jour avec succès.', category: updatedCategory }, { status: 200 });
     } catch (_error: unknown) {
-        const message = _error instanceof Error ? _error.message : String(_error);
 
         if (
             typeof _error === 'object' &&
@@ -83,7 +81,7 @@ export async function PUT(req: NextRequest, context: Context): Promise<NextRespo
         }
 
         console.error('Erreur lors de la mise à jour de la catégorie:', _error);
-        return NextResponse.json({ message: 'Erreur interne du serveur lors de la mise à jour de la catégorie.', error: message }, { status: 500 });
+        return NextResponse.json({ message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }
 
@@ -92,7 +90,7 @@ export async function DELETE(req: NextRequest, context: Context): Promise<NextRe
     const authResult: AuthResult = await authorizeAdminRequest(req); // MODIFICATION : Passe 'req'
     if (!authResult.authorized) return authResult.response!;
 
-    const { id } = context.params;
+    const { id } = await context.params;
 
     try {
         if (!id || typeof id !== 'string') {
@@ -105,7 +103,6 @@ export async function DELETE(req: NextRequest, context: Context): Promise<NextRe
 
         return NextResponse.json({ message: 'Catégorie supprimée avec succès.', category: deletedCategory }, { status: 200 });
     } catch (_error: unknown) {
-        const message = _error instanceof Error ? _error.message : String(_error);
         console.error('Erreur lors de la suppression de la catégorie:', _error);
 
         if (
@@ -128,6 +125,6 @@ export async function DELETE(req: NextRequest, context: Context): Promise<NextRe
             }, { status: 409 });
         }
 
-        return NextResponse.json({ message: 'Erreur interne du serveur lors de la suppression de la catégorie.', error: message }, { status: 500 });
+        return NextResponse.json({ message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }

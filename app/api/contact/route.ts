@@ -1,6 +1,8 @@
 // C:\xampp\htdocs\plawimadd_group\app\api\contact\route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
+import { contactSchema } from '@/lib/validation';
+import { ZodError } from 'zod';
 // import nodemailer from 'nodemailer'; // À décommenter et configurer si vous voulez envoyer de vrais emails
 
 interface ContactPayload {
@@ -12,18 +14,9 @@ interface ContactPayload {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
-        const { name, email, subject, message } = (await req.json()) as ContactPayload;
-
-        // Validation basique des champs requis
-        if (!name?.trim() || !email?.trim() || !subject?.trim() || !message?.trim()) {
-            return NextResponse.json({ message: 'Tous les champs sont obligatoires.' }, { status: 400 });
-        }
-
-        // Validation simple de l'email avec RegExp
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return NextResponse.json({ message: 'Adresse email invalide.' }, { status: 400 });
-        }
+        const body = await req.json();
+        const parsed = contactSchema.parse(body);
+        const { name, email, subject, message } = parsed;
 
         // --- Partie à décommenter pour un vrai envoi d'email ---
         /*
@@ -66,11 +59,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         return NextResponse.json({ message: 'Message envoyé avec succès !' }, { status: 200 });
-    } catch (_error: unknown) { // Correction ESLint: renommé 'error' en '_error'
-        const message = _error instanceof Error ? _error.message : String(_error);
-        console.error("Erreur dans l'API de contact:", _error); // Afficher l'erreur complète pour le débogage
+    } catch (_error: unknown) {
+        if (_error instanceof ZodError) {
+            return NextResponse.json(
+                { message: _error.issues[0].message },
+                { status: 400 }
+            );
+        }
+        console.error("Erreur dans l'API de contact:", _error);
         return NextResponse.json(
-            { message: `Erreur interne du serveur lors de l'envoi du message: ${message}` },
+            { message: "Erreur serveur. Veuillez réessayer plus tard." },
             { status: 500 }
         );
     }

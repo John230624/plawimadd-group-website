@@ -1,171 +1,206 @@
-// app/api/admin/users/route.ts
-// Cette route gère la récupération, la modification du rôle et la suppression des utilisateurs par les administrateurs.
-
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
-// Importez les types nécessaires de Prisma pour une meilleure précision
 import { Prisma } from '@prisma/client';
-import { Prisma as PrismaNamespace } from '@prisma/client'; // Importation du namespace Prisma pour TransactionClient
+import bcrypt from 'bcryptjs';
 
-// GET: Récupérer tous les utilisateurs (avec filtre de rôle optionnel)
+const userSelect = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  phoneNumber: true,
+  role: true,
+  banned: true,
+  bannedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+type UserSelectPayload = Prisma.UserGetPayload<{ select: typeof userSelect }>;
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req);
-    if (!authResult.authorized) return authResult.response!;
+  const authResult: AuthResult = await authorizeAdminRequest(req);
+  if (!authResult.authorized) return authResult.response!;
 
-    try {
-        const { searchParams } = new URL(req.url);
-        const roleFilter = searchParams.get('role');
+  try {
+    const { searchParams } = new URL(req.url);
+    const roleFilter = searchParams.get('role');
+    const statusFilter = searchParams.get('status');
 
-        const whereClause: { role?: 'USER' | 'ADMIN' } = {};
+    const whereClause: Prisma.UserWhereInput = {};
 
-        if (roleFilter?.toUpperCase() === 'USER') {
-            whereClause.role = 'USER';
-        } else if (roleFilter?.toUpperCase() === 'ADMIN') {
-            whereClause.role = 'ADMIN';
-        }
-
-        // Prisma.UserGetPayload est utilisé pour obtenir le type exact du résultat de la requête findMany avec select
-        type UserSelectPayload = Prisma.UserGetPayload<{
-            select: {
-                id: true;
-                firstName: true;
-                lastName: true;
-                email: true;
-                phoneNumber: true;
-                role: true;
-                createdAt: true;
-                updatedAt: true;
-            }
-        }>;
-
-        const users: UserSelectPayload[] = await prisma.user.findMany({
-            where: whereClause,
-            select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phoneNumber: true,
-                role: true,
-                createdAt: true,
-                updatedAt: true,
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-
-        const formattedUsers = users.map((user: UserSelectPayload) => ({ // Utilisation du type UserSelectPayload
-            ...user,
-            name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
-        }));
-
-        return NextResponse.json(formattedUsers, { status: 200 });
-    } catch (_error: unknown) {
-        const message = _error instanceof Error ? _error.message : String(_error);
-        console.error('Erreur GET utilisateurs:', _error);
-        return NextResponse.json({ message: 'Erreur serveur lors de la récupération des utilisateurs.', error: message }, { status: 500 });
+    if (roleFilter?.toUpperCase() === 'USER') {
+      whereClause.role = 'USER';
+    } else if (roleFilter?.toUpperCase() === 'ADMIN') {
+      whereClause.role = 'ADMIN';
     }
+
+    if (statusFilter === 'active') {
+      whereClause.banned = false;
+    } else if (statusFilter === 'banned') {
+      whereClause.banned = true;
+    }
+
+    const users: UserSelectPayload[] = await prisma.user.findMany({
+      where: whereClause,
+      select: userSelect,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const formattedUsers = users.map((user) => ({
+      ...user,
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+    }));
+
+    return NextResponse.json(formattedUsers, { status: 200 });
+  } catch (_error: unknown) {
+    console.error('Erreur GET utilisateurs:', _error);
+    return NextResponse.json({ message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
+  }
 }
 
-// PUT: Modifier le rôle d'un utilisateur
-export async function PUT(req: NextRequest): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req);
-    if (!authResult.authorized) return authResult.response!;
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  const authResult: AuthResult = await authorizeAdminRequest(req);
+  if (!authResult.authorized) return authResult.response!;
 
-    try {
-        const { id, role } = await req.json();
+  try {
+    const { email, password, firstName, lastName, phoneNumber, role } = await req.json();
 
-        if (!id || typeof id !== 'string' || !role || typeof role !== 'string') {
-            return NextResponse.json({ success: false, message: 'ID utilisateur (chaîne) et rôle (chaîne) valides sont requis.' }, { status: 400 });
-        }
-
-        const upperRole = role.toUpperCase();
-        if (upperRole !== 'ADMIN' && upperRole !== 'USER') {
-            return NextResponse.json({ success: false, message: 'Rôle invalide. Les rôles autorisés sont "ADMIN" ou "USER".' }, { status: 400 });
-        }
-
-        // Correction: Utilisation de PrismaNamespace.TransactionClient pour le type du client de transaction
-        const updatedUser = await prisma.$transaction(async (tx: PrismaNamespace.TransactionClient) => {
-            const result = await tx.user.updateMany({ // Utilisation de 'tx' pour le client de transaction
-                where: { id: id },
-                data: {
-                    role: upperRole as 'ADMIN' | 'USER',
-                    updatedAt: new Date(),
-                },
-            });
-
-            if (result.count === 0) {
-                throw new Error('Utilisateur non trouvé ou rôle inchangé.');
-            }
-            const user = await tx.user.findUnique({ // Utilisation de 'tx' pour le client de transaction
-                where: { id: id },
-                select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    email: true,
-                    phoneNumber: true,
-                    role: true,
-                    createdAt: true,
-                    updatedAt: true,
-                }
-            });
-            return user;
-        });
-
-        if (!updatedUser) {
-            return NextResponse.json({ success: false, message: 'Utilisateur non trouvé.' }, { status: 404 });
-        }
-
-        return NextResponse.json({ success: true, message: 'Rôle utilisateur mis à jour.', user: updatedUser }, { status: 200 });
-    } catch (_error: unknown) {
-        const message = _error instanceof Error ? _error.message : String(_error);
-        console.error('Erreur PUT utilisateur:', _error);
-        return NextResponse.json({ success: false, message: 'Erreur serveur lors de la mise à jour du rôle.', error: message }, { status: 500 });
+    if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
+      return NextResponse.json({ success: false, message: 'Email et mot de passe valides sont requis.' }, { status: 400 });
     }
+
+    const existingUser = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (existingUser) {
+      return NextResponse.json({ success: false, message: 'Cet email est déjà utilisé.' }, { status: 409 });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const upperRole = role?.toUpperCase();
+    if (upperRole && upperRole !== 'ADMIN' && upperRole !== 'USER') {
+      return NextResponse.json({ success: false, message: 'Rôle invalide. Les rôles autorisés sont "ADMIN" ou "USER".' }, { status: 400 });
+    }
+
+    const newUser = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        phoneNumber: phoneNumber || null,
+        role: upperRole as 'ADMIN' | 'USER' | undefined,
+      },
+      select: userSelect,
+    });
+
+    return NextResponse.json({ success: true, message: 'Utilisateur créé avec succès.', user: newUser }, { status: 201 });
+  } catch (_error: unknown) {
+    console.error('Erreur POST utilisateur:', _error);
+    return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
+  }
 }
 
-// DELETE: Supprimer un utilisateur
+export async function PATCH(req: NextRequest): Promise<NextResponse> {
+  const authResult: AuthResult = await authorizeAdminRequest(req);
+  if (!authResult.authorized) return authResult.response!;
+
+  try {
+    const body = await req.json();
+    const { id, ...fields } = body;
+
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json({ success: false, message: 'ID utilisateur valide est requis.' }, { status: 400 });
+    }
+
+    const data: Prisma.UserUpdateInput = {};
+
+    if (fields.firstName !== undefined) data.firstName = fields.firstName;
+    if (fields.lastName !== undefined) data.lastName = fields.lastName;
+    if (fields.email !== undefined) {
+      if (typeof fields.email !== 'string') {
+        return NextResponse.json({ success: false, message: 'Email invalide.' }, { status: 400 });
+      }
+      const existing = await prisma.user.findUnique({ where: { email: fields.email }, select: { id: true } });
+      if (existing && existing.id !== id) {
+        return NextResponse.json({ success: false, message: 'Cet email est déjà utilisé.' }, { status: 409 });
+      }
+      data.email = fields.email;
+    }
+    if (fields.phoneNumber !== undefined) data.phoneNumber = fields.phoneNumber;
+    if (fields.role !== undefined) {
+      const upperRole = fields.role.toUpperCase();
+      if (upperRole !== 'ADMIN' && upperRole !== 'USER') {
+        return NextResponse.json({ success: false, message: 'Rôle invalide.' }, { status: 400 });
+      }
+      data.role = upperRole;
+    }
+    if (fields.banned !== undefined) {
+      data.banned = fields.banned === true;
+      data.bannedAt = fields.banned === true ? new Date() : null;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ success: false, message: 'Aucun champ valide à mettre à jour.' }, { status: 400 });
+    }
+
+    const updatedUser = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const result = await tx.user.updateMany({
+        where: { id },
+        data: { ...data, updatedAt: new Date() },
+      });
+      if (result.count === 0) throw new Error('Utilisateur non trouvé.');
+      return tx.user.findUnique({ where: { id }, select: userSelect });
+    });
+
+    if (!updatedUser) {
+      return NextResponse.json({ success: false, message: 'Utilisateur non trouvé.' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Utilisateur mis à jour.', user: updatedUser }, { status: 200 });
+  } catch (_error: unknown) {
+    console.error('Erreur PATCH utilisateur:', _error);
+    return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req);
-    if (!authResult.authorized) return authResult.response!;
+  const authResult: AuthResult = await authorizeAdminRequest(req);
+  if (!authResult.authorized) return authResult.response!;
 
-    try {
-        const { id } = await req.json();
+  try {
+    const { id } = await req.json();
 
-        if (!id || typeof id !== 'string') {
-            return NextResponse.json({ success: false, message: 'ID utilisateur (chaîne) valide est requis pour la suppression.' }, { status: 400 });
-        }
-
-        // Correction: Type explicite pour le résultat de deleteMany et type du client de transaction
-        const deleteResult: Prisma.BatchPayload = await prisma.$transaction(async (tx: PrismaNamespace.TransactionClient) => { // Utilisation de 'tx' pour le client de transaction
-            const result = await tx.user.deleteMany({ // Utilisation de 'tx' pour le client de transaction
-                where: { id: id },
-            });
-            return result;
-        });
-
-        if (deleteResult.count === 0) {
-            return NextResponse.json({ success: false, message: 'Utilisateur non trouvé ou déjà supprimé.' }, { status: 404 });
-        }
-
-        return NextResponse.json({ success: true, message: 'Utilisateur supprimé avec succès.' }, { status: 200 });
-    } catch (_error: unknown) {
-        console.error('Erreur DELETE utilisateur:', _error);
-
-        if (
-            typeof _error === 'object' &&
-            _error !== null &&
-            'code' in _error &&
-            (_error as { code?: string }).code === 'P2003'
-        ) {
-            return NextResponse.json({
-                success: false,
-                message: "Impossible de supprimer l'utilisateur car il est lié à d'autres données (commandes, adresses, panier, avis). Supprimez d'abord les données associées ou configurez la suppression en cascade dans votre schéma Prisma."
-            }, { status: 409 });
-        }
-
-        const message = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ success: false, message: 'Erreur serveur lors de la suppression de l\'utilisateur.', error: message }, { status: 500 });
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json({ success: false, message: 'ID utilisateur (chaîne) valide est requis pour la suppression.' }, { status: 400 });
     }
+
+    const deleteResult: Prisma.BatchPayload = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      return tx.user.deleteMany({ where: { id } });
+    });
+
+    if (deleteResult.count === 0) {
+      return NextResponse.json({ success: false, message: 'Utilisateur non trouvé ou déjà supprimé.' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Utilisateur supprimé avec succès.' }, { status: 200 });
+  } catch (_error: unknown) {
+    console.error('Erreur DELETE utilisateur:', _error);
+
+    if (
+      typeof _error === 'object' &&
+      _error !== null &&
+      'code' in _error &&
+      (_error as { code?: string }).code === 'P2003'
+    ) {
+      return NextResponse.json({
+        success: false,
+        message: "Impossible de supprimer l'utilisateur car il est lié à d'autres données (commandes, adresses, panier, avis). Supprimez d'abord les données associées ou configurez la suppression en cascade dans votre schéma Prisma."
+      }, { status: 409 });
+    }
+
+    return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
+  }
 }

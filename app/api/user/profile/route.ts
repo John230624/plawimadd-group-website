@@ -47,8 +47,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     } catch (_error: unknown) {
         console.error("Erreur serveur lors de la récupération du profil utilisateur:", _error);
-        const errorMessage = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ success: false, message: "Erreur serveur lors de la récupération du profil utilisateur.", error: errorMessage }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }
 
@@ -123,7 +122,6 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
     } catch (_error: unknown) { // CORRECTION : Renommé 'error' en '_error'
         console.error("Erreur lors de la mise à jour du profil utilisateur:", _error);
-        const errorMessage = _error instanceof Error ? _error.message : String(_error);
-        return NextResponse.json({ success: false, message: "Erreur serveur lors de la mise à jour du profil.", error: errorMessage }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }

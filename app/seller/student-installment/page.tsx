@@ -46,9 +46,7 @@ export default function StudentInstallmentPage(): React.ReactElement {
 
     setLoading(true);
     try {
-      const response = await axios.get('/api/admin/student-installment', {
-        headers: { 'auth-token': session.user.token },
-      });
+      const response = await axios.get('/api/admin/student-installment');
 
       setRequests(response.data?.requests || []);
     } catch (error) {
@@ -57,7 +55,7 @@ export default function StudentInstallmentPage(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [session?.user?.role, session?.user?.token, status]);
+  }, [session?.user?.role, status]);
 
   useEffect(() => {
     fetchRequests();
@@ -96,10 +94,7 @@ export default function StudentInstallmentPage(): React.ReactElement {
     try {
       const response = await axios.put(
         `/api/admin/student-installment/${requestId}`,
-        { status: nextStatus },
-        {
-          headers: { 'auth-token': session?.user?.token },
-        }
+        { status: nextStatus }
       );
 
       if (!response.data?.success) {

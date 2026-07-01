@@ -71,6 +71,8 @@ model User {
   createdAt          DateTime   @default(now()) // Date de création de l'enregistrement
   updatedAt          DateTime   @updatedAt       // Date de la dernière mise à jour de l'enregistrement
   phoneNumber        String?    @db.VarChar(15) @map("phoneNumber") // Numéro de téléphone (optionnel)
+  banned             Boolean    @default(false) // Statut de bannissement
+  bannedAt           DateTime?  @db.DateTime(0) @map("bannedAt") // Date du bannissement (optionnel)
 
   // Relations avec les autres modèles
   addresses          Address[]  // Adresses de l'utilisateur
@@ -220,9 +222,18 @@ model Product {
   createdAt    DateTime  @default(now()) // Date de création de l'enregistrement
   updatedAt    DateTime  @updatedAt       // Date de la dernière mise à jour de l'enregistrement
   offerPrice   Decimal?  @db.Decimal(10, 2) @map("offerPrice") // Prix promotionnel (optionnel)
-  rating       Float?    @default(0.0) // Ajout du champ rating
+  rating       Float?    @default(0.0)
   brand        String?   @db.VarChar(255)
   color        String?   @db.VarChar(255)
+  visible      Boolean   @default(true)
+  weight       Float?    // Poids en kg
+  length       Float?    // Longueur en cm
+  width        Float?    // Largeur en cm
+  height       Float?    // Hauteur en cm
+  costPrice    Decimal?  @db.Decimal(10, 2) // Prix d'achat
+  metaTitle    String?   @db.VarChar(255) // Titre SEO
+  metaDescription String? @db.Text // Description SEO
+  tags         String?   @db.Text // Tags stockes en JSON array ["tag1","tag2"]
 
   // Relation de catégorie
   categoryId   String    @db.VarChar(255) // Clé étrangère vers la catégorie
@@ -272,4 +283,62 @@ model Review {
   user      User     @relation(fields: [userId], references: [id])
 
   @@map("reviews") // Nom de la table dans la base de données
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+
+  @@map("discountType")
+}
+
+model Coupon {
+  id          String       @id @default(uuid()) @db.VarChar(255)
+  code        String       @unique @db.VarChar(50)
+  discountType DiscountType
+  discountValue Float?     @default(0)
+  minAmount   Float?       @default(0)
+  maxUses     Int?         @default(0)
+  usedCount   Int          @default(0)
+  startsAt    DateTime?
+  expiresAt   DateTime?
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("coupons")
+}
+
+model CmsPage {
+  id          String   @id @default(uuid()) @db.VarChar(255)
+  slug        String   @unique @db.VarChar(255)
+  title       String   @db.VarChar(255)
+  content     String   @db.Text
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("cms_pages")
+}
+
+model SiteSetting {
+  id        String   @id @default(uuid()) @db.VarChar(255)
+  key       String   @unique @db.VarChar(255)
+  value     String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid()) @db.VarChar(255)
+  userId    String?  @db.VarChar(255)
+  action    String   @db.VarChar(255)
+  entity    String   @db.VarChar(255)
+  entityId  String?  @db.VarChar(255)
+  details   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@map("activity_logs")
 }

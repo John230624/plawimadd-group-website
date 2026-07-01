@@ -98,7 +98,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 email: session.user.email || null,
                 image: session.user.image || null,
                 role: session.user.role || 'USER',
-                token: session.user.token || '', // Nécessite l'extension du type Session
                 firstName: session.user.firstName || '', // Nécessite l'extension du type Session
                 lastName: session.user.lastName || '' // Nécessite l'extension du type Session
             };
@@ -193,7 +192,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
 
         setLoadingCart(true);
-        if (!isLoggedIn || !currentUser?.id || !currentUser?.token) {
+        if (!isLoggedIn || !currentUser?.id) {
             try {
                 const savedCart = localStorage.getItem('cartItems');
                 setCartItems(savedCart ? JSON.parse(savedCart) : {});
@@ -210,8 +209,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         try {
             const response = await axios.get<{ cartItems: { productId: string; quantity: number }[] }>(
-                `${baseUrl}/api/cart/${currentUser.id}`, // Utilisation de baseUrl
-                { headers: { 'auth-token': currentUser.token } }
+                `${baseUrl}/api/cart/${currentUser.id}`
             );
 
             if (response.data?.cartItems) {
@@ -245,7 +243,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             setLoadingCart(false);
             setInitialCartLoaded(true);
         }
-    }, [isLoggedIn, currentUser?.id, currentUser?.token, baseUrl, router]); // Dépendance à baseUrl
+    }, [isLoggedIn, currentUser?.id, baseUrl, router]); // Dépendance à baseUrl
 
     const updateCartOnServer = useCallback(async (productId: string, quantity: number): Promise<boolean> => {
         // Attendre que baseUrl soit défini avant de faire l'appel API
@@ -254,15 +252,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             return false;
         }
 
-        if (!isLoggedIn || !currentUser?.id || !currentUser?.token) {
+        if (!isLoggedIn || !currentUser?.id) {
             return false;
         }
 
         try {
             await axios.put(
-                `${baseUrl}/api/cart/${currentUser.id}`, // Utilisation de baseUrl
-                { productId, quantity },
-                { headers: { 'auth-token': currentUser.token } }
+                `${baseUrl}/api/cart/${currentUser.id}`,
+                { productId, quantity }
             );
             return true;
         } catch (error: unknown) {
@@ -272,7 +269,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             toast.error("Erreur de synchronisation du panier avec le serveur. Réessayez.");
             return false;
         }
-    }, [baseUrl, isLoggedIn, currentUser?.id, currentUser?.token]); // Dépendance à baseUrl
+    }, [baseUrl, isLoggedIn, currentUser?.id]); // Dépendance à baseUrl
 
     const addToCart = useCallback(async (productId: string): Promise<boolean> => {
         const idAsString = String(productId);
@@ -283,7 +280,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCartItems(newCart);
         localStorage.setItem('cartItems', JSON.stringify(newCart));
 
-        if (!isLoggedIn || !currentUser?.id || !currentUser?.token) {
+        if (!isLoggedIn || !currentUser?.id) {
             toast.info("Connectez-vous pour synchroniser votre panier.");
             return false;
         }
@@ -302,7 +299,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             await loadCartData();
             return false;
         }
-    }, [cartItems, isLoggedIn, currentUser?.id, currentUser?.token, updateCartOnServer, loadCartData]);
+    }, [cartItems, isLoggedIn, currentUser?.id, updateCartOnServer, loadCartData]);
 
     const removeFromCart = useCallback(async (productId: string): Promise<boolean> => {
         const idAsString = String(productId);
@@ -322,7 +319,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCartItems(newCart);
         localStorage.setItem('cartItems', JSON.stringify(newCart));
 
-        if (!isLoggedIn || !currentUser?.id || !currentUser?.token) {
+        if (!isLoggedIn || !currentUser?.id) {
             toast.info("Connectez-vous pour synchroniser votre panier.");
             return false;
         }
@@ -341,7 +338,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             await loadCartData();
             return false;
         }
-    }, [cartItems, isLoggedIn, currentUser?.id, currentUser?.token, updateCartOnServer, loadCartData]);
+    }, [cartItems, isLoggedIn, currentUser?.id, updateCartOnServer, loadCartData]);
 
     const deleteFromCart = useCallback(async (productId: string): Promise<boolean> => {
         const idAsString = String(productId);
@@ -351,15 +348,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCartItems(newCart);
         localStorage.setItem('cartItems', JSON.stringify(newCart));
 
-        if (!isLoggedIn || !currentUser?.id || !currentUser?.token) {
+        if (!isLoggedIn || !currentUser?.id) {
             toast.info("Connectez-vous pour synchroniser votre panier.");
             return false;
         }
 
         try {
-            const response = await axios.delete(`${baseUrl}/api/cart/${currentUser.id}`, { // Utilisation de baseUrl
-                data: { productId: idAsString },
-                headers: { 'auth-token': currentUser.token }
+            const response = await axios.delete(`${baseUrl}/api/cart/${currentUser.id}`, {
+                data: { productId: idAsString }
             });
             if (response.status === 200) {
                 await loadCartData();
@@ -375,7 +371,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             await loadCartData();
             return false;
         }
-    }, [cartItems, isLoggedIn, currentUser?.id, currentUser?.token, baseUrl, loadCartData]); // Dépendance à baseUrl
+    }, [cartItems, isLoggedIn, currentUser?.id, baseUrl, loadCartData]); // Dépendance à baseUrl
 
     const updateCartQuantity = useCallback(async (productId: string, quantity: number): Promise<boolean> => {
         const idAsString = String(productId);
@@ -390,7 +386,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCartItems(newCart);
         localStorage.setItem('cartItems', JSON.stringify(newCart));
 
-        if (!isLoggedIn || !currentUser?.id || !currentUser?.token) {
+        if (!isLoggedIn || !currentUser?.id) {
             toast.info("Connectez-vous pour synchroniser votre panier.");
             return false;
         }
@@ -409,7 +405,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             await loadCartData();
             return false;
         }
-    }, [cartItems, isLoggedIn, currentUser?.id, currentUser?.token, updateCartOnServer, loadCartData]);
+    }, [cartItems, isLoggedIn, currentUser?.id, updateCartOnServer, loadCartData]);
 
     const getCartCount = useCallback(() =>
         Object.values(cartItems).reduce((sum, qty) => sum + qty, 0),
@@ -427,16 +423,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const clearCart = useCallback(() => {
         setCartItems({});
         localStorage.removeItem('cartItems');
-        if (isLoggedIn && currentUser?.id && currentUser?.token) {
-            axios.delete(`${baseUrl}/api/cart/${currentUser.id}`, { // Utilisation de baseUrl
-                headers: { 'auth-token': currentUser.token }
-            }).catch(error => {
+        if (isLoggedIn && currentUser?.id) {
+            axios.delete(`${baseUrl}/api/cart/${currentUser.id}`).catch(error => {
                 console.error("Error clearing cart on server:", error);
                 toast.error("Erreur lors de la suppression du panier côté serveur.");
             });
         }
         toast.success("Panier vidé !");
-    }, [isLoggedIn, currentUser?.id, currentUser?.token, baseUrl]);
+    }, [isLoggedIn, currentUser?.id, baseUrl]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -474,7 +468,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        if (!isLoggedIn || !currentUser?.id || !currentUser?.token) {
+        if (!isLoggedIn || !currentUser?.id) {
             console.log("[AppContext] fetchUserOrders: User not logged in or missing ID/token, skipping fetch.");
             setUserOrders([]);
             setLoadingOrders(false);
@@ -488,9 +482,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         console.log(`[AppContext] fetchUserOrders: Fetching orders for user ${currentUser.id}...`);
         try {
-            const response = await axios.get<OrdersApiResponse>(`${baseUrl}/api/user/orders`, { // MODIFIÉ: URL pour correspondre à la route GET
-                headers: { 'auth-token': currentUser.token }
-            });
+            const response = await axios.get<OrdersApiResponse>(`${baseUrl}/api/user/orders`);
             console.log("[AppContext] fetchUserOrders: API raw response received:", response.data);
 
             let ordersData: Order[] = [];
@@ -534,7 +526,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             setInitialOrdersLoaded(true);
             console.log("[AppContext] fetchUserOrders: Loading finished.");
         }
-    }, [baseUrl, isLoggedIn, currentUser?.id, currentUser?.token, router]); // Dépendance à baseUrl
+    }, [baseUrl, isLoggedIn, currentUser?.id, router]); // Dépendance à baseUrl
 
     const fetchUserAddresses = useCallback(async () => {
         // Attendre que baseUrl soit défini avant de faire l'appel API
@@ -547,7 +539,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        if (!isLoggedIn || !currentUser?.id || !currentUser?.token) {
+        if (!isLoggedIn || !currentUser?.id) {
             console.log("[AppContext] fetchUserAddresses: User not logged in or missing ID/token, skipping fetch.");
             setUserAddresses([]);
             setLoadingAddresses(false);
@@ -562,8 +554,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         console.log(`[AppContext] fetchUserAddresses: Attempting to fetch addresses for user ${currentUser.id}...`);
         try {
             const response = await axios.get<{ success: boolean; addresses: Address[] }>(
-                `${baseUrl}/api/addresses/${currentUser.id}`, // Utilisation de baseUrl
-                { headers: { 'auth-token': currentUser.token } }
+                `${baseUrl}/api/addresses/${currentUser.id}`
             );
             console.log("[AppContext] fetchUserAddresses: API response received:", response.data);
 
@@ -595,7 +586,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             setInitialAddressesLoaded(true);
             console.log("[AppContext] fetchUserAddresses: Loading finished.");
         }
-    }, [baseUrl, isLoggedIn, currentUser?.id, currentUser?.token, router]); // Dépendance à baseUrl
+    }, [baseUrl, isLoggedIn, currentUser?.id, router]); // Dépendance à baseUrl
 
     useEffect(() => {
         const filtered = products.filter(product => {

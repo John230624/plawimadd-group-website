@@ -3,6 +3,7 @@
 import React, { ReactNode } from 'react';
 
 import Sidebar from '@/components/seller/Sidebar';
+import SellerMobileNav from '@/components/seller/SellerMobileNav';
 
 interface LayoutProps {
   children: ReactNode;
@@ -10,11 +11,18 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps): React.ReactElement {
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(239,246,255,0.88))]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1720px]">
+    <div className="dark-theme min-h-screen bg-[var(--bg-outer)]">
+      <div className="flex min-h-screen">
+        {/* Sidebar */}
         <Sidebar />
-        <main className="min-w-0 flex-1 px-4 py-4 md:px-6 md:py-6 xl:px-8">
-          <div className="min-h-[calc(100vh-3rem)] rounded-[2rem] border border-white/60 bg-white/62 px-4 py-5 shadow-[0_18px_60px_rgba(15,23,42,0.05)] backdrop-blur md:px-6 md:py-6 xl:px-8">
+
+        {/* Main Content */}
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--bg-dark)] my-2 mr-2">
+          {/* Mobile Nav */}
+          <SellerMobileNav />
+
+          {/* Content Area */}
+          <div className="flex-1 overflow-y-auto px-5 py-5">
             {children}
           </div>
         </main>

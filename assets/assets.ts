@@ -6,7 +6,7 @@
 // '../' sort du dossier 'assets', puis 'public/images/' entre dans le dossier 'public' et 'images'.
 
 // --- SVG Icons - Maintenant importés comme modules ---
-import logo from '../public/images/logo.svg';
+import logo from '../public/images/seller-logo.svg';
 import search_icon from '../public/images/search_icon.svg';
 import user_icon from '../public/images/user_icon.svg';
 import cart_icon from '../public/images/cart_icon.svg';

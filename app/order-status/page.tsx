@@ -1,6 +1,6 @@
 // app/order-status/page.tsx
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle, XCircle, Loader2, Clock } from 'lucide-react';
 import Link from 'next/link';
@@ -236,4 +236,10 @@ const OrderStatusPage = (): React.ReactElement => {
     );
 };
 
-export default OrderStatusPage;
+export default function OrderStatusPageWrapper(): React.ReactElement {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600" /></div>}>
+      <OrderStatusPage />
+    </Suspense>
+  );
+}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/authOptions';
 
 interface CreateInstallmentOrderPayload {
   id: string;
@@ -136,9 +136,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 200 }
     );
   } catch (error) {
-    console.error(error);
+    console.error('Erreur lors de la creation de la commande etudiante:', error);
     return NextResponse.json(
-      { success: false, message: 'Erreur lors de la creation de la commande etudiante.' },
+      { success: false, message: 'Erreur serveur. Veuillez réessayer plus tard.' },
       { status: 500 }
     );
   }

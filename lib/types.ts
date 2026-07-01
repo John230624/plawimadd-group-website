@@ -63,6 +63,15 @@ export interface Product {
     rating?: number | null;
     brand?: string | null;
     color?: string | null;
+    visible?: boolean;
+    weight?: number | null;
+    length?: number | null;
+    width?: number | null;
+    height?: number | null;
+    costPrice?: number | null;
+    metaTitle?: string | null;
+    metaDescription?: string | null;
+    tags?: string[] | null;
 }
 
 /**
@@ -88,8 +97,9 @@ export interface User {
     firstName?: string;
     lastName?: string;
     role?: UserRole; // Utilise l'enum UserRole
-    token?: string; // Token d'authentification si géré manuellement ou via session
     phoneNumber?: string | null; // Peut être optionnel et nullable
+    banned?: boolean;
+    bannedAt?: string | null;
 }
 
 /**

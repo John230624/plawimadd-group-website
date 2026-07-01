@@ -110,8 +110,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     } catch (error: unknown) {
         console.error('[API/user/orders] Erreur lors de la récupération des commandes de l\'utilisateur:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return NextResponse.json({ message: 'Erreur serveur lors de la récupération des commandes: ' + errorMessage }, { status: 500 });
+        return NextResponse.json({ message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
     }
 }
 

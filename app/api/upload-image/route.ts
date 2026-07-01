@@ -3,6 +3,10 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { v2 as cloudinary } from 'cloudinary';
+import { authorizeLoggedInUser } from '@/lib/authUtils';
+
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 interface CloudinaryUploadResult {
   secure_url: string;
@@ -37,7 +41,6 @@ function getFileExtension(file: File): string {
     'image/png': '.png',
     'image/webp': '.webp',
     'image/gif': '.gif',
-    'image/svg+xml': '.svg',
     'image/avif': '.avif',
   };
 
@@ -82,11 +85,30 @@ async function uploadToCloudinary(buffer: Buffer): Promise<string> {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
+    const auth = await authorizeLoggedInUser(req);
+    if (!auth.authorized) {
+      return auth.response!;
+    }
+
     const formData = await req.formData();
     const file = formData.get('image');
 
     if (!(file instanceof File)) {
       return NextResponse.json({ message: 'Aucun fichier image fourni.' }, { status: 400 });
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { message: `Fichier trop volumineux. Taille maximale : ${MAX_FILE_SIZE / 1024 / 1024} Mo.` },
+        { status: 400 }
+      );
+    }
+
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        { message: 'Type de fichier non autorisé. Formats acceptés : JPEG, PNG, WebP, GIF, AVIF.' },
+        { status: 400 }
+      );
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -112,15 +134,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (error: unknown) {
     console.error("Erreur lors du traitement du telechargement de l'image:", error);
 
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : typeof error === 'string'
-          ? error
-          : "Erreur serveur inconnue lors du telechargement de l'image.";
-
     return NextResponse.json(
-      { message: `Erreur serveur lors du telechargement de l'image: ${errorMessage}` },
+      { message: "Erreur serveur lors du telechargement de l'image." },
       { status: 500 }
     );
   }

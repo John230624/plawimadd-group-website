@@ -11,37 +11,7 @@ import HomeFooter from '@/components/home/HomeFooter';
 import ProductCarouselSection from '@/components/home/ProductCarouselSection';
 import { useAppContext } from '@/context/AppContext';
 import type { Address, Product, StudentInstallmentRequest } from '@/lib/types';
-
-type KkiapayErrorResponse = {
-  transactionId?: string;
-  reason?: { code?: string; message?: string };
-  message?: string;
-};
-
-type KkiapaySuccessResponse = {
-  transactionId: string;
-  amount?: number;
-  paymentMethod?: string;
-  status?: string;
-};
-
-declare global {
-  interface Window {
-    openKkiapayWidget?: (options: {
-      amount: number;
-      api_key: string;
-      callback: string;
-      email?: string;
-      phone?: string;
-      position?: string;
-      sandbox?: boolean;
-    }) => void;
-    addSuccessListener?: (callback: (response: KkiapaySuccessResponse) => void) => void;
-    removeSuccessListener?: (callback: (response: KkiapaySuccessResponse) => void) => void;
-    addFailedListener?: (callback: (error: KkiapayErrorResponse) => void) => void;
-    removeFailedListener?: (callback: (error: KkiapayErrorResponse) => void) => void;
-  }
-}
+import type { KkiapayErrorResponse, KkiapaySuccessResponse } from '@/types/kkiapay';
 
 function getDisplayPrice(product: Product): number {
   if (
@@ -252,7 +222,6 @@ export default function CartPage(): React.ReactElement {
         {
           headers: {
             'Content-Type': 'application/json',
-            ...(currentUser.token ? { 'auth-token': currentUser.token } : {}),
           },
         }
       );
@@ -324,7 +293,6 @@ export default function CartPage(): React.ReactElement {
           {
             headers: {
               'Content-Type': 'application/json',
-              ...(currentUser.token ? { 'auth-token': currentUser.token } : {}),
             },
           }
         );
@@ -393,7 +361,6 @@ export default function CartPage(): React.ReactElement {
     currency,
     currentUser?.email,
     currentUser?.phoneNumber,
-    currentUser?.token,
     router,
     selectedAddress,
     showKkiapayWidget,
