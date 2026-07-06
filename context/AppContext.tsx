@@ -79,6 +79,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const [deliveryFee, setDeliveryFee] = useState(0);
 
+    const [colors, setColors] = useState<{ id: string; name: string; hex: string }[]>([]);
+
+    useEffect(() => {
+      fetch('/api/colors')
+        .then((r) => r.json())
+        .then((data) => { if (Array.isArray(data)) setColors(data); })
+        .catch(() => {});
+    }, []);
+
     const formatPriceInFCFA = useCallback((price: number): string => {
         return new Intl.NumberFormat('fr-FR', {
             style: 'currency',
@@ -271,8 +280,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [baseUrl, isLoggedIn, currentUser?.id]); // Dépendance à baseUrl
 
-    const addToCart = useCallback(async (productId: string): Promise<boolean> => {
-        const idAsString = String(productId);
+    const addToCart = useCallback(async (productId: string, variantId?: string): Promise<boolean> => {
+        const idAsString = variantId ? `${productId}:${variantId}` : String(productId);
         const currentQuantity = cartItems[idAsString] || 0;
         const newQuantity = currentQuantity + 1;
 
@@ -444,14 +453,36 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
     }, []);
 
-    const toggleWishlist = useCallback((productId: string) => {
+    useEffect(() => {
+        if (isLoggedIn && baseUrl) {
+            fetch(`${baseUrl}/api/wishlist`)
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data?.items && Array.isArray(data.items)) {
+                        setWishlistItems(data.items);
+                        localStorage.setItem('wishlistItems', JSON.stringify(data.items));
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [isLoggedIn, baseUrl]);
+
+    const toggleWishlist = useCallback(async (productId: string) => {
         setWishlistItems((current) => {
             const exists = current.includes(productId);
             const next = exists ? current.filter((item) => item !== productId) : [...current, productId];
             localStorage.setItem('wishlistItems', JSON.stringify(next));
+            if (isLoggedIn && baseUrl) {
+                const method = exists ? 'DELETE' : 'POST';
+                fetch(`${baseUrl}/api/wishlist`, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ productId }),
+                }).catch(() => {});
+            }
             return next;
         });
-    }, []);
+    }, [isLoggedIn, baseUrl]);
 
     const isInWishlist = useCallback((productId: string) => wishlistItems.includes(productId), [wishlistItems]);
 
@@ -688,6 +719,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         deliveryFee,
         setDeliveryFee,
         fetchProducts,
+        colors,
         wishlistItems,
         toggleWishlist,
         isInWishlist,

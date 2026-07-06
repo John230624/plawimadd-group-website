@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 import { productSchema } from '@/lib/validation';
 import { ZodError } from 'zod';
 
@@ -25,12 +26,11 @@ type ProductWithRelations = {
     description: string | null;
     price: Decimal;
     stock: number;
-    // imgUrl ici est la STRING telle que stockée dans la DB
     imgUrl: string | null;
     createdAt: Date;
     updatedAt: Date;
     offerPrice: Decimal | null;
-    rating: number | null; // Ajouté pour correspondre au schéma Prisma
+    rating: number | null;
     brand: string | null;
     color: string | null;
     visible: boolean;
@@ -42,9 +42,24 @@ type ProductWithRelations = {
     metaTitle: string | null;
     metaDescription: string | null;
     tags: string | null;
+    attributesJson: string | null;
+    moqMin: number | null;
+    moqMax: number | null;
+    leadTimeRange: string | null;
+    certifications: string | null;
+    soldCount: number | null;
+    reviewCount: number | null;
     categoryId: string;
     category: CategoryFromPrisma;
     reviews: { rating: number }[];
+    variants?: {
+      id: string;
+      sku: string;
+      price: Decimal;
+      stock: number;
+      variantName: string | null;
+      isActive: boolean;
+    }[];
 };
 
 interface ProductRequest {
@@ -66,6 +81,12 @@ interface ProductRequest {
     metaTitle?: string | null;
     metaDescription?: string | null;
     tags?: string[] | null;
+    // Nouveaux champs attributs dynamiques
+    attributesJson?: Record<string, unknown> | null;
+    moqMin?: number | null;
+    moqMax?: number | null;
+    leadTimeRange?: string | null;
+    certifications?: string[] | null;
 }
 
 type ApiResponseProduct = {
@@ -94,6 +115,21 @@ type ApiResponseProduct = {
     metaTitle: string | null;
     metaDescription: string | null;
     tags: string[] | null;
+    attributesJson: Record<string, unknown> | null;
+    moqMin: number | null;
+    moqMax: number | null;
+    leadTimeRange: string | null;
+    certifications: string[] | null;
+    soldCount: number | null;
+    reviewCount: number | null;
+    variants?: {
+        id: string;
+        sku: string;
+        price: number;
+        stock: number;
+        variantName: string | null;
+        isActive: boolean;
+    }[];
 };
 
 
@@ -166,7 +202,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const body = await req.json() as ProductRequest;
         const parsed = productSchema.omit({ categoryId: true }).parse(body);
         const { name, description, price, offerPrice, stock, imgUrl, brand, color } = parsed;
-        const { category, visible, weight, length: dimLength, width, height, costPrice, metaTitle, metaDescription, tags } = body;
+        const { category, visible, weight, length: dimLength, width, height, costPrice, metaTitle, metaDescription, tags, attributesJson, moqMin, moqMax, leadTimeRange, certifications } = body;
+        const bodyCategoryId = (body as unknown as Record<string, unknown>).categoryId as string | undefined;
 
         const finalOfferPrice =
             (offerPrice !== undefined && offerPrice !== null && offerPrice > 0)
@@ -176,16 +213,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const cleanedImgUrlArray = parseImgUrl(Array.isArray(imgUrl) ? JSON.stringify(imgUrl) : String(imgUrl));
         const imgUrlToSave = JSON.stringify(cleanedImgUrlArray);
 
-        let existingCategory = await prisma.category.findUnique({
-            where: { name: category },
-        });
-
-        if (!existingCategory) {
-            existingCategory = await prisma.category.create({
-                data: { name: category },
+        let categoryId: string;
+        if (bodyCategoryId) {
+            categoryId = bodyCategoryId;
+        } else {
+            let existingCategory = await prisma.category.findUnique({
+                where: { name: category },
             });
+            if (!existingCategory) {
+                existingCategory = await prisma.category.create({
+                    data: { name: category },
+                });
+            }
+            categoryId = existingCategory.id;
         }
-        const categoryId = existingCategory.id;
 
         const finalCostPrice =
             costPrice !== undefined && costPrice !== null && costPrice > 0
@@ -214,12 +255,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 metaTitle: metaTitle || null,
                 metaDescription: metaDescription || null,
                 tags: tagsToSave,
+                attributesJson: attributesJson ? JSON.stringify(attributesJson) : null,
+                moqMin: moqMin ?? null,
+                moqMax: moqMax ?? null,
+                leadTimeRange: leadTimeRange || null,
+                certifications: certifications ? JSON.stringify(certifications) : null,
             },
             include: { category: true },
         });
 
+        await logActivity({
+            userId: req.user?.id || null,
+            action: 'CREATE',
+            entity: 'PRODUCT',
+            entityId: newProduct.id,
+            details: `Produit "${name}" créé`,
+        });
+
         const parsedImgUrls = parseImgUrl(newProduct.imgUrl);
         const parsedTags = newProduct.tags ? (() => { try { const t = JSON.parse(newProduct.tags); return Array.isArray(t) ? t : null; } catch { return null; } })() : null;
+        const parsedAttributesJson = newProduct.attributesJson ? (() => { try { return JSON.parse(newProduct.attributesJson); } catch { return null; } })() : null;
+        const parsedCertifications = newProduct.certifications ? (() => { try { const c = JSON.parse(newProduct.certifications); return Array.isArray(c) ? c : null; } catch { return null; } })() : null;
 
         const responseNewProduct: ApiResponseProduct = {
             id: newProduct.id,
@@ -244,6 +300,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             metaTitle: newProduct.metaTitle,
             metaDescription: newProduct.metaDescription,
             tags: parsedTags,
+            attributesJson: parsedAttributesJson,
+            moqMin: newProduct.moqMin,
+            moqMax: newProduct.moqMax,
+            leadTimeRange: newProduct.leadTimeRange,
+            certifications: parsedCertifications,
+            soldCount: newProduct.soldCount,
+            reviewCount: newProduct.reviewCount,
         };
 
         return NextResponse.json(
@@ -287,6 +350,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             include: {
                 category: true,
                 reviews: true,
+                variants: {
+                    where: { isActive: true },
+                    select: {
+                        id: true,
+                        sku: true,
+                        price: true,
+                        stock: true,
+                        variantName: true,
+                        isActive: true,
+                    },
+                },
             },
         });
 
@@ -296,6 +370,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
             const parsedImgUrls = parseImgUrl(product.imgUrl);
             const parsedTags = product.tags ? (() => { try { const t = JSON.parse(product.tags); return Array.isArray(t) ? t : null; } catch { return null; } })() : null;
+            const parsedAttributesJson = product.attributesJson ? (() => { try { return JSON.parse(product.attributesJson); } catch { return null; } })() : null;
+            const parsedCertifications = product.certifications ? (() => { try { const c = JSON.parse(product.certifications); return Array.isArray(c) ? c : null; } catch { return null; } })() : null;
 
             const formattedProduct: ApiResponseProduct = {
                 id: product.id,
@@ -320,6 +396,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                 metaTitle: product.metaTitle,
                 metaDescription: product.metaDescription,
                 tags: parsedTags,
+                attributesJson: parsedAttributesJson,
+                moqMin: product.moqMin,
+                moqMax: product.moqMax,
+                leadTimeRange: product.leadTimeRange,
+                certifications: parsedCertifications,
+                soldCount: product.soldCount,
+                reviewCount: product.reviewCount,
+                variants: product.variants?.map(v => ({
+                    ...v,
+                    price: parseFloat(v.price.toString()),
+                })),
             };
             return formattedProduct;
         });

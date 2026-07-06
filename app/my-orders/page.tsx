@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   ChevronDown,
   ChevronUp,
+  FileText,
   Package,
   ShoppingBag,
   Truck,
@@ -37,6 +38,22 @@ function getBadgeClasses(status: OrderStatus | PaymentStatus | null): string {
   }
 }
 
+function getColorDisplay(color: string | null | undefined, map: Record<string, string>): string {
+  if (!color) return '';
+  try {
+    const ids = JSON.parse(color);
+    if (Array.isArray(ids) && ids.length > 0) {
+      return ids.map((id: string) => map[id] || id).join(', ');
+    }
+  } catch {}
+  return color;
+}
+
+function parseColorIds(color: string | null | undefined): string[] {
+  if (!color) return [];
+  try { const ids = JSON.parse(color); return Array.isArray(ids) ? ids : []; } catch { return []; }
+}
+
 export default function MyOrdersPage(): React.ReactElement {
   const {
     currentUser,
@@ -49,12 +66,40 @@ export default function MyOrdersPage(): React.ReactElement {
   } = useAppContext();
   const router = useRouter();
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [colorMap, setColorMap] = useState<Record<string, { name: string; hex: string }>>({});
+
+  useEffect(() => {
+    fetch('/api/colors')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const map: Record<string, { name: string; hex: string }> = {};
+          data.forEach((c: { id: string; name: string; hex: string }) => { map[c.id] = { name: c.name, hex: c.hex }; });
+          setColorMap(map);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (isLoggedIn && currentUser?.id) {
       fetchUserOrders();
     }
   }, [currentUser?.id, fetchUserOrders, isLoggedIn]);
+
+  const downloadInvoice = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/orders/invoice?orderId=${orderId}`);
+      if (!res.ok) { return; }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `facture-${orderId.slice(0, 8)}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch {}
+  };
 
   const totalSpent = useMemo(() => {
     return userOrders.reduce((sum, order) => {
@@ -258,6 +303,21 @@ export default function MyOrdersPage(): React.ReactElement {
                                       <p className="mt-1 text-sm text-slate-500">
                                         Prix unitaire: {formatPrice(item.priceAtOrder)}
                                       </p>
+                                      {(() => {
+                                        const ids = parseColorIds(item.product?.color);
+                                        const resolved = ids.map((id) => colorMap[id]).filter(Boolean) as { name: string; hex: string }[];
+                                        if (resolved.length === 0) return null;
+                                        return (
+                                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                            {resolved.map((c, i) => (
+                                              <span key={c.hex + i} className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-white px-2 py-0.5 text-xs text-[var(--text-secondary)]">
+                                                <span className="h-3 w-3 rounded-full border border-[var(--border)]" style={{ backgroundColor: c.hex }} />
+                                                {c.name}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                   </div>
                                 );
@@ -292,6 +352,14 @@ export default function MyOrdersPage(): React.ReactElement {
                                 ) : null}
                                 <p>Methode: {order.paymentMethod || 'Non precisee'}</p>
                                 <p>Statut paiement: {order.paymentStatus}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => downloadInvoice(order.id)}
+                                  className="mt-3 inline-flex items-center gap-2 rounded-full bg-[var(--brand-600)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--brand-700)]"
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                  Telecharger la facture
+                                </button>
                               </div>
                             </div>
                           </div>

@@ -30,13 +30,20 @@ export enum PaymentStatus {
 export enum UserRole {
     USER = 'USER',
     ADMIN = 'ADMIN',
-    // SELLER = 'SELLER', // Décommentez si vous utilisez un rôle 'SELLER'
+    SELLER = 'SELLER',
 }
 
 export enum StudentInstallmentRequestStatus {
     PENDING = 'PENDING',
     APPROVED = 'APPROVED',
     REJECTED = 'REJECTED',
+}
+
+export enum InstallmentStatus {
+    PENDING = 'PENDING',
+    PAID = 'PAID',
+    OVERDUE = 'OVERDUE',
+    CANCELLED = 'CANCELLED',
 }
 
 // --- INTERFACES DE BASE ---
@@ -46,6 +53,54 @@ export enum StudentInstallmentRequestStatus {
  * Les prix sont des nombres pour le frontend, convertis de Decimal par le backend.
  * imgUrl est un tableau de chaînes.
  */
+export interface VariantAttributeValue {
+  id: string;
+  value: string;
+  colorCode: string | null;
+  imageUrl: string | null;
+}
+
+export interface VariantAttributeInfo {
+  id: string;
+  name: string;
+  attributeType: string;
+}
+
+export interface VariantAttribute {
+  id: string;
+  variantId: string;
+  attributeId: string;
+  attributeValueId: string | null;
+  priceModifier: number | null;
+  attribute: VariantAttributeInfo;
+  value: VariantAttributeValue | null;
+}
+
+export interface VariantImage {
+  id: string;
+  imageUrl: string;
+  isMainImage: boolean;
+  displayOrder: number;
+}
+
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  sku: string;
+  variantName: string | null;
+  price: number;
+  stock: number;
+  leadTimeDays: number | null;
+  moq: number | null;
+  weight: number | null;
+  dimensions: string | null;
+  isActive: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  attributes: VariantAttribute[];
+  images: VariantImage[];
+}
+
 export interface Product {
     id: string;
     name: string;
@@ -53,9 +108,9 @@ export interface Product {
     price: number;
     offerPrice: number | null;
     stock: number;
-    imgUrl: string[]; // DOIT être un tableau de chaînes, comme renvoyé par parsePrismaImgUrl
-    createdAt: Date | string; // Peut être une Date ou un string ISO
-    updatedAt: Date | string; // Peut être une Date ou un string ISO
+    imgUrl: string[];
+    createdAt: Date | string;
+    updatedAt: Date | string;
     category: {
         id: string;
         name: string;
@@ -72,6 +127,14 @@ export interface Product {
     metaTitle?: string | null;
     metaDescription?: string | null;
     tags?: string[] | null;
+    attributesJson?: string | null;
+    moqMin?: number | null;
+    moqMax?: number | null;
+    leadTimeRange?: string | null;
+    certifications?: string[] | null;
+    soldCount?: number | null;
+    reviewCount?: number | null;
+    variants?: ProductVariant[];
 }
 
 /**
@@ -127,6 +190,7 @@ export interface OrderItemForDisplay {
         imgUrl: string[]; // CORRIGÉ: DOIT être un tableau de chaînes
         price: number; // Ajouté: Prix normal du produit
         offerPrice: number | null; // Ajouté: Prix promotionnel du produit
+        color: string | null;
     };
 }
 
@@ -211,6 +275,7 @@ export interface StudentInstallmentRequest {
     status: StudentInstallmentRequestStatus;
     adminNote?: string | null;
     reviewedAt?: string | Date | null;
+    reviewedById?: string | null;
     createdAt: string | Date;
     updatedAt: string | Date;
     user?: {
@@ -218,6 +283,52 @@ export interface StudentInstallmentRequest {
         lastName?: string | null;
         email?: string | null;
     } | null;
+    reviewedBy?: {
+        firstName?: string | null;
+        lastName?: string | null;
+    } | null;
+}
+
+export interface StudentInstallment {
+  id: string;
+  orderId: string;
+  installmentNumber: number;
+  amount: number;
+  dueDate: string;
+  status: InstallmentStatus;
+  paidAt: string | null;
+  paymentReference: string | null;
+  paymentMethod: string | null;
+  paidById: string | null;
+  lateFee: number | null;
+  notes: string | null;
+  remindedAt: string | null;
+  order?: {
+    id: string;
+    totalAmount: number;
+    status: string;
+    createdAt: string;
+    userEmail?: string;
+    shippingAddressLine1?: string;
+  } | null;
+  paidBy?: {
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
+}
+
+export interface OrderPayment {
+  id: string;
+  orderId: string;
+  amount: number;
+  paymentMethod: string;
+  reference: string | null;
+  notes: string | null;
+  paidAt: string;
+  recordedBy?: {
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
 }
 
 export type NextRouter = ReturnType<typeof useRouter>;
@@ -235,7 +346,7 @@ export interface AppContextType {
     setSelectedCategory: (category: string) => void;
     filteredProducts: Product[];
     cartItems: Record<string, number>;
-    addToCart: (productId: string) => Promise<boolean>;
+    addToCart: (productId: string, variantId?: string) => Promise<boolean>;
     removeFromCart: (productId: string) => Promise<boolean>;
     deleteFromCart: (productId: string) => Promise<boolean>;
     updateCartQuantity: (productId: string, quantity: number) => Promise<boolean>;
@@ -262,6 +373,7 @@ export interface AppContextType {
     loadCartData: () => Promise<void>;
     loadingCart: boolean;
     fetchProducts: () => Promise<void>;
+    colors: { id: string; name: string; hex: string }[];
     wishlistItems: string[];
     toggleWishlist: (productId: string) => void;
     isInWishlist: (productId: string) => boolean;

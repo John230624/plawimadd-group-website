@@ -7,6 +7,7 @@ import prisma from '@/lib/prisma'; // Importez votre client Prisma
 // IMPORTATION DES FONCTIONS ET INTERFACES D'AUTHUTILS
 // Importer authorizeLoggedInUser pour cette route, car elle n'a pas de paramètres dynamiques
 import { authorizeLoggedInUser, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 
 /**
  * GET /api/user/profile
@@ -117,6 +118,14 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
         // Excluez les champs sensibles avant d'envoyer la réponse
         const { password: _password, resetPasswordToken: _resetPasswordToken, resetPasswordExpires: _resetPasswordExpires, ...safeUpdatedUser } = updatedUser;
+
+        await logActivity({
+          userId,
+          action: 'UPDATE',
+          entity: 'USER',
+          entityId: userId,
+          details: 'Mise à jour du profil utilisateur',
+        });
 
         return NextResponse.json({ success: true, message: "Profil mis à jour avec succès.", user: safeUpdatedUser }, { status: 200 });
 

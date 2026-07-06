@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeLoggedInUser } from '@/lib/authUtils';
 import { studentInstallmentSchema } from '@/lib/validation';
+import { logActivity } from '@/lib/logActivity';
 import { ZodError } from 'zod';
 
 interface StudentInstallmentPayload {
@@ -84,6 +85,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         documentUrl,
         notes: notes || null,
       },
+    });
+
+    await logActivity({
+      userId: authResult.userId,
+      action: 'CREATE',
+      entity: 'STUDENT_INSTALLMENT',
+      entityId: request.id,
+      details: `Demande d'échelonnement étudiant créée`,
     });
 
     return NextResponse.json({ success: true, request }, { status: 201 });

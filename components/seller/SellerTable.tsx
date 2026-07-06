@@ -34,7 +34,7 @@ export function SellerTableBody({ children, className = '' }: SellerTableProps):
 }
 
 export function SellerTableRow({ children, className = '' }: SellerTableProps): React.ReactElement {
-  return <tr className={`align-top transition hover:bg-[var(--bg-hover)] ${className}`}>{children}</tr>;
+  return <tr className={`align-middle transition hover:bg-[var(--bg-hover)] ${className}`}>{children}</tr>;
 }
 
 export function SellerTableCell({

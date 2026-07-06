@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { contactSchema } from '@/lib/validation';
+import { logActivity } from '@/lib/logActivity';
 import { ZodError } from 'zod';
 // import nodemailer from 'nodemailer'; // À décommenter et configurer si vous voulez envoyer de vrais emails
 
@@ -57,6 +58,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         // Simule un délai d’envoi (optionnel)
         await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        await logActivity({
+          userId: null,
+          action: 'CREATE',
+          entity: 'CONTACT',
+          entityId: null,
+          details: `Nouveau message de contact de ${name} (${email}) : ${subject}`,
+        });
 
         return NextResponse.json({ message: 'Message envoyé avec succès !' }, { status: 200 });
     } catch (_error: unknown) {

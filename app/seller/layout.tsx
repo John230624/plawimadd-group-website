@@ -1,6 +1,8 @@
 'use client';
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 import Sidebar from '@/components/seller/Sidebar';
 import SellerMobileNav from '@/components/seller/SellerMobileNav';
@@ -10,6 +12,16 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps): React.ReactElement {
+  const router = useRouter();
+  const { data: session } = useSession();
+
+  useEffect(() => {
+    if (!session) return;
+    if (session.user?.role !== 'ADMIN' && session.user?.role !== 'SELLER') {
+      router.replace('/login');
+    }
+  }, [session, router]);
+
   return (
     <div className="dark-theme min-h-screen bg-[var(--bg-outer)]">
       <div className="flex min-h-screen">

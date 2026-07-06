@@ -2,12 +2,12 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  DollarSign,
-  ShoppingCart,
-  Users,
-  TrendingUp,
-  Package,
   CheckCircle2,
+  DollarSign,
+  Package,
+  ShoppingCart,
+  TrendingUp,
+  Users,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -62,16 +62,30 @@ interface DashboardStats {
 
 const monthLabels = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+function getPeriodDate(period: '7d' | '30d' | '90d'): { startDate: string; endDate: string } {
+  const end = new Date();
+  const start = new Date();
+  if (period === '7d') start.setDate(start.getDate() - 7);
+  else if (period === '30d') start.setDate(start.getDate() - 30);
+  else start.setDate(start.getDate() - 90);
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
+  };
+}
+
 export default function SellerDashboard(): React.ReactElement {
   const { formatPrice } = useAppContext();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [timePeriod, setTimePeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [timePeriod, setTimePeriod] = useState<'7d' | '30d' | '90d'>('30d');
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/stats');
+      const { startDate, endDate } = getPeriodDate(timePeriod);
+      const params = new URLSearchParams({ startDate, endDate });
+      const res = await fetch(`/api/dashboard/stats?${params}`);
       const data = await res.json();
       if (data.success) {
         setStats(data);
@@ -83,62 +97,28 @@ export default function SellerDashboard(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [timePeriod]);
 
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
 
-  // Données fictives haute fréquence pour un rendu détaillé
-  const generateHighFrequencyData = () => {
-    const data: RevenuePerMonthItem[] = [];
-    const baseValues = [450, 520, 480, 610, 560, 720, 680, 750, 620, 800, 890, 950];
-    
-    baseValues.forEach((base, monthIndex) => {
-      for (let day = 1; day <= 30; day++) {
-        const variance = Math.sin(day * 0.3) * 50 + Math.cos(day * 0.15) * 30;
-        const value = (base + variance) * 1000;
-        data.push({
-          month: `2025-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
-          totalMonthlyRevenue: Math.max(300000, value),
-        });
-      }
-    });
-    return data;
-  };
-  
-  const mockRevenueData = generateHighFrequencyData();
-
-  const mockOrdersData: OrdersPerMonthItem[] = [
-    { month: '2025-01', orderCount: 145 },
-    { month: '2025-02', orderCount: 168 },
-    { month: '2025-03', orderCount: 152 },
-    { month: '2025-04', orderCount: 195 },
-    { month: '2025-05', orderCount: 178 },
-    { month: '2025-06', orderCount: 225 },
-    { month: '2025-07', orderCount: 210 },
-    { month: '2025-08', orderCount: 238 },
-    { month: '2025-09', orderCount: 198 },
-    { month: '2025-10', orderCount: 256 },
-    { month: '2025-11', orderCount: 285 },
-    { month: '2025-12', orderCount: 305 },
-  ];
+  const revenueData: RevenuePerMonthItem[] = stats?.revenuePerMonth || [];
+  const ordersData: OrdersPerMonthItem[] = stats?.ordersPerMonth || [];
 
   const revenueSparkline = useMemo(() => {
-    const data = mockRevenueData;
-    return data.map((item) => Math.round(item.totalMonthlyRevenue / 100));
-  }, []);
+    return revenueData.map((item) => Math.round(item.totalMonthlyRevenue / 100));
+  }, [revenueData]);
 
   const salesSparkline = useMemo(() => {
-    const data = mockOrdersData;
-    return data.map((item) => item.orderCount);
-  }, []);
+    return ordersData.map((item) => item.orderCount);
+  }, [ordersData]);
 
   const clientsSparkline = useMemo(() => [65, 75, 70, 85, 80, 95, 90], []);
   const pendingSparkline = useMemo(() => [12, 10, 14, 8, 11, 9, 7], []);
 
   const revenuePoints = useMemo(() => {
-    const data = mockRevenueData;
+    const data = revenueData;
     if (!data.length) return [];
     const values = data.map((item) => item.totalMonthlyRevenue);
     const max = Math.max(...values, 1);
@@ -154,7 +134,7 @@ export default function SellerDashboard(): React.ReactElement {
         y,
       };
     });
-  }, []);
+  }, [revenueData]);
 
   const revenuePathData = useMemo(() => {
     if (revenuePoints.length === 0) return '';
@@ -189,7 +169,7 @@ export default function SellerDashboard(): React.ReactElement {
   }, [revenueSmoothPath, revenuePoints]);
 
   const salesPoints = useMemo(() => {
-    const data = mockOrdersData;
+    const data = ordersData;
     if (!data.length) return [];
     const values = data.map((item) => item.orderCount);
     const max = Math.max(...values, 1);
@@ -205,7 +185,7 @@ export default function SellerDashboard(): React.ReactElement {
         y,
       };
     });
-  }, []);
+  }, [ordersData]);
 
   const salesPathData = useMemo(() => {
     if (salesPoints.length === 0) return '';
@@ -277,7 +257,22 @@ export default function SellerDashboard(): React.ReactElement {
           <h1 className="text-3xl font-700 text-[var(--text-primary)]">Tableau de bord</h1>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">Suivez vos revenus et performances en temps réel</p>
         </div>
-
+        {/* Filtre période */}
+        <div className="flex items-center gap-1 rounded-xl p-0.5" style={{ backgroundColor: '#121212' }}>
+          {(['7d', '30d', '90d'] as const).map((period) => (
+            <button
+              key={period}
+              onClick={() => setTimePeriod(period)}
+              className={`px-4 py-2 rounded-lg text-xs font-600 transition-all duration-300 ease-out ${
+                timePeriod === period
+                  ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-md hover:shadow-lg'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]/50'
+              }`}
+            >
+              {period === '7d' ? '7 jours' : period === '30d' ? '30 jours' : '90 jours'}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -331,21 +326,6 @@ export default function SellerDashboard(): React.ReactElement {
                 <div className="h-3 w-3 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 animate-pulse" />
                 <span className="text-[var(--text-secondary)]">Revenus</span>
               </div>
-              <div className="flex items-center gap-1 rounded-xl p-0.5" style={{ backgroundColor: '#121212' }}>
-                {(['week', 'month', 'year'] as const).map((period) => (
-                  <button
-                    key={period}
-                    onClick={() => setTimePeriod(period)}
-                    className={`px-4 py-2 rounded-lg text-xs font-600 transition-all duration-300 ease-out ${
-                      timePeriod === period
-                        ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-md hover:shadow-lg'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]/50'
-                    }`}
-                  >
-                    {period === 'week' ? 'Semaine' : period === 'month' ? 'Mois' : 'Année'}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
 
@@ -395,7 +375,7 @@ export default function SellerDashboard(): React.ReactElement {
             </svg>
 
             <div className="absolute bottom-0 inset-x-0 flex justify-between px-4 text-[10px] font-600 text-[var(--text-tertiary)] uppercase tracking-wider pb-2">
-              {revenuePoints.filter((_, i) => i % 30 === 0).map((p) => (
+              {revenuePoints.filter((_, i) => revenuePoints.length <= 12 || i % 30 === 0).map((p) => (
                 <span key={p.label}>{p.label.split(' ')[0]}</span>
               ))}
             </div>
@@ -431,21 +411,6 @@ export default function SellerDashboard(): React.ReactElement {
                   <CheckCircle2 size={16} className="text-blue-500" />
                   <span className="text-[var(--text-secondary)]">Livrées</span>
                 </div>
-              </div>
-              <div className="flex items-center gap-1 rounded-xl p-0.5" style={{ backgroundColor: '#121212' }}>
-                {(['week', 'month', 'year'] as const).map((period) => (
-                  <button
-                    key={period}
-                    onClick={() => setTimePeriod(period)}
-                    className={`px-4 py-2 rounded-lg text-xs font-600 transition-all duration-300 ease-out ${
-                      timePeriod === period
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]/50'
-                    }`}
-                  >
-                    {period === 'week' ? 'Semaine' : period === 'month' ? 'Mois' : 'Année'}
-                  </button>
-                ))}
               </div>
             </div>
           </div>
@@ -483,11 +448,11 @@ export default function SellerDashboard(): React.ReactElement {
               <text x="5" y="82" fontSize="3" fill="rgb(148, 163, 184)" textAnchor="end">20%</text>
               
               {/* Bars */}
-              {mockOrdersData?.map((item, index) => {
+              {ordersData?.map((item, index) => {
                 const barWidth = 2.8;
                 const spacing = 6.5;
                 const startX = 10 + index * spacing;
-                const maxValue = Math.max(...mockOrdersData.map(o => o.orderCount));
+                const maxValue = Math.max(...ordersData.map(o => o.orderCount));
                 const completedPercent = Math.min(Math.random() * 0.8 + 0.4, 1);
                 const ordersPercent = Math.min(item.orderCount / Math.max(maxValue, 1), 1);
                 
@@ -522,7 +487,7 @@ export default function SellerDashboard(): React.ReactElement {
               })}
               
               {/* X-axis labels */}
-              {mockOrdersData?.map((item, index) => {
+              {ordersData?.map((item, index) => {
                 const [year, month] = item.month.split('-');
                 const spacing = 6.5;
                 const startX = 10 + index * spacing + 2.5;
@@ -549,21 +514,6 @@ export default function SellerDashboard(): React.ReactElement {
           <div className="flex items-start justify-between mb-6">
             <div>
               <h3 className="text-lg font-700 text-[var(--text-primary)]">Commandes</h3>
-            </div>
-            <div className="flex items-center gap-1 rounded-xl p-0.5" style={{ backgroundColor: '#121212' }}>
-              {(['week', 'month', 'year'] as const).map((period) => (
-                <button
-                  key={period}
-                  onClick={() => setTimePeriod(period)}
-                  className={`px-4 py-2 rounded-lg text-xs font-600 transition-all duration-300 ease-out ${
-                    timePeriod === period
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md hover:shadow-lg'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]/50'
-                  }`}
-                >
-                  {period === 'week' ? 'Semaine' : period === 'month' ? 'Mois' : 'Année'}
-                </button>
-              ))}
             </div>
           </div>
 
@@ -627,7 +577,7 @@ export default function SellerDashboard(): React.ReactElement {
         </SellerPanel>
 
         <div className="lg:col-span-2">
-          <RecentOrdersTable period={timePeriod} />
+          <RecentOrdersTable period={timePeriod === '7d' ? 'week' : timePeriod === '30d' ? 'month' : 'year'} />
         </div>
       </div>
     </div>

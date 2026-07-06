@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 import prisma from '@/lib/prisma';
+import { logActivity } from '@/lib/logActivity';
 import { OrderStatus } from '@prisma/client';
 
 interface Context {
@@ -68,6 +69,14 @@ export async function PUT(request: NextRequest, context: Context) {
       },
     });
 
+    await logActivity({
+      userId: session.user.id,
+      action: 'UPDATE',
+      entity: 'ORDER',
+      entityId: orderId,
+      details: `Commande #${orderId} marquée comme "${status}"`,
+    });
+
     return NextResponse.json({ success: true, order: updated });
   } catch (error) {
     console.error('Erreur PUT commande :', error);
@@ -88,6 +97,14 @@ export async function DELETE(request: NextRequest, context: Context) {
   try {
     await prisma.order.delete({
       where: { id: orderId },
+    });
+
+    await logActivity({
+      userId: session.user.id,
+      action: 'DELETE',
+      entity: 'ORDER',
+      entityId: orderId,
+      details: `Commande #${orderId} supprimée`,
     });
 
     return NextResponse.json({ success: true });

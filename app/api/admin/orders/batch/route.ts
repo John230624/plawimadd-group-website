@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 import { OrderStatus } from '@prisma/client';
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
@@ -23,6 +24,10 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       where: { id: { in: ids } },
       data: { status: upperStatus as OrderStatus, updatedAt: new Date() },
     });
+
+    for (const id of ids) {
+      await logActivity({ userId: authResult.userId, action: 'UPDATE', entity: 'ORDER', entityId: id, details: `Mise à jour groupée du statut de la commande ${id} vers ${upperStatus}` });
+    }
 
     return NextResponse.json({
       success: true,

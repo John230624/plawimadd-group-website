@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
+import { logActivity } from '@/lib/logActivity';
 
 interface CreateInstallmentOrderPayload {
   id: string;
@@ -75,6 +76,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const secondInstallmentAmount = body.totalAmount / 4;
     const thirdInstallmentAmount = body.totalAmount - firstInstallmentAmount - secondInstallmentAmount;
 
+    const now = new Date();
+
     await prisma.$transaction(async (tx) => {
       await tx.order.create({
         data: {
@@ -93,13 +96,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           shippingAddressId: body.shippingAddress.id || null,
           userEmail: body.userEmail,
           userPhoneNumber: body.userPhoneNumber,
-          orderDate: new Date(),
+          orderDate: now,
           orderItems: {
             create: body.items.map((item) => ({
               productId: item.productId,
               quantity: item.quantity,
               priceAtOrder: new Prisma.Decimal(item.price),
             })),
+          },
+          studentInstallments: {
+            create: [
+              {
+                installmentNumber: 1,
+                amount: new Prisma.Decimal(firstInstallmentAmount),
+                dueDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+                status: 'PENDING',
+              },
+              {
+                installmentNumber: 2,
+                amount: new Prisma.Decimal(secondInstallmentAmount),
+                dueDate: new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000),
+                status: 'PENDING',
+              },
+              {
+                installmentNumber: 3,
+                amount: new Prisma.Decimal(thirdInstallmentAmount),
+                dueDate: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
+                status: 'PENDING',
+              },
+            ],
           },
         },
       });
@@ -119,6 +144,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await tx.cartItem.deleteMany({
         where: { userId },
       });
+    });
+
+    await logActivity({
+      userId,
+      action: 'CREATE',
+      entity: 'ORDER',
+      entityId: body.id,
+      details: `Commande avec echelonnement etudiant creee (3 tranches)`,
     });
 
     return NextResponse.json(

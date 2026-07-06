@@ -7,7 +7,7 @@ export default function NewProductRedirectPage(): React.ReactElement {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/seller/add-products');
+    router.replace('/seller/product-list');
   }, [router]);
 
   return <div className="p-6 text-sm text-slate-500">Redirection vers le formulaire produit...</div>;

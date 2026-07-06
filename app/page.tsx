@@ -17,6 +17,12 @@ import {
 import { useAppContext } from '@/context/AppContext';
 import type { Product } from '@/lib/types';
 
+function getNewArrivals(products: Product[]): Product[] {
+  return [...products]
+    .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime())
+    .slice(0, 8);
+}
+
 function getBestSellers(products: Product[]): Product[] {
   return [...products]
     .sort((first, second) => {
@@ -52,6 +58,7 @@ function getStudentOffers(products: Product[]): Product[] {
 export default function HomePage(): React.ReactElement {
   const { products, router } = useAppContext();
 
+  const newArrivals = useMemo(() => getNewArrivals(products), [products]);
   const bestSellers = useMemo(() => getBestSellers(products), [products]);
   const studentOffers = useMemo(() => getStudentOffers(products), [products]);
 
@@ -67,6 +74,13 @@ export default function HomePage(): React.ReactElement {
       <WhyChooseUsSection />
 
       <CatalogSection onBrowseCatalog={() => router.push('/all-products')} />
+
+      <ProductCarouselSection
+        title="Nouveautés"
+        actionLabel="Voir plus"
+        products={newArrivals}
+        onAction={() => router.push('/all-products?sortBy=newest')}
+      />
 
       <ProductCarouselSection
         title="Hits de ventes"

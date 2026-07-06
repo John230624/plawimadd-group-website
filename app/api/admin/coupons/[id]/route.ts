@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 
 export async function PUT(
   req: NextRequest,
@@ -40,6 +41,8 @@ export async function PUT(
       data,
     });
 
+    await logActivity({ userId: authResult.userId, action: 'UPDATE', entity: 'COUPON', entityId: id, details: `Mise à jour du coupon ${coupon.code}` });
+
     return NextResponse.json({ success: true, coupon }, { status: 200 });
   } catch (_error: unknown) {
     console.error('Erreur PUT coupon:', _error);
@@ -69,7 +72,8 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    await prisma.coupon.delete({ where: { id } });
+    const deleted = await prisma.coupon.delete({ where: { id } });
+    await logActivity({ userId: authResult.userId, action: 'DELETE', entity: 'COUPON', entityId: id, details: `Suppression du coupon ${deleted.code}` });
     return NextResponse.json({ success: true, message: 'Coupon supprimé avec succès.' }, { status: 200 });
   } catch (_error: unknown) {
     console.error('Erreur DELETE coupon:', _error);

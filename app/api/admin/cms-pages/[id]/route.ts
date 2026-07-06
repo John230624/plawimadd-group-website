@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 
 export async function PUT(
   req: NextRequest,
@@ -27,6 +28,14 @@ export async function PUT(
     const page = await prisma.cmsPage.update({
       where: { id },
       data,
+    });
+
+    await logActivity({
+      userId: authResult.userId || null,
+      action: 'UPDATE',
+      entity: 'CMS_PAGE',
+      entityId: id,
+      details: `Page "${page.title}" mise à jour`,
     });
 
     return NextResponse.json({ success: true, page }, { status: 200 });
@@ -58,7 +67,14 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    await prisma.cmsPage.delete({ where: { id } });
+    const deletedPage = await prisma.cmsPage.delete({ where: { id } });
+    await logActivity({
+      userId: authResult.userId || null,
+      action: 'DELETE',
+      entity: 'CMS_PAGE',
+      entityId: id,
+      details: `Page "${deletedPage.title}" supprimée`,
+    });
     return NextResponse.json({ success: true, message: 'Page supprimée avec succès.' }, { status: 200 });
   } catch (_error: unknown) {
     console.error('Erreur DELETE cms-page:', _error);

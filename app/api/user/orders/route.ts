@@ -15,6 +15,7 @@ interface OrderItemResponse {
     product: {
         name: string;
         imgUrl: string | null;
+        color: string | null;
     };
 }
 
@@ -62,6 +63,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                             select: {
                                 name: true,
                                 imgUrl: true,
+                                color: true,
                             },
                         },
                     },
@@ -101,6 +103,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                 product: {
                     name: item.product.name,
                     imgUrl: item.product.imgUrl,
+                    color: item.product.color,
                 },
             })),
         }));

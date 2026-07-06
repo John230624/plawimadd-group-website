@@ -58,6 +58,22 @@ function getDisplayPrice(product: Product): number {
   return product.price;
 }
 
+function getColorDisplay(color: string | null | undefined, colorMap: Record<string, { name: string; hex: string }>): string {
+  if (!color) return 'Standard';
+  try {
+    const ids = JSON.parse(color);
+    if (Array.isArray(ids) && ids.length > 0) {
+      return ids.map((id: string) => colorMap[id]?.name || id).join(', ');
+    }
+  } catch {}
+  return color;
+}
+
+function parseColorIds(color: string | null | undefined): string[] {
+  if (!color) return [];
+  try { const ids = JSON.parse(color); return Array.isArray(ids) ? ids : []; } catch { return []; }
+}
+
 function getStockBadge(stock: number): { label: string; color: 'success' | 'warning' | 'error' } {
   if (stock <= 0) return { label: 'Rupture', color: 'error' };
   if (stock <= 5) return { label: `${stock} stock faible`, color: 'warning' };
@@ -78,14 +94,29 @@ export default function ProductListPage(): React.ReactElement {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchAction, setBatchAction] = useState('');
+  const [colorMap, setColorMap] = useState<Record<string, { name: string; hex: string }>>({});
+
+  useEffect(() => {
+    fetch('/api/colors')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const map: Record<string, { name: string; hex: string }> = {};
+          data.forEach((c: { id: string; name: string; hex: string }) => { map[c.id] = { name: c.name, hex: c.hex }; });
+          setColorMap(map);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [batchValue, setBatchValue] = useState('');
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
 
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<{ id: string; type: 'price' | 'stock' } | null>(null);
   const [editStock, setEditStock] = useState('');
   const [editPrice, setEditPrice] = useState('');
 
-  const editRef = useRef<HTMLDivElement>(null);
+  const priceEditRef = useRef<HTMLDivElement>(null);
+  const stockEditRef = useRef<HTMLDivElement>(null);
 
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
@@ -106,13 +137,18 @@ export default function ProductListPage(): React.ReactElement {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (editRef.current && !editRef.current.contains(e.target as Node)) {
-        setEditingId(null);
+      const target = e.target as Node;
+      if (
+        editingField &&
+        ((editingField.type === 'price' && priceEditRef.current && !priceEditRef.current.contains(target)) ||
+         (editingField.type === 'stock' && stockEditRef.current && !stockEditRef.current.contains(target)))
+      ) {
+        setEditingField(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [editingField]);
 
   const categoryOptions = useMemo(() => {
     const names = Array.from(new Set(products.map((p) => p.category?.name).filter(Boolean)));
@@ -239,18 +275,18 @@ export default function ProductListPage(): React.ReactElement {
     }
   };
 
-  const saveInlineEdit = async (id: string) => {
+  const saveInlineEdit = async (id: string, type: 'price' | 'stock') => {
     const updates: Record<string, unknown> = {};
-    if (editStock !== '') updates.stock = parseInt(editStock, 10);
-    if (editPrice !== '') updates.price = parseFloat(editPrice);
-    if (Object.keys(updates).length === 0) { setEditingId(null); return; }
+    if (type === 'stock' && editStock !== '') updates.stock = parseInt(editStock, 10);
+    if (type === 'price' && editPrice !== '') updates.price = parseFloat(editPrice);
+    if (Object.keys(updates).length === 0) { setEditingField(null); return; }
     const ok = await inlineUpdate(id, updates);
     if (ok) toast.success('Produit mis a jour');
-    setEditingId(null);
+    setEditingField(null);
   };
 
-  const startInlineEdit = (product: Product) => {
-    setEditingId(product.id);
+  const startInlineEdit = (product: Product, type: 'price' | 'stock') => {
+    setEditingField({ id: product.id, type });
     setEditStock(String(product.stock));
     setEditPrice(String(product.price));
   };
@@ -519,10 +555,10 @@ export default function ProductListPage(): React.ReactElement {
           }
         />
       ) : (
-        <SellerTable className="!border-0 !bg-transparent [&_thead]:!border-y-0 [&_thead]:!bg-transparent [&_tbody]:!divide-y-0 [&_tr]:!hover:bg-transparent">
+        <SellerTable className="!border-0 !bg-transparent [&_thead]:!border-y-0 [&_thead]:!bg-transparent [&_tbody]:!divide-y-0 [&_tr]:!hover:bg-transparent [&_tr]:align-middle [&_td]:!px-3 [&_th]:!px-3">
           <SellerTableHeader>
             <SellerTableRow>
-              <SellerTableCell isHeader className="w-10">
+              <SellerTableCell isHeader className="w-10 text-center">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -530,23 +566,24 @@ export default function ProductListPage(): React.ReactElement {
                   className="h-4 w-4 accent-[var(--accent-green)]"
                 />
               </SellerTableCell>
-              <SellerTableCell isHeader className="cursor-pointer select-none" onClick={() => toggleSort('name')}>
-                <span className="flex items-center">Produit <SortIcon field="name" /></span>
+              <SellerTableCell isHeader className="cursor-pointer select-none text-center" onClick={() => toggleSort('name')}>
+                <span className="inline-flex items-center">Produit <SortIcon field="name" /></span>
               </SellerTableCell>
-              <SellerTableCell isHeader className="cursor-pointer select-none" onClick={() => toggleSort('category')}>
-                <span className="flex items-center">Categorie <SortIcon field="category" /></span>
+              <SellerTableCell isHeader className="cursor-pointer select-none text-center" onClick={() => toggleSort('category')}>
+                <span className="inline-flex items-center">Categorie <SortIcon field="category" /></span>
               </SellerTableCell>
-              <SellerTableCell isHeader className="cursor-pointer select-none" onClick={() => toggleSort('brand')}>
-                <span className="flex items-center">Marque <SortIcon field="brand" /></span>
+              <SellerTableCell isHeader className="cursor-pointer select-none text-center" onClick={() => toggleSort('brand')}>
+                <span className="inline-flex items-center">Marque <SortIcon field="brand" /></span>
               </SellerTableCell>
-              <SellerTableCell isHeader className="cursor-pointer select-none" onClick={() => toggleSort('price')}>
-                <span className="flex items-center">Prix <SortIcon field="price" /></span>
+              <SellerTableCell isHeader className="text-center">Couleur</SellerTableCell>
+              <SellerTableCell isHeader className="cursor-pointer select-none text-center" onClick={() => toggleSort('price')}>
+                <span className="inline-flex items-center">Prix <SortIcon field="price" /></span>
               </SellerTableCell>
-              <SellerTableCell isHeader className="cursor-pointer select-none" onClick={() => toggleSort('stock')}>
-                <span className="flex items-center">Stock <SortIcon field="stock" /></span>
+              <SellerTableCell isHeader className="cursor-pointer select-none text-center" onClick={() => toggleSort('stock')}>
+                <span className="inline-flex items-center">Stock <SortIcon field="stock" /></span>
               </SellerTableCell>
-              <SellerTableCell isHeader>Visibilite</SellerTableCell>
-              <SellerTableCell isHeader>Actions</SellerTableCell>
+              <SellerTableCell isHeader className="text-center">Visibilite</SellerTableCell>
+              <SellerTableCell isHeader className="text-center">Actions</SellerTableCell>
             </SellerTableRow>
           </SellerTableHeader>
           <SellerTableBody>
@@ -557,11 +594,12 @@ export default function ProductListPage(): React.ReactElement {
               const stock = Number(product.stock);
               const badge = getStockBadge(stock);
               const isVisible = product.visible !== false;
-              const isEditing = editingId === product.id;
+              const isEditingPrice = editingField?.id === product.id && editingField.type === 'price';
+              const isEditingStock = editingField?.id === product.id && editingField.type === 'stock';
 
               return (
                 <SellerTableRow key={product.id}>
-                  <SellerTableCell>
+                  <SellerTableCell className="text-center">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(product.id)}
@@ -582,11 +620,24 @@ export default function ProductListPage(): React.ReactElement {
                       </div>
                     </div>
                   </SellerTableCell>
-                  <SellerTableCell className="text-[var(--text-secondary)]">{product.category?.name || 'N/A'}</SellerTableCell>
-                  <SellerTableCell className="text-[var(--text-secondary)]">{product.brand || 'Plawimadd'}</SellerTableCell>
-                  <SellerTableCell>
-                    {isEditing ? (
-                      <div ref={editRef} className="flex items-center gap-1">
+                  <SellerTableCell className="text-center text-[var(--text-secondary)]">{product.category?.name || 'N/A'}</SellerTableCell>
+                  <SellerTableCell className="text-center text-[var(--text-secondary)]">{product.brand || 'Plawimadd'}</SellerTableCell>
+                  <SellerTableCell className="text-center">
+                    <div className="flex flex-wrap justify-center gap-1">
+                      {parseColorIds(product.color).map((id) => {
+                        const c = colorMap[id] as { name: string; hex: string } | undefined;
+                        return c ? (
+                          <div key={id} className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] text-[var(--text-tertiary)]">
+                            <span className="h-2 w-2 rounded-full border border-[var(--border)]" style={{ backgroundColor: c.hex }} />
+                            {c.name}
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  </SellerTableCell>
+                  <SellerTableCell className="text-center">
+                    {isEditingPrice ? (
+                      <div ref={priceEditRef} className="inline-flex items-center gap-1">
                         <input
                           type="number"
                           value={editPrice}
@@ -595,12 +646,12 @@ export default function ProductListPage(): React.ReactElement {
                           step="0.01"
                           min="0"
                         />
-                        <SellerButton size="sm" variant="outline" onClick={() => saveInlineEdit(product.id)}>OK</SellerButton>
+                        <SellerButton size="sm" variant="outline" onClick={() => saveInlineEdit(product.id, 'price')}>OK</SellerButton>
                       </div>
                     ) : (
                       <div
-                        className="cursor-pointer rounded px-2 py-1 transition hover:bg-[var(--bg-hover)]"
-                        onClick={() => startInlineEdit(product)}
+                        className="inline-block cursor-pointer rounded px-2 py-1 transition hover:bg-[var(--bg-hover)]"
+                        onClick={() => startInlineEdit(product, 'price')}
                         title="Cliquer pour modifier"
                       >
                         <p className="font-semibold text-[var(--text-primary)]">{formatPrice(displayPrice)}</p>
@@ -608,9 +659,9 @@ export default function ProductListPage(): React.ReactElement {
                       </div>
                     )}
                   </SellerTableCell>
-                  <SellerTableCell>
-                    {isEditing ? (
-                      <div ref={editRef} className="flex items-center gap-1">
+                  <SellerTableCell className="text-center">
+                    {isEditingStock ? (
+                      <div ref={stockEditRef} className="inline-flex items-center gap-1">
                         <input
                           type="number"
                           value={editStock}
@@ -618,48 +669,50 @@ export default function ProductListPage(): React.ReactElement {
                           className="w-16 rounded-md border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-sm text-[var(--text-primary)]"
                           min="0"
                         />
-                        <SellerButton size="sm" variant="outline" onClick={() => saveInlineEdit(product.id)}>OK</SellerButton>
+                        <SellerButton size="sm" variant="outline" onClick={() => saveInlineEdit(product.id, 'stock')}>OK</SellerButton>
                       </div>
                     ) : (
                       <div
-                        className="cursor-pointer rounded px-2 py-1 transition hover:bg-[var(--bg-hover)]"
-                        onClick={() => startInlineEdit(product)}
+                        className="inline-block cursor-pointer rounded px-2 py-1 transition hover:bg-[var(--bg-hover)]"
+                        onClick={() => startInlineEdit(product, 'stock')}
                         title="Cliquer pour modifier"
                       >
-                        <SellerBadge color={badge.color}>{badge.label}</SellerBadge>
+                        <span className={`font-semibold ${
+                          stock <= 0 ? 'text-[var(--accent-red)]' : stock <= 5 ? 'text-[var(--accent-amber)]' : 'text-[var(--accent-green)]'
+                        }`}>{stock}</span>
                       </div>
                     )}
                   </SellerTableCell>
-                  <SellerTableCell>
+                  <SellerTableCell className="text-center">
                     <button
                       onClick={() => toggleVisibility(product)}
-                      className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                         isVisible
-                          ? 'bg-[var(--accent-green)]/10 text-[var(--accent-green)] hover:bg-[var(--accent-green)]/20'
-                          : 'bg-[var(--text-tertiary)]/10 text-[var(--text-tertiary)] hover:bg-[var(--text-tertiary)]/20'
+                          ? 'bg-[var(--accent-green)]/10 text-[var(--accent-green)] hover:bg-[#121212]'
+                          : 'bg-[var(--text-tertiary)]/10 text-[var(--text-tertiary)] hover:bg-[#121212]'
                       }`}
-                      title={isVisible ? 'Masquer le produit' : 'Afficher le produit'}
+                      title={isVisible ? 'Cliquer pour masquer' : 'Cliquer pour afficher'}
                     >
                       {isVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                       {isVisible ? 'Visible' : 'Masque'}
                     </button>
                   </SellerTableCell>
-                  <SellerTableCell>
-                    <div className="flex flex-wrap gap-2">
-                      <Link href={`/product/${product.id}`} target="_blank">
-                        <SellerButton variant="outline" size="sm" icon={ExternalLink}>Voir</SellerButton>
-                      </Link>
-                      <SellerButton variant="outline" size="sm" icon={Eye} onClick={() => setSelectedProduct(product)}>Details</SellerButton>
-                      <Link href={`/seller/product-list/edit/${product.id}`}>
-                        <SellerButton variant="outline" size="sm" icon={Pencil}>Modifier</SellerButton>
-                      </Link>
-                      <SellerButton
-                        variant="outline"
-                        size="sm"
-                        icon={Trash2}
-                        className="border-[var(--accent-red)]/50 text-[var(--accent-red)] hover:bg-[var(--accent-red)]/10"
-                        onClick={() => setProductToDelete(product)}
-                      >Supprimer</SellerButton>
+                  <SellerTableCell className="text-center">
+                      <div className="inline-flex flex-wrap gap-2">
+                        <Link href={`/product/${product.id}`} target="_blank">
+                          <SellerButton variant="primary" size="icon" icon={ExternalLink} className="!h-9 !w-9">Voir</SellerButton>
+                        </Link>
+                        <SellerButton variant="outline" size="icon" icon={Eye} className="!h-9 !w-9" onClick={() => setSelectedProduct(product)}>Details</SellerButton>
+                        <Link href={`/seller/product-list/edit/${product.id}`}>
+                          <SellerButton variant="success" size="icon" icon={Pencil} className="!h-9 !w-9">Modifier</SellerButton>
+                        </Link>
+                        <SellerButton
+                          variant="danger"
+                          size="icon"
+                          icon={Trash2}
+                          className="!h-9 !w-9"
+                          onClick={() => setProductToDelete(product)}
+                        >Supprimer</SellerButton>
                     </div>
                   </SellerTableCell>
                 </SellerTableRow>
@@ -668,7 +721,7 @@ export default function ProductListPage(): React.ReactElement {
           </SellerTableBody>
           <tfoot>
             <tr>
-              <td colSpan={8}>
+              <td colSpan={9}>
                 <SellerPagination page={page} pageSize={pageSize} totalItems={sortableProducts.length} onPageChange={setPage} />
               </td>
             </tr>
@@ -725,7 +778,7 @@ export default function ProductListPage(): React.ReactElement {
                 </div>
                 <div className="rounded-[10px] bg-[var(--bg-outer)] p-4">
                   <p className="text-[var(--text-secondary)]">Couleur</p>
-                  <p className="mt-2 font-semibold text-[var(--text-primary)]">{selectedProduct.color || 'Standard'}</p>
+                  <p className="mt-2 font-semibold text-[var(--text-primary)]">{getColorDisplay(selectedProduct.color, colorMap)}</p>
                 </div>
               </div>
             </div>

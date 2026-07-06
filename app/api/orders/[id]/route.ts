@@ -37,6 +37,7 @@ export async function GET(req: NextRequest, context: Context): Promise<NextRespo
                             select: {
                                 name: true,
                                 imgUrl: true, // Récupère l'URL de l'image du produit
+                                color: true,
                             },
                         },
                     },
@@ -82,6 +83,7 @@ export async function GET(req: NextRequest, context: Context): Promise<NextRespo
                     priceAtOrder: parseFloat(item.priceAtOrder.toString()), // Convertir Decimal en number
                     name: item.product?.name || 'Produit Inconnu',
                     imgUrl: imageUrl.length > 0 ? imageUrl[0] : '/placeholder-product.png', // Première image ou placeholder
+                    color: item.product?.color || null,
                 };
             });
 

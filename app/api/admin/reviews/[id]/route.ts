@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 
 export async function PUT(
   req: NextRequest,
@@ -13,11 +14,12 @@ export async function PUT(
 
   try {
     const body = await req.json();
-    const { rating, comment } = body;
+    const { rating, comment, status } = body;
 
     const data: Record<string, unknown> = {};
     if (rating !== undefined) data.rating = rating;
     if (comment !== undefined) data.comment = comment;
+    if (status !== undefined) data.status = status;
 
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ success: false, message: 'Aucun champ à mettre à jour.' }, { status: 400 });
@@ -30,6 +32,14 @@ export async function PUT(
         user: { select: { id: true, firstName: true, lastName: true, email: true } },
         product: { select: { id: true, name: true } },
       },
+    });
+
+    await logActivity({
+      userId: authResult.userId || null,
+      action: 'UPDATE',
+      entity: 'REVIEW',
+      entityId: id,
+      details: `Avis #${id} mis à jour`,
     });
 
     return NextResponse.json({ success: true, review }, { status: 200 });

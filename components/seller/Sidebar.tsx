@@ -5,19 +5,25 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
+  Archive,
   BarChart3,
   Box,
   CreditCard,
+  Calendar,
   FileText,
+  GraduationCap,
   History,
   Layers3,
   LayoutGrid,
   LogOut,
   MessageSquareText,
   Package2,
+  Palette,
   Search,
   Settings,
   ShoppingCart,
+  Shield,
+  SlidersHorizontal,
   Tag,
   Upload,
   Users,
@@ -50,8 +56,9 @@ const menuSections: MenuSection[] = [
   {
     title: 'sidebar.admin',
     items: [
-      { name: 'sidebar.dashboard', path: '/seller', icon: LayoutGrid },
+      { name: 'sidebar.admin', path: '/seller', icon: LayoutGrid },
       { name: 'sidebar.users', path: '/seller/users', icon: Users },
+      { name: 'sidebar.roles', path: '/seller/roles', icon: Shield },
       { name: 'sidebar.orders', path: '/seller/orders', icon: ShoppingCart },
     ],
   },
@@ -60,6 +67,8 @@ const menuSections: MenuSection[] = [
     items: [
       { name: 'sidebar.products', path: '/seller/product-list', icon: Box },
       { name: 'sidebar.categories', path: '/seller/categories', icon: Layers3 },
+      { name: 'sidebar.characteristics', path: '/seller/characteristics', icon: SlidersHorizontal },
+      { name: 'sidebar.colors', path: '/seller/colors', icon: Palette },
       { name: 'sidebar.stocks', path: '/seller/stocks', icon: Package2 },
     ],
   },
@@ -69,6 +78,13 @@ const menuSections: MenuSection[] = [
       { name: 'sidebar.promotions', path: '/seller/promotions', icon: Tag },
       { name: 'sidebar.reviews', path: '/seller/reviews', icon: MessageSquareText },
       { name: 'sidebar.payments', path: '/seller/payments', icon: CreditCard },
+    ],
+  },
+  {
+    title: 'sidebar.students',
+    items: [
+      { name: 'sidebar.studentRequests', path: '/seller/student-installment', icon: GraduationCap },
+      { name: 'sidebar.studentInstallments', path: '/seller/student-installment/orders', icon: Calendar },
     ],
   },
   {
@@ -84,6 +100,7 @@ const menuSections: MenuSection[] = [
       { name: 'sidebar.settings', path: '/seller/settings', icon: Settings },
       { name: 'sidebar.reports', path: '/seller/reports', icon: BarChart3 },
       { name: 'sidebar.activityLog', path: '/seller/activity-logs', icon: History },
+      { name: 'sidebar.trash', path: '/seller/trash', icon: Archive },
     ],
   },
 ];

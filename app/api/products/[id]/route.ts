@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 import { Decimal, PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 // Importez les types générés par Prisma directement pour une meilleure compatibilité
 import { Product as PrismaProduct, Category } from '@prisma/client';
@@ -18,26 +19,63 @@ type ProductWithCategory = PrismaProduct & { category: Category };
 // Define the type for the product as it will be returned in the API response
 // This omits Prisma's specific types (Decimal, raw JSON string for imgUrl)
 // and ensures client-friendly types (number, string[])
-type ApiResponseProduct = Omit<ProductWithCategory, 'price' | 'offerPrice' | 'imgUrl' | 'categoryId'> & {
+type ApiResponseProduct = {
+    id: string;
+    name: string;
+    description: string | null;
     price: number;
     offerPrice: number | null;
-    imgUrl: string[];
-    visible: boolean;
-};
-
-// Interface for the request body when creating/updating a product
-interface ProductRequest {
-    name: string;
-    description: string;
-    categoryId: string;
-    price: number;
-    offerPrice?: number | null;
     stock: number;
-    imgUrl: string | string[]; // Accepts a string or an array of strings
-    brand?: string | null;
-    color?: string | null;
-}
-
+    imgUrl: string[];
+    createdAt: Date;
+    updatedAt: Date;
+    category: { id: string; name: string; description: string | null; imageUrl: string | null; createdAt: Date; updatedAt: Date };
+    rating: number | null;
+    brand: string | null;
+    color: string | null;
+    visible: boolean;
+    weight: number | null;
+    length: number | null;
+    width: number | null;
+    height: number | null;
+    costPrice: number | null;
+    metaTitle: string | null;
+    metaDescription: string | null;
+    tags: string[] | null;
+    attributesJson: Record<string, unknown> | null;
+    moqMin: number | null;
+    moqMax: number | null;
+    leadTimeRange: string | null;
+    certifications: string[] | null;
+    soldCount: number | null;
+    reviewCount: number | null;
+    variants?: {
+        id: string;
+        sku: string;
+        variantName: string | null;
+        price: number;
+        stock: number;
+        leadTimeDays: number | null;
+        moq: number | null;
+        weight: number | null;
+        dimensions: string | null;
+        isActive: boolean;
+        attributes: {
+            id: string;
+            attributeId: string;
+            attributeValueId: string | null;
+            priceModifier: number | null;
+            attribute: { id: string; name: string; attributeType: string };
+            value: { id: string; value: string; colorCode: string | null; imageUrl: string | null } | null;
+        }[];
+        images: {
+            id: string;
+            imageUrl: string;
+            isMainImage: boolean;
+            displayOrder: number;
+        }[];
+    }[];
+};
 
 // --- GET (Récupérer un produit par ID) ---
 export async function GET(req: NextRequest, context: RouteContext): Promise<NextResponse> {
@@ -52,7 +90,20 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
         const product = await prisma.product.findUnique({
             where: { id: id },
             include: {
-                category: true, // Include category details for the response
+                category: true,
+                variants: {
+                    where: { isActive: true },
+                    include: {
+                        attributes: {
+                            include: {
+                                attribute: { select: { id: true, name: true, attributeType: true } },
+                                value: { select: { id: true, value: true, colorCode: true, imageUrl: true } },
+                            },
+                        },
+                        images: { orderBy: { displayOrder: 'asc' } },
+                    },
+                    orderBy: { price: 'asc' },
+                },
             },
         });
 
@@ -60,31 +111,68 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
             return NextResponse.json({ success: false, message: 'Produit non trouvé.' }, { status: 404 });
         }
 
-        // Convertir les types Prisma.Decimal en nombres JavaScript
-        // et préparer imgUrl pour le client, en s'assurant que c'est un tableau de chaînes
-        const responseProduct: ApiResponseProduct = {
-            ...product,
-            price: parseFloat(product.price.toString()),
-            offerPrice: product.offerPrice ? parseFloat(product.offerPrice.toString()) : null,
-            imgUrl: [],
-            visible: product.visible,
-        };
-
-        // Parser imgUrl: si c'est une chaîne JSON, la parser. Si null, cela reste un tableau vide.
+        const parsedImgUrls: string[] = [];
         if (product.imgUrl) {
             try {
                 const parsed = JSON.parse(product.imgUrl);
                 if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
-                    responseProduct.imgUrl = parsed;
+                    parsedImgUrls.push(...parsed);
                 } else if (typeof parsed === 'string') {
-                    responseProduct.imgUrl = [parsed];
+                    parsedImgUrls.push(parsed);
                 }
             } catch {
                 if (typeof product.imgUrl === 'string') {
-                    responseProduct.imgUrl = [product.imgUrl];
+                    parsedImgUrls.push(product.imgUrl);
                 }
             }
         }
+
+        const parsedAttributesJson = product.attributesJson
+            ? (() => { try { return JSON.parse(product.attributesJson); } catch { return null; } })()
+            : null;
+        const parsedCertifications = product.certifications
+            ? (() => { try { const c = JSON.parse(product.certifications); return Array.isArray(c) ? c : null; } catch { return null; } })()
+            : null;
+
+        const responseProduct: ApiResponseProduct = {
+            id: product.id,
+            name: product.name,
+            description: product.description,
+            price: parseFloat(product.price.toString()),
+            offerPrice: product.offerPrice ? parseFloat(product.offerPrice.toString()) : null,
+            stock: product.stock,
+            imgUrl: parsedImgUrls,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+            category: product.category,
+            rating: product.rating,
+            brand: product.brand,
+            color: product.color,
+            visible: product.visible,
+            weight: product.weight,
+            length: product.length,
+            width: product.width,
+            height: product.height,
+            costPrice: product.costPrice ? parseFloat(product.costPrice.toString()) : null,
+            metaTitle: product.metaTitle,
+            metaDescription: product.metaDescription,
+            tags: product.tags ? (() => { try { const t = JSON.parse(product.tags!); return Array.isArray(t) ? t : null; } catch { return null; } })() : null,
+            attributesJson: parsedAttributesJson,
+            moqMin: product.moqMin,
+            moqMax: product.moqMax,
+            leadTimeRange: product.leadTimeRange,
+            certifications: parsedCertifications,
+            soldCount: product.soldCount,
+            reviewCount: product.reviewCount,
+            variants: product.variants?.map(v => ({
+                ...v,
+                price: parseFloat(v.price.toString()),
+                attributes: v.attributes.map(a => ({
+                    ...a,
+                    priceModifier: a.priceModifier ? parseFloat(a.priceModifier.toString()) : null,
+                })),
+            })),
+        };
 
         return NextResponse.json({ success: true, product: responseProduct }, { status: 200 });
 
@@ -102,7 +190,11 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
     }
 
     const { id } = await context.params;
-    const { name, description, categoryId, price, offerPrice, stock, imgUrl, brand, color } = await req.json() as ProductRequest;
+    const body = await req.json() as Record<string, unknown>;
+    const { name, description, categoryId, imgUrl, brand, color, attributesJson, moqMin, moqMax, leadTimeRange, certifications } = body;
+    const price = body.price as number;
+    const offerPrice = body.offerPrice as number | undefined | null;
+    const stock = body.stock as number;
 
     if (!id) {
         return NextResponse.json({ success: false, message: 'ID du produit manquant pour la mise à jour.' }, { status: 400 });
@@ -118,53 +210,103 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
                 ? new Decimal(offerPrice)
                 : null;
 
-        // Ensure imgUrl is stored as a JSON stringified array in the database
-        const imgUrlArray = Array.isArray(imgUrl) ? imgUrl : [imgUrl];
+        const imgUrlValue = imgUrl as string | string[];
+        const imgUrlArray = Array.isArray(imgUrlValue) ? imgUrlValue : [imgUrlValue];
         const imgUrlString = JSON.stringify(imgUrlArray);
 
-        // Le type de 'updatedProduct' ici est ProductWithCategory
+        const updateData: Record<string, unknown> = {
+            name: name as string,
+            description: description as string,
+            price: new Decimal(price),
+            offerPrice: finalOfferPrice,
+            stock: stock,
+            imgUrl: imgUrlString,
+            brand: brand as string | undefined | null,
+            color: color as string | undefined | null,
+            category: { connect: { id: categoryId as string } },
+            updatedAt: new Date(),
+        };
+
+        if (attributesJson !== undefined) {
+            updateData.attributesJson = typeof attributesJson === 'string' ? attributesJson : JSON.stringify(attributesJson);
+        }
+        if (moqMin !== undefined) updateData.moqMin = moqMin;
+        if (moqMax !== undefined) updateData.moqMax = moqMax;
+        if (leadTimeRange !== undefined) updateData.leadTimeRange = leadTimeRange;
+        if (certifications !== undefined) {
+            updateData.certifications = typeof certifications === 'string' ? certifications : JSON.stringify(certifications);
+        }
+        if (body.visible !== undefined) updateData.visible = body.visible as boolean;
+        if (body.costPrice !== undefined) updateData.costPrice = body.costPrice ? new Decimal(body.costPrice as number) : null;
+        if (body.tags !== undefined) updateData.tags = Array.isArray(body.tags) ? JSON.stringify(body.tags) : null;
+        if (body.weight !== undefined) updateData.weight = body.weight as number | null;
+        if (body.length !== undefined) updateData.length = body.length as number | null;
+        if (body.width !== undefined) updateData.width = body.width as number | null;
+        if (body.height !== undefined) updateData.height = body.height as number | null;
+
         const updatedProduct = await prisma.product.update({
             where: { id: id },
-            data: {
-                name: name,
-                description: description,
-                price: new Decimal(price),
-                offerPrice: finalOfferPrice,
-                stock: stock,
-                imgUrl: imgUrlString,
-                brand: brand,
-                color: color,
-                category: { connect: { id: categoryId } },
-                updatedAt: new Date(),
-            },
+            data: updateData,
             include: {
-                category: true, // Inclure la catégorie dans la réponse après la mise à jour
+                category: true,
             }
         });
 
-        // Convertir les types Decimal et parser imgUrl pour la réponse API
-        const responseUpdatedProduct: ApiResponseProduct = {
-            ...updatedProduct,
-            price: parseFloat(updatedProduct.price.toString()),
-            offerPrice: updatedProduct.offerPrice ? parseFloat(updatedProduct.offerPrice.toString()) : null,
-            imgUrl: [],
-            visible: updatedProduct.visible,
-        };
+        await logActivity({
+            userId: req.user?.id || null,
+            action: 'UPDATE',
+            entity: 'PRODUCT',
+            entityId: id,
+            details: `Produit "${updatedProduct.name}" mis à jour`,
+        });
 
+        const parsedUpdateImgUrls: string[] = [];
         if (updatedProduct.imgUrl) {
             try {
                 const parsed = JSON.parse(updatedProduct.imgUrl);
                 if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
-                    responseUpdatedProduct.imgUrl = parsed;
+                    parsedUpdateImgUrls.push(...parsed);
                 } else if (typeof parsed === 'string') {
-                    responseUpdatedProduct.imgUrl = [parsed];
+                    parsedUpdateImgUrls.push(parsed);
                 }
             } catch {
                 if (typeof updatedProduct.imgUrl === 'string') {
-                    responseUpdatedProduct.imgUrl = [updatedProduct.imgUrl];
+                    parsedUpdateImgUrls.push(updatedProduct.imgUrl);
                 }
             }
         }
+
+        const responseUpdatedProduct: ApiResponseProduct = {
+            id: updatedProduct.id,
+            name: updatedProduct.name,
+            description: updatedProduct.description,
+            price: parseFloat(updatedProduct.price.toString()),
+            offerPrice: updatedProduct.offerPrice ? parseFloat(updatedProduct.offerPrice.toString()) : null,
+            stock: updatedProduct.stock,
+            imgUrl: parsedUpdateImgUrls,
+            createdAt: updatedProduct.createdAt,
+            updatedAt: updatedProduct.updatedAt,
+            category: updatedProduct.category,
+            rating: updatedProduct.rating,
+            brand: updatedProduct.brand,
+            color: updatedProduct.color,
+            visible: updatedProduct.visible,
+            weight: updatedProduct.weight,
+            length: updatedProduct.length,
+            width: updatedProduct.width,
+            height: updatedProduct.height,
+            costPrice: updatedProduct.costPrice ? parseFloat(updatedProduct.costPrice.toString()) : null,
+            metaTitle: updatedProduct.metaTitle,
+            metaDescription: updatedProduct.metaDescription,
+            tags: updatedProduct.tags ? (() => { try { const t = JSON.parse(updatedProduct.tags!); return Array.isArray(t) ? t : null; } catch { return null; } })() : null,
+            attributesJson: updatedProduct.attributesJson ? (() => { try { return JSON.parse(updatedProduct.attributesJson!); } catch { return null; } })() : null,
+            moqMin: updatedProduct.moqMin,
+            moqMax: updatedProduct.moqMax,
+            leadTimeRange: updatedProduct.leadTimeRange,
+            certifications: updatedProduct.certifications ? (() => { try { const c = JSON.parse(updatedProduct.certifications!); return Array.isArray(c) ? c : null; } catch { return null; } })() : null,
+            soldCount: updatedProduct.soldCount,
+            reviewCount: updatedProduct.reviewCount,
+        };
 
         return NextResponse.json({ success: true, message: 'Produit mis à jour avec succès.', product: responseUpdatedProduct }, { status: 200 });
 
@@ -227,28 +369,61 @@ export async function PATCH(req: NextRequest, context: RouteContext): Promise<Ne
             include: { category: true },
         });
 
-        const responseProduct: ApiResponseProduct = {
-            ...updatedProduct,
-            price: parseFloat(updatedProduct.price.toString()),
-            offerPrice: updatedProduct.offerPrice ? parseFloat(updatedProduct.offerPrice.toString()) : null,
-            imgUrl: [],
-            visible: updatedProduct.visible,
-        };
+        await logActivity({
+            userId: req.user?.id || null,
+            action: 'UPDATE',
+            entity: 'PRODUCT',
+            entityId: id,
+            details: `Produit "${updatedProduct.name}" mis à jour partiellement`,
+        });
 
+        const patchImgUrls: string[] = [];
         if (updatedProduct.imgUrl) {
             try {
                 const parsed = JSON.parse(updatedProduct.imgUrl);
                 if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
-                    responseProduct.imgUrl = parsed;
+                    patchImgUrls.push(...parsed);
                 } else if (typeof parsed === 'string') {
-                    responseProduct.imgUrl = [parsed];
+                    patchImgUrls.push(parsed);
                 }
             } catch {
                 if (typeof updatedProduct.imgUrl === 'string') {
-                    responseProduct.imgUrl = [updatedProduct.imgUrl];
+                    patchImgUrls.push(updatedProduct.imgUrl);
                 }
             }
         }
+
+        const responseProduct: ApiResponseProduct = {
+            id: updatedProduct.id,
+            name: updatedProduct.name,
+            description: updatedProduct.description,
+            price: parseFloat(updatedProduct.price.toString()),
+            offerPrice: updatedProduct.offerPrice ? parseFloat(updatedProduct.offerPrice.toString()) : null,
+            stock: updatedProduct.stock,
+            imgUrl: patchImgUrls,
+            createdAt: updatedProduct.createdAt,
+            updatedAt: updatedProduct.updatedAt,
+            category: updatedProduct.category,
+            rating: updatedProduct.rating,
+            brand: updatedProduct.brand,
+            color: updatedProduct.color,
+            visible: updatedProduct.visible,
+            weight: updatedProduct.weight,
+            length: updatedProduct.length,
+            width: updatedProduct.width,
+            height: updatedProduct.height,
+            costPrice: updatedProduct.costPrice ? parseFloat(updatedProduct.costPrice.toString()) : null,
+            metaTitle: updatedProduct.metaTitle,
+            metaDescription: updatedProduct.metaDescription,
+            tags: updatedProduct.tags ? (() => { try { const t = JSON.parse(updatedProduct.tags!); return Array.isArray(t) ? t : null; } catch { return null; } })() : null,
+            attributesJson: updatedProduct.attributesJson ? (() => { try { return JSON.parse(updatedProduct.attributesJson!); } catch { return null; } })() : null,
+            moqMin: updatedProduct.moqMin,
+            moqMax: updatedProduct.moqMax,
+            leadTimeRange: updatedProduct.leadTimeRange,
+            certifications: updatedProduct.certifications ? (() => { try { const c = JSON.parse(updatedProduct.certifications!); return Array.isArray(c) ? c : null; } catch { return null; } })() : null,
+            soldCount: updatedProduct.soldCount,
+            reviewCount: updatedProduct.reviewCount,
+        };
 
         return NextResponse.json({ success: true, product: responseProduct }, { status: 200 });
     } catch (_error: unknown) {
@@ -271,8 +446,16 @@ export async function DELETE(req: NextRequest, context: RouteContext): Promise<N
     }
 
     try {
-        await prisma.product.delete({
+        const deletedProduct = await prisma.product.delete({
             where: { id: id },
+        });
+
+        await logActivity({
+            userId: req.user?.id || null,
+            action: 'DELETE',
+            entity: 'PRODUCT',
+            entityId: id,
+            details: `Produit "${deletedProduct.name}" supprimé`,
         });
 
         return NextResponse.json({ success: true, message: 'Produit supprimé avec succès.' }, { status: 200 });

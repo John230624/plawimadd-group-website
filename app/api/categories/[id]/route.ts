@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 
 interface Context {
     params: Promise<{
@@ -22,13 +23,21 @@ export async function GET(req: NextRequest, context: Context): Promise<NextRespo
 
         const category = await prisma.category.findUnique({
             where: { id: id },
+            include: {
+                characteristics: {
+                    include: { characteristic: true },
+                    orderBy: { sortOrder: 'asc' },
+                },
+            },
         });
 
         if (!category) {
             return NextResponse.json({ message: 'Catégorie non trouvée.' }, { status: 404 });
         }
 
-        return NextResponse.json(category, { status: 200 });
+        const chars = category.characteristics.map((cc) => cc.characteristic);
+
+        return NextResponse.json({ ...category, characteristics: chars }, { status: 200 });
     } catch (_error: unknown) {
         console.error('Erreur lors de la récupération de la catégorie:', _error);
         return NextResponse.json({ message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
@@ -43,7 +52,7 @@ export async function PUT(req: NextRequest, context: Context): Promise<NextRespo
     const { id } = await context.params;
 
     try {
-        const { name, description, imageUrl } = await req.json();
+        const { name, description, imageUrl, parentId } = await req.json();
 
         if (!name || typeof name !== 'string' || name.trim() === '') {
             return NextResponse.json({ message: 'Le nom de la catégorie (chaîne non vide) est requis pour la mise à jour.' }, { status: 400 });
@@ -58,14 +67,34 @@ export async function PUT(req: NextRequest, context: Context): Promise<NextRespo
             return NextResponse.json({ message: 'ID de catégorie valide (chaîne) manquant pour la mise à jour.' }, { status: 400 });
         }
 
+        let level: number | undefined;
+        if (parentId !== undefined) {
+            if (parentId === null) {
+                level = 0;
+            } else {
+                const parent = await prisma.category.findUnique({ where: { id: parentId }, select: { level: true } });
+                level = parent ? parent.level + 1 : 0;
+            }
+        }
+
         const updatedCategory = await prisma.category.update({
             where: { id: id },
             data: {
                 name: name.trim(),
                 description: description || null,
                 imageUrl: imageUrl || null,
+                parentId: parentId !== undefined ? (parentId || null) : undefined,
+                ...(level !== undefined ? { level } : {}),
                 updatedAt: new Date(),
             },
+        });
+
+        await logActivity({
+            userId: req.user?.id || null,
+            action: 'UPDATE',
+            entity: 'CATEGORY',
+            entityId: id,
+            details: `Catégorie "${name}" mise à jour`,
         });
 
         return NextResponse.json({ message: 'Catégorie mise à jour avec succès.', category: updatedCategory }, { status: 200 });
@@ -97,8 +126,22 @@ export async function DELETE(req: NextRequest, context: Context): Promise<NextRe
             return NextResponse.json({ message: 'ID de catégorie valide (chaîne) manquant pour la suppression.' }, { status: 400 });
         }
 
+        // Détacher les sous-catégories avant suppression
+        await prisma.category.updateMany({
+            where: { parentId: id },
+            data: { parentId: null, level: 0 },
+        });
+
         const deletedCategory = await prisma.category.delete({
             where: { id: id },
+        });
+
+        await logActivity({
+            userId: req.user?.id || null,
+            action: 'DELETE',
+            entity: 'CATEGORY',
+            entityId: id,
+            details: `Catégorie "${deletedCategory.name}" supprimée`,
         });
 
         return NextResponse.json({ message: 'Catégorie supprimée avec succès.', category: deletedCategory }, { status: 200 });

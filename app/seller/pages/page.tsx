@@ -194,33 +194,33 @@ export default function PagesPage(): React.ReactElement {
         <SellerTable className="!border-0 !bg-transparent [&_thead]:!border-y-0 [&_thead]:!bg-transparent [&_tbody]:!divide-y-0 [&_tr]:!hover:bg-transparent">
           <SellerTableHeader>
             <SellerTableRow>
-              <SellerTableCell isHeader>Titre</SellerTableCell>
-              <SellerTableCell isHeader>Slug</SellerTableCell>
-              <SellerTableCell isHeader>Statut</SellerTableCell>
-              <SellerTableCell isHeader>Dernière modification</SellerTableCell>
-              <SellerTableCell isHeader>Actions</SellerTableCell>
+              <SellerTableCell isHeader className="text-center">Titre</SellerTableCell>
+              <SellerTableCell isHeader className="text-center">Slug</SellerTableCell>
+              <SellerTableCell isHeader className="text-center">Statut</SellerTableCell>
+              <SellerTableCell isHeader className="text-center">Dernière modification</SellerTableCell>
+              <SellerTableCell isHeader className="text-center">Actions</SellerTableCell>
             </SellerTableRow>
           </SellerTableHeader>
           <SellerTableBody>
             {paginated.map((cmsPage) => (
               <SellerTableRow key={cmsPage.id}>
-                <SellerTableCell>
+                <SellerTableCell className="text-center">
                   <span className="font-semibold text-[var(--text-primary)]">{cmsPage.title}</span>
                 </SellerTableCell>
-                <SellerTableCell className="text-[var(--text-secondary)]">
+                <SellerTableCell className="text-center text-[var(--text-secondary)]">
                   /{cmsPage.slug}
                 </SellerTableCell>
-                <SellerTableCell>
+                <SellerTableCell className="text-center">
                   <SellerBadge color={cmsPage.published ? 'success' : 'slate'}>
                     {cmsPage.published ? 'Publié' : 'Brouillon'}
                   </SellerBadge>
                 </SellerTableCell>
-                <SellerTableCell className="text-[var(--text-secondary)]">
+                <SellerTableCell className="text-center text-[var(--text-secondary)]">
                   {new Date(cmsPage.updatedAt).toLocaleDateString('fr-FR', {
                     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
                   })}
                 </SellerTableCell>
-                <SellerTableCell>
+                <SellerTableCell className="text-center">
                   <div className="flex gap-2">
                     <SellerButton variant="outline" size="sm" icon={Pencil} onClick={() => openEdit(cmsPage)}>
                       Modifier

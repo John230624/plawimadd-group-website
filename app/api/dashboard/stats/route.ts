@@ -12,10 +12,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!authResult.authorized) return authResult.response!;
 
   try {
+    const { searchParams } = new URL(req.url);
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
+
+    // Période par défaut : 6 derniers mois
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
     sixMonthsAgo.setDate(1);
     sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    let dateFrom = sixMonthsAgo;
+    let dateTo = new Date();
+    dateTo.setHours(23, 59, 59, 999);
+
+    if (startDateParam) {
+      dateFrom = new Date(startDateParam);
+      dateFrom.setHours(0, 0, 0, 0);
+    }
+    if (endDateParam) {
+      dateTo = new Date(endDateParam);
+      dateTo.setHours(23, 59, 59, 999);
+    }
+
+    const orderWhere = { orderDate: { gte: dateFrom, lte: dateTo } };
 
     const [
       totalProducts,
@@ -33,19 +53,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       revenuePerMonthResult,
     ] = await Promise.all([
       prisma.product.count(),
-      prisma.order.count(),
-      prisma.order.count({ where: { status: 'PENDING' } }),
-      prisma.order.count({ where: { paymentStatus: 'COMPLETED' } }),
-      prisma.order.count({ where: { status: 'CANCELLED' } }),
+      prisma.order.count({ where: orderWhere }),
+      prisma.order.count({ where: { ...orderWhere, status: 'PENDING' } }),
+      prisma.order.count({ where: { ...orderWhere, paymentStatus: 'COMPLETED' } }),
+      prisma.order.count({ where: { ...orderWhere, status: 'CANCELLED' } }),
       prisma.order.aggregate({
         _sum: { totalAmount: true },
-        where: { paymentStatus: 'COMPLETED' },
+        where: { ...orderWhere, paymentStatus: 'COMPLETED' },
       }),
       prisma.user.count(),
       prisma.product.count({ where: { stock: { gt: 0, lte: 5 } } }),
       prisma.product.count({ where: { stock: { lte: 0 } } }),
       prisma.studentInstallmentRequest.count({ where: { status: 'PENDING' } }),
       prisma.order.findMany({
+        where: orderWhere,
         orderBy: { orderDate: 'desc' },
         take: 15,
         select: {
@@ -75,7 +96,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       prisma.order.groupBy({
         by: ['orderDate'],
         _count: { id: true },
-        where: { orderDate: { gte: sixMonthsAgo } },
+        where: { orderDate: { gte: dateFrom, lte: dateTo } },
         orderBy: { orderDate: 'asc' },
       }),
       prisma.order.groupBy({
@@ -83,7 +104,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         _sum: { totalAmount: true },
         where: {
           paymentStatus: 'COMPLETED',
-          orderDate: { gte: sixMonthsAgo },
+          orderDate: { gte: dateFrom, lte: dateTo },
         },
         orderBy: { orderDate: 'asc' },
       }),
@@ -104,15 +125,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       );
     });
 
+    // Générer les mois entre dateFrom et dateTo
     const ordersPerMonth: { month: string; orderCount: number }[] = [];
     const revenuePerMonth: { month: string; totalMonthlyRevenue: number }[] = [];
 
-    for (let index = 0; index < 6; index += 1) {
+    const startMonth = new Date(dateFrom.getFullYear(), dateFrom.getMonth(), 1);
+    const endMonth = new Date(dateTo.getFullYear(), dateTo.getMonth(), 1);
+    const totalMonths = Math.max(1, ((endMonth.getFullYear() - startMonth.getFullYear()) * 12) + (endMonth.getMonth() - startMonth.getMonth()) + 1);
+
+    for (let index = 0; index < totalMonths && index < 12; index += 1) {
       const currentMonth = new Date(
-        sixMonthsAgo.getFullYear(),
-        sixMonthsAgo.getMonth() + index,
+        startMonth.getFullYear(),
+        startMonth.getMonth() + index,
         1
       );
+      if (currentMonth > dateTo) break;
       const key = monthKey(currentMonth);
 
       ordersPerMonth.push({

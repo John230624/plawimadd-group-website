@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 
 export async function PUT(
   req: NextRequest,
@@ -40,6 +41,14 @@ export async function PUT(
       data,
     });
 
+    await logActivity({
+      userId: authResult.userId || null,
+      action: 'UPDATE',
+      entity: 'PROMOTION',
+      entityId: id,
+      details: `Code promo "${coupon.code}" mis à jour`,
+    });
+
     return NextResponse.json({ success: true, coupon }, { status: 200 });
   } catch {
     return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
@@ -57,6 +66,13 @@ export async function DELETE(
 
   try {
     await prisma.coupon.delete({ where: { id } });
+    await logActivity({
+      userId: authResult.userId || null,
+      action: 'DELETE',
+      entity: 'PROMOTION',
+      entityId: id,
+      details: `Code promo "${id}" supprimé`,
+    });
     return NextResponse.json({ success: true, message: 'Promotion supprimée avec succès.' }, { status: 200 });
   } catch {
     return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });

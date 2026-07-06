@@ -2,7 +2,7 @@
 
 import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { ArrowRight, Loader2, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Bookmark, Clock, Loader2, Minus, Plus, ShoppingBag, Trash2, Truck, X } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -12,6 +12,17 @@ import ProductCarouselSection from '@/components/home/ProductCarouselSection';
 import { useAppContext } from '@/context/AppContext';
 import type { Address, Product, StudentInstallmentRequest } from '@/lib/types';
 import type { KkiapayErrorResponse, KkiapaySuccessResponse } from '@/types/kkiapay';
+
+function getColorDisplay(color: string | null | undefined, colorMap: Record<string, string>): string {
+  if (!color) return 'Standard';
+  try {
+    const ids = JSON.parse(color);
+    if (Array.isArray(ids) && ids.length > 0) {
+      return ids.map((id: string) => colorMap[id] || id).join(', ');
+    }
+  } catch {}
+  return color;
+}
 
 function getDisplayPrice(product: Product): number {
   if (
@@ -48,6 +59,29 @@ export default function CartPage(): React.ReactElement {
   const [promoCode, setPromoCode] = useState('');
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+  const [colorMap, setColorMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch('/api/colors')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const map: Record<string, string> = {};
+          data.forEach((c: { id: string; name: string }) => { map[c.id] = c.name; });
+          setColorMap(map);
+        }
+      })
+      .catch(() => {});
+  }, []);
+  const [savedItems, setSavedItems] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('savedItems');
+        return saved ? JSON.parse(saved) : [];
+      } catch { return []; }
+    }
+    return [];
+  });
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [showKkiapayWidget, setShowKkiapayWidget] = useState(false);
   const [transactionIdForKkiapay, setTransactionIdForKkiapay] = useState<string | null>(null);
@@ -97,6 +131,37 @@ export default function CartPage(): React.ReactElement {
       })
       .filter((item): item is { product: Product; quantity: number } => Boolean(item));
   }, [cartItems, products]);
+
+  const hasMoqWarning = useMemo(() => {
+    return cartProducts.some(({ product, quantity }) =>
+      (product.moqMin ?? 1) > 1 && quantity < (product.moqMin ?? 1)
+    );
+  }, [cartProducts]);
+
+  const earliestLeadTime = useMemo(() => {
+    const times = cartProducts
+      .map(({ product }) => product.leadTimeRange)
+      .filter(Boolean) as string[];
+    if (times.length === 0) return null;
+    const short = times.reduce((a, b) => a.length <= b.length ? a : b);
+    return short;
+  }, [cartProducts]);
+
+  const savedProducts = useMemo(() => {
+    return savedItems
+      .map(id => products.find(p => p.id === id))
+      .filter(Boolean) as Product[];
+  }, [savedItems, products]);
+
+  const toggleSaved = (productId: string) => {
+    setSavedItems(prev => {
+      const next = prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId];
+      localStorage.setItem('savedItems', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const subtotal = getCartAmount();
   const oldSubtotal = cartProducts.reduce(
@@ -157,6 +222,11 @@ export default function CartPage(): React.ReactElement {
 
     if (cartProducts.length === 0) {
       toast.info('Votre panier est vide.');
+      return;
+    }
+
+    if (hasMoqWarning) {
+      toast.warning('Certains produits n\'atteignent pas la quantite minimale de commande (MOQ).');
       return;
     }
 
@@ -426,11 +496,15 @@ export default function CartPage(): React.ReactElement {
                 cartProducts.map(({ product, quantity }) => {
                   const imageSrc = product.imgUrl?.[0] || '/images/default_product_image.png';
                   const displayPrice = getDisplayPrice(product);
+                  const moq = product.moqMin ?? 1;
+                  const belowMoq = moq > 1 && quantity < moq;
 
                   return (
                     <article
                       key={product.id}
-                      className="grid gap-5 rounded-[1.75rem] bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.05)] md:grid-cols-[120px_1fr_auto]"
+                      className={`grid gap-5 rounded-[1.75rem] bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.05)] md:grid-cols-[120px_1fr_auto] ${
+                        belowMoq ? 'ring-2 ring-amber-200' : ''
+                      }`}
                     >
                       <div className="relative flex h-[120px] items-center justify-center overflow-hidden rounded-[1.25rem] bg-slate-100">
                         <Image
@@ -450,21 +524,43 @@ export default function CartPage(): React.ReactElement {
                             </h2>
                             <div className="mt-3 space-y-1 text-sm text-slate-500">
                               <p>Marque: {product.brand || 'Plawimadd'}</p>
-                              <p>Couleur: {product.color || 'Standard'}</p>
+                              <p>Couleur: {getColorDisplay(product.color, colorMap)}</p>
                               <p>Stock: {product.stock}</p>
                             </div>
+                            {belowMoq && (
+                              <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                                MOQ: minimum {moq} unite(s) requises
+                              </div>
+                            )}
+                            {product.leadTimeRange && (
+                              <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
+                                <Clock className="h-3 w-3" />
+                                Expedie sous {product.leadTimeRange}
+                              </div>
+                            )}
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => deleteFromCart(product.id)}
-                            className="text-slate-300 transition hover:text-slate-500"
-                          >
-                            <X className="h-5 w-5" />
-                          </button>
+                          <div className="flex items-start gap-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleSaved(product.id)}
+                              className="text-slate-300 transition hover:text-[var(--brand-600)]"
+                              title="Sauvegarder pour plus tard"
+                            >
+                              <Bookmark className={`h-4 w-4 ${savedItems.includes(product.id) ? 'fill-[var(--brand-600)] text-[var(--brand-600)]' : ''}`} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteFromCart(product.id)}
+                              className="text-slate-300 transition hover:text-slate-500"
+                            >
+                              <X className="h-5 w-5" />
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div className="inline-flex w-fit items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-3 py-2">
                             <button
                               type="button"
@@ -475,10 +571,10 @@ export default function CartPage(): React.ReactElement {
                             </button>
                             <input
                               type="number"
-                              min="1"
+                              min={moq}
                               value={quantity}
                               onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                                updateCartQuantity(product.id, Math.max(1, Number(event.target.value) || 1))
+                                updateCartQuantity(product.id, Math.max(moq, Number(event.target.value) || moq))
                               }
                               className="w-10 bg-transparent text-center text-sm font-medium text-slate-800 outline-none"
                             />
@@ -491,11 +587,16 @@ export default function CartPage(): React.ReactElement {
                             </button>
                           </div>
 
-                          <div className="text-left md:text-right">
-                            <p className="text-sm text-slate-500">Prix</p>
-                            <p className="mt-1 text-[1.2rem] font-semibold text-slate-950">
-                              {formatPrice(displayPrice * quantity)}
-                            </p>
+                          <div className="flex items-center gap-3 text-left md:text-right">
+                            {moq > 1 && (
+                              <span className="text-[10px] text-slate-400">MOQ: {moq}</span>
+                            )}
+                            <div>
+                              <p className="text-sm text-slate-500">Prix</p>
+                              <p className="mt-1 text-[1.2rem] font-semibold text-slate-950">
+                                {formatPrice(displayPrice * quantity)}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -514,6 +615,59 @@ export default function CartPage(): React.ReactElement {
                   <ArrowRight className="h-4 w-4" />
                 </button>
               ) : null}
+
+              {/* Saved items */}
+              {savedProducts.length > 0 && (
+                <div>
+                  <h3 className="mb-4 text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <Bookmark className="h-4 w-4" />
+                    Articles sauvegardes ({savedProducts.length})
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                    {savedProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm"
+                      >
+                        <div className="flex h-28 items-center justify-center bg-slate-50 p-3">
+                          <Image
+                            src={product.imgUrl?.[0] || '/images/default_product_image.png'}
+                            alt={product.name}
+                            width={80}
+                            height={80}
+                            className="max-h-20 w-auto object-contain"
+                          />
+                        </div>
+                        <div className="p-3">
+                          <p className="text-xs font-medium text-slate-900 truncate">{product.name}</p>
+                          <p className="mt-1 text-xs text-slate-500">{formatPrice(getDisplayPrice(product))}</p>
+                          <div className="mt-2 flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await addToCart(product.id);
+                                toggleSaved(product.id);
+                                toast.success('Deplace vers le panier');
+                              }}
+                              className="flex-1 rounded-full bg-[var(--brand-600)] px-2 py-1.5 text-[10px] font-medium text-white"
+                            >
+                              Au panier
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleSaved(product.id)}
+                              className="rounded-full border border-slate-200 px-2 py-1.5 text-[10px] font-medium text-slate-500"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </div>
 
             <aside className="h-fit rounded-[1.75rem] bg-white p-6 shadow-[0_14px_36px_rgba(15,23,42,0.05)] xl:sticky xl:top-6">
@@ -529,8 +683,20 @@ export default function CartPage(): React.ReactElement {
                   <span className="text-emerald-600">-{formatPrice(savings)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Livraison</span>
-                  <span>{cartProducts.length > 0 ? 'Offerte' : formatPrice(0)}</span>
+                  <span className="flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5 text-slate-400" />
+                    Livraison
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    {cartProducts.length > 0 ? (
+                      <>
+                        <span className="text-emerald-600">Offerte</span>
+                        {earliestLeadTime && (
+                          <span className="text-[10px] text-slate-400">({earliestLeadTime})</span>
+                        )}
+                      </>
+                    ) : formatPrice(0)}
+                  </span>
                 </div>
               </div>
 

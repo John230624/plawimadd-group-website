@@ -8,6 +8,7 @@ import { toast } from 'react-toastify';
 
 import HomeFooter from '@/components/home/HomeFooter';
 import ProductCarouselSection from '@/components/home/ProductCarouselSection';
+import FilterSidebar from '@/components/product/FilterSidebar';
 import SellerSelect from '@/components/seller/SellerSelect';
 import { useAppContext } from '@/context/AppContext';
 import type { Product } from '@/lib/types';
@@ -91,6 +92,11 @@ function getDisplayPrice(product: Product): number {
   return product.price;
 }
 
+function getProductColorIds(product: Product): string[] {
+  if (!product.color) return [];
+  try { const p = JSON.parse(product.color); return Array.isArray(p) ? p : []; } catch { return []; }
+}
+
 function buildQueryString(
   searchParams: URLSearchParams,
   updates: Record<string, string | null>
@@ -135,15 +141,28 @@ function AllProductsPage(): React.ReactElement {
   const categoryParam = searchParams.get('category') || 'All';
   const brandParam = searchParams.get('brand');
   const [sortBy, setSortBy] = useState('popular');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleCount, setVisibleCount] = useState(12);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(false);
   const [showOnlyOffers, setShowOnlyOffers] = useState(false);
+  const [allColors, setAllColors] = useState<{ id: string; name: string; hex: string }[]>([]);
+  const [selectedColorFilter, setSelectedColorFilter] = useState<Set<string>>(new Set());
+  const [priceRange, setPriceRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
+  const [moqMax, setMoqMax] = useState('');
+  const [selectedCertifications, setSelectedCertifications] = useState<string[]>([]);
+  const [minRating, setMinRating] = useState(0);
 
   useEffect(() => {
-    setCurrentPage(1);
+    setVisibleCount(12);
   }, [categoryParam, brandParam, searchTerm, sortBy]);
+
+  useEffect(() => {
+    fetch('/api/colors')
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setAllColors(data); })
+      .catch(() => {});
+  }, []);
 
   const availableCategories = useMemo(() => {
     const values = new Set(
@@ -229,8 +248,16 @@ function AllProductsPage(): React.ReactElement {
         (product.offerPrice !== null &&
           product.offerPrice !== undefined &&
           product.offerPrice < product.price);
+      const matchesColor = selectedColorFilter.size === 0 ||
+        getProductColorIds(product).some((id) => selectedColorFilter.has(id));
+      const matchesPriceMin = !priceRange.min || getDisplayPrice(product) >= parseFloat(priceRange.min);
+      const matchesPriceMax = !priceRange.max || getDisplayPrice(product) <= parseFloat(priceRange.max);
+      const matchesCert = selectedCertifications.length === 0 ||
+        (product.certifications && selectedCertifications.some(c => (product.certifications as string[]).includes(c)));
+      const matchesRating = minRating === 0 || (product.rating ?? 0) >= minRating;
+      const matchesMoq = !moqMax || (product.moqMin ?? 1) <= parseInt(moqMax, 10);
 
-      return matchesAvailability && matchesOffer;
+      return matchesAvailability && matchesOffer && matchesColor && matchesPriceMin && matchesPriceMax && matchesCert && matchesRating && matchesMoq;
     });
 
     const sorted = [...filtered].sort((first, second) => {
@@ -244,10 +271,10 @@ function AllProductsPage(): React.ReactElement {
     });
 
     return sorted;
-  }, [brandParam, categoryProducts, showOnlyAvailable, showOnlyOffers, sortBy]);
+  }, [brandParam, categoryProducts, showOnlyAvailable, showOnlyOffers, sortBy, selectedColorFilter, priceRange, moqMax, selectedCertifications, minRating]);
 
-  const totalPages = Math.max(1, Math.ceil(selectedBrandProducts.length / 8));
-  const paginatedProducts = selectedBrandProducts.slice((currentPage - 1) * 8, currentPage * 8);
+  const paginatedProducts = selectedBrandProducts.slice(0, visibleCount);
+  const hasMore = visibleCount < selectedBrandProducts.length;
   const categoryOptions = [
     { value: 'All', label: 'Toutes les categories' },
     ...availableCategories.map((category) => ({
@@ -397,262 +424,278 @@ function AllProductsPage(): React.ReactElement {
 
             <section className="px-2 pb-12 pt-10 md:px-0">
               <div className="px-3 py-4 md:px-0 md:py-0">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                    <h2 className="text-[2.1rem] font-semibold tracking-[-0.04em] text-slate-950">
-                      {brandParam || formatCategoryTitle(categoryParam)}
-                    </h2>
-
-                    <SellerSelect
-                      value={sortBy}
-                      onChange={setSortBy}
-                      options={catalogSortOptions}
-                      className="w-full md:w-[220px]"
+                <div className="flex gap-6">
+                  {/* Sidebar filters */}
+                  <div className="hidden lg:block lg:w-64 xl:w-72">
+                    <FilterSidebar
+                      products={selectedBrandProducts}
+                      availableCategories={availableCategories}
+                      selectedCategory={categoryParam}
+                      onCategoryChange={(cat) => router.push(buildQueryString(new URLSearchParams(searchParams.toString()), { category: cat, brand: null }))}
+                      showOnlyAvailable={showOnlyAvailable}
+                      onAvailableChange={setShowOnlyAvailable}
+                      showOnlyOffers={showOnlyOffers}
+                      onOffersChange={setShowOnlyOffers}
+                      allColors={allColors}
+                      selectedColorFilter={selectedColorFilter}
+                      onColorFilterChange={setSelectedColorFilter}
+                      priceRange={priceRange}
+                      onPriceRangeChange={setPriceRange}
+                      moqMax={moqMax}
+                      onMoqMaxChange={setMoqMax}
+                      selectedCertifications={selectedCertifications}
+                      onCertificationsChange={setSelectedCertifications}
+                      minRating={minRating}
+                      onMinRatingChange={setMinRating}
+                      onReset={() => {
+                        setShowOnlyAvailable(false);
+                        setShowOnlyOffers(false);
+                        setSelectedColorFilter(new Set());
+                        setPriceRange({ min: '', max: '' });
+                        setMoqMax('');
+                        setSelectedCertifications([]);
+                        setMinRating(0);
+                      }}
+                      isOpen={true}
                     />
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setIsFiltersOpen((current) => !current)}
-                      className={`inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm transition ${
-                        isFiltersOpen || showOnlyAvailable || showOnlyOffers
-                          ? 'border-[var(--brand-300)] bg-[rgba(191,219,254,0.18)] text-[var(--brand-700)]'
-                          : 'border-slate-200 bg-white text-slate-500'
-                      }`}
-                    >
-                      <SlidersHorizontal className="h-4 w-4" />
-                      Filtres
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('list')}
-                      className={`flex h-12 w-12 items-center justify-center rounded-full border transition ${
-                        viewMode === 'list'
-                          ? 'border-[var(--brand-300)] bg-[rgba(191,219,254,0.18)] text-[var(--brand-700)]'
-                          : 'border-slate-200 bg-white text-slate-400'
-                      }`}
-                    >
-                      <LayoutList className="h-5 w-5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('grid')}
-                      className={`flex h-12 w-12 items-center justify-center rounded-full transition ${
-                        viewMode === 'grid'
-                          ? 'bg-[var(--brand-600)] text-white'
-                          : 'border border-slate-200 bg-white text-slate-400'
-                      }`}
-                    >
-                      <Grid2x2 className="h-5 w-5" />
-                    </button>
-                  </div>
-                </div>
+                  {/* Main content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                      <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                        <h2 className="text-[2.1rem] font-semibold tracking-[-0.04em] text-slate-950">
+                          {brandParam || formatCategoryTitle(categoryParam)}
+                        </h2>
 
-                {isFiltersOpen ? (
-                  <div className="mt-5 grid gap-4 rounded-[1.6rem] bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:grid-cols-3">
-                    <label className="flex items-start gap-3 rounded-[1.2rem] border border-slate-100 bg-slate-50 px-4 py-4">
-                      <input
-                        type="checkbox"
-                        checked={showOnlyAvailable}
-                        onChange={(event) => setShowOnlyAvailable(event.target.checked)}
-                        className="mt-1 h-4 w-4 rounded border-slate-300 text-[var(--brand-600)] focus:ring-[var(--brand-300)]"
-                      />
-                      <span>
-                        <span className="block text-sm font-medium text-slate-900">Disponibles</span>
-                        <span className="mt-1 block text-xs leading-6 text-slate-500">
-                          Afficher uniquement les produits encore en stock.
-                        </span>
-                      </span>
-                    </label>
+                        <SellerSelect
+                          value={sortBy}
+                          onChange={setSortBy}
+                          options={catalogSortOptions}
+                          className="w-full md:w-[220px]"
+                        />
+                      </div>
 
-                    <label className="flex items-start gap-3 rounded-[1.2rem] border border-slate-100 bg-slate-50 px-4 py-4">
-                      <input
-                        type="checkbox"
-                        checked={showOnlyOffers}
-                        onChange={(event) => setShowOnlyOffers(event.target.checked)}
-                        className="mt-1 h-4 w-4 rounded border-slate-300 text-[var(--brand-600)] focus:ring-[var(--brand-300)]"
-                      />
-                      <span>
-                        <span className="block text-sm font-medium text-slate-900">Promotions</span>
-                        <span className="mt-1 block text-xs leading-6 text-slate-500">
-                          N&apos;afficher que les produits avec un prix promo actif.
-                        </span>
-                      </span>
-                    </label>
-
-                    <div className="flex items-center justify-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowOnlyAvailable(false);
-                          setShowOnlyOffers(false);
-                        }}
-                        className="rounded-full border border-slate-200 px-5 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                      >
-                        Reinitialiser
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-
-                {paginatedProducts.length === 0 ? (
-                  <div className="mt-8 rounded-[1.75rem] bg-white/70 px-6 py-10 text-center text-slate-600 shadow-[0_14px_36px_rgba(15,23,42,0.04)]">
-                    Aucun produit ne correspond a cette selection.
-                  </div>
-                ) : (
-                  <>
-                    <div
-                      className={`mt-8 ${
-                        viewMode === 'grid'
-                          ? 'grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4'
-                          : 'flex flex-col gap-5'
-                      }`}
-                    >
-                      {paginatedProducts.map((product) => {
-                        const displayPrice = getDisplayPrice(product);
-                        const imageSrc = product.imgUrl?.[0] || '/images/default_product_image.png';
-                        const discountPercent =
-                          product.offerPrice && product.offerPrice < product.price
-                            ? Math.round(((product.price - product.offerPrice) / product.price) * 100)
-                            : null;
-
-                        return (
-                          <article
-                            key={product.id}
-                            className={`overflow-hidden rounded-[1.75rem] bg-white shadow-[0_14px_36px_rgba(15,23,42,0.06)] ${
-                              viewMode === 'list' ? 'md:grid md:grid-cols-[280px_1fr]' : ''
-                            }`}
-                          >
-                            <div className="relative rounded-[1.75rem] bg-slate-100 p-5">
-                              <button
-                                type="button"
-                                onClick={() => toggleWishlist(product.id)}
-                                className={`absolute left-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/88 shadow-sm transition ${
-                                  isInWishlist(product.id)
-                                    ? 'text-rose-500'
-                                    : 'text-slate-400 hover:text-[var(--brand-700)]'
-                                }`}
-                              >
-                                <Heart
-                                  className={`h-5 w-5 stroke-[1.8] ${isInWishlist(product.id) ? 'fill-current' : ''}`}
-                                />
-                              </button>
-
-                              {discountPercent ? (
-                                <div className="absolute bottom-5 right-5 z-10 rounded-full bg-[var(--brand-500)] px-3 py-1 text-xs font-semibold text-white">
-                                  -{discountPercent}%
-                                </div>
-                              ) : null}
-
-                              <button
-                                type="button"
-                                className="relative mx-auto block h-[290px] w-full cursor-pointer"
-                                onClick={() => router.push(`/product/${product.id}`)}
-                              >
-                                <Image
-                                  src={imageSrc}
-                                  alt={product.name}
-                                  fill
-                                  className="object-contain"
-                                />
-                              </button>
-                            </div>
-
-                            <div className={`px-5 pb-4 pt-3 ${viewMode === 'list' ? 'md:flex md:flex-col md:justify-center md:px-7' : ''}`}>
-                              <div className="mb-1.5 flex justify-center gap-2">
-                                {Array.from({ length: 5 }).map((_, index) => (
-                                  <span
-                                    key={index}
-                                    className={`h-2.5 w-2.5 rounded-full ${
-                                      index === 1 ? 'bg-slate-300' : 'bg-slate-200'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-
-                              <h3 className="min-h-[54px] text-[1.05rem] font-semibold leading-6 text-slate-900">
-                                {product.name}
-                              </h3>
-
-                              <div className="mt-1 text-sm text-emerald-600">Disponible</div>
-
-                              <div className="mt-2 flex items-end gap-2">
-                                <p className="text-[1.15rem] font-semibold text-slate-950">
-                                  {formatPrice(displayPrice)}
-                                </p>
-                                {product.offerPrice && product.offerPrice < product.price ? (
-                                  <p className="text-sm text-slate-400 line-through">
-                                    {formatPrice(product.price)}
-                                  </p>
-                                ) : null}
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const success = await addToCart(product.id);
-                                  if (success) {
-                                    toast.success('Ajoute au panier');
-                                  }
-                                }}
-                                className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-[var(--brand-950)] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[var(--brand-900)]"
-                              >
-                                Ajouter au panier
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => router.push(`/product/${product.id}`)}
-                                className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-[var(--brand-300)] bg-white px-6 py-3.5 text-sm font-semibold text-[var(--brand-700)] transition hover:bg-[rgba(191,219,254,0.16)]"
-                              >
-                                Voir le produit
-                              </button>
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-
-                    {totalPages > 1 ? (
-                      <div className="mt-8 flex items-center justify-center gap-3 text-sm text-slate-500">
+                      <div className="flex items-center gap-3">
                         <button
                           type="button"
-                          onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                          className="px-2 py-1"
+                          onClick={() => setIsFiltersOpen((current) => !current)}
+                          className={`inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm transition lg:hidden ${
+                            isFiltersOpen || showOnlyAvailable || showOnlyOffers
+                              ? 'border-[var(--brand-300)] bg-[rgba(191,219,254,0.18)] text-[var(--brand-700)]'
+                              : 'border-slate-200 bg-white text-slate-500'
+                          }`}
                         >
-                          &lt;
+                          <SlidersHorizontal className="h-4 w-4" />
+                          Filtres
                         </button>
-                        {Array.from({ length: totalPages }).map((_, index) => {
-                          const pageNumber = index + 1;
-                          const isActive = pageNumber === currentPage;
-
-                          return (
-                            <button
-                              key={pageNumber}
-                              type="button"
-                              onClick={() => setCurrentPage(pageNumber)}
-                              className={`min-w-[32px] border-b-2 px-2 py-1 ${
-                                isActive
-                                  ? 'border-[var(--brand-500)] text-[var(--brand-700)]'
-                                  : 'border-transparent'
-                              }`}
-                            >
-                              {pageNumber}
-                            </button>
-                          );
-                        })}
                         <button
                           type="button"
-                          onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                          className="px-2 py-1"
+                          onClick={() => setViewMode('list')}
+                          className={`flex h-12 w-12 items-center justify-center rounded-full border transition ${
+                            viewMode === 'list'
+                              ? 'border-[var(--brand-300)] bg-[rgba(191,219,254,0.18)] text-[var(--brand-700)]'
+                              : 'border-slate-200 bg-white text-slate-400'
+                          }`}
                         >
-                          &gt;
+                          <LayoutList className="h-5 w-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('grid')}
+                          className={`flex h-12 w-12 items-center justify-center rounded-full transition ${
+                            viewMode === 'grid'
+                              ? 'bg-[var(--brand-600)] text-white'
+                              : 'border border-slate-200 bg-white text-slate-400'
+                          }`}
+                        >
+                          <Grid2x2 className="h-5 w-5" />
                         </button>
                       </div>
-                    ) : null}
-                  </>
-                )}
+                    </div>
+
+                    {/* Mobile filter sidebar */}
+                    <FilterSidebar
+                      products={selectedBrandProducts}
+                      availableCategories={availableCategories}
+                      selectedCategory={categoryParam}
+                      onCategoryChange={(cat) => router.push(buildQueryString(new URLSearchParams(searchParams.toString()), { category: cat, brand: null }))}
+                      showOnlyAvailable={showOnlyAvailable}
+                      onAvailableChange={setShowOnlyAvailable}
+                      showOnlyOffers={showOnlyOffers}
+                      onOffersChange={setShowOnlyOffers}
+                      allColors={allColors}
+                      selectedColorFilter={selectedColorFilter}
+                      onColorFilterChange={setSelectedColorFilter}
+                      priceRange={priceRange}
+                      onPriceRangeChange={setPriceRange}
+                      moqMax={moqMax}
+                      onMoqMaxChange={setMoqMax}
+                      selectedCertifications={selectedCertifications}
+                      onCertificationsChange={setSelectedCertifications}
+                      minRating={minRating}
+                      onMinRatingChange={setMinRating}
+                      onReset={() => {
+                        setShowOnlyAvailable(false);
+                        setShowOnlyOffers(false);
+                        setSelectedColorFilter(new Set());
+                        setPriceRange({ min: '', max: '' });
+                        setMoqMax('');
+                        setSelectedCertifications([]);
+                        setMinRating(0);
+                      }}
+                      isOpen={isFiltersOpen}
+                      onClose={() => setIsFiltersOpen(false)}
+                    />
+
+                    {paginatedProducts.length === 0 ? (
+                      <div className="mt-8 rounded-[1.75rem] bg-white/70 px-6 py-10 text-center text-slate-600 shadow-[0_14px_36px_rgba(15,23,42,0.04)]">
+                        Aucun produit ne correspond a cette selection.
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          className={`mt-8 ${
+                            viewMode === 'grid'
+                              ? 'grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3'
+                              : 'flex flex-col gap-5'
+                          }`}
+                        >
+                          {paginatedProducts.map((product) => {
+                            const displayPrice = getDisplayPrice(product);
+                            const imageSrc = product.imgUrl?.[0] || '/images/default_product_image.png';
+                            const discountPercent =
+                              product.offerPrice && product.offerPrice < product.price
+                                ? Math.round(((product.price - product.offerPrice) / product.price) * 100)
+                                : null;
+
+                            return (
+                              <article
+                                key={product.id}
+                                className={`overflow-hidden rounded-[1.75rem] bg-white shadow-[0_14px_36px_rgba(15,23,42,0.06)] ${
+                                  viewMode === 'list' ? 'md:grid md:grid-cols-[280px_1fr]' : ''
+                                }`}
+                              >
+                                <div className="relative rounded-[1.75rem] bg-slate-100 p-5">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleWishlist(product.id)}
+                                    className={`absolute left-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/88 shadow-sm transition ${
+                                      isInWishlist(product.id)
+                                        ? 'text-rose-500'
+                                        : 'text-slate-400 hover:text-[var(--brand-700)]'
+                                    }`}
+                                  >
+                                    <Heart
+                                      className={`h-5 w-5 stroke-[1.8] ${isInWishlist(product.id) ? 'fill-current' : ''}`}
+                                    />
+                                  </button>
+
+                                  {discountPercent ? (
+                                    <div className="absolute bottom-5 right-5 z-10 rounded-full bg-[var(--brand-500)] px-3 py-1 text-xs font-semibold text-white">
+                                      -{discountPercent}%
+                                    </div>
+                                  ) : null}
+
+                                  <button
+                                    type="button"
+                                    className="relative mx-auto block h-[290px] w-full cursor-pointer"
+                                    onClick={() => router.push(`/product/${product.id}`)}
+                                  >
+                                    <Image
+                                      src={imageSrc}
+                                      alt={product.name}
+                                      fill
+                                      className="object-contain"
+                                    />
+                                  </button>
+                                </div>
+
+                                <div className={`px-5 pb-4 pt-3 ${viewMode === 'list' ? 'md:flex md:flex-col md:justify-center md:px-7' : ''}`}>
+                                  <div className="mb-1.5 flex justify-center gap-2">
+                                    {Array.from({ length: 5 }).map((_, index) => (
+                                      <span
+                                        key={index}
+                                        className={`h-2.5 w-2.5 rounded-full ${
+                                          index === 1 ? 'bg-slate-300' : 'bg-slate-200'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+
+                                  <h3 className="min-h-[54px] text-[1.05rem] font-semibold leading-6 text-slate-900">
+                                    {product.name}
+                                  </h3>
+
+                                  {getProductColorIds(product).length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {getProductColorIds(product).map((id) => {
+                                        const c = allColors.find((col) => col.id === id);
+                                        if (!c) return null;
+                                        return (
+                                          <div key={id} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-500">
+                                            <span className="h-2 w-2 rounded-full border border-slate-200" style={{ backgroundColor: c.hex }} />
+                                            {c.name}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+
+                                  <div className="mt-1 text-sm text-emerald-600">Disponible</div>
+
+                                  <div className="mt-2 flex items-end gap-2">
+                                    <p className="text-[1.15rem] font-semibold text-slate-950">
+                                      {formatPrice(displayPrice)}
+                                    </p>
+                                    {product.offerPrice && product.offerPrice < product.price ? (
+                                      <p className="text-sm text-slate-400 line-through">
+                                        {formatPrice(product.price)}
+                                      </p>
+                                    ) : null}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      const success = await addToCart(product.id);
+                                      if (success) {
+                                        toast.success('Ajoute au panier');
+                                      }
+                                    }}
+                                    className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-[var(--brand-950)] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[var(--brand-900)]"
+                                  >
+                                    Ajouter au panier
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push(`/product/${product.id}`)}
+                                    className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-[var(--brand-300)] bg-white px-6 py-3.5 text-sm font-semibold text-[var(--brand-700)] transition hover:bg-[rgba(191,219,254,0.16)]"
+                                  >
+                                    Voir le produit
+                                  </button>
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+
+                        {hasMore ? (
+                          <div className="mt-10 flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => setVisibleCount((prev) => prev + 12)}
+                              className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-300)] bg-white px-8 py-3.5 text-sm font-semibold text-[var(--brand-700)] transition hover:bg-[rgba(191,219,254,0.18)]"
+                            >
+                              Voir plus de produits
+                            </button>
+                          </div>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             </section>
           </>

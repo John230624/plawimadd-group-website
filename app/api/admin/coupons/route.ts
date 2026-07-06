@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 import { Prisma } from '@prisma/client';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -63,6 +64,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         active: active ?? true,
       },
     });
+
+    await logActivity({ userId: authResult.userId, action: 'CREATE', entity: 'COUPON', entityId: coupon.id, details: `Création du coupon ${coupon.code}` });
 
     return NextResponse.json({ success: true, coupon }, { status: 201 });
   } catch (_error: unknown) {

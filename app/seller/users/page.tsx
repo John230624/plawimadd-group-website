@@ -456,12 +456,12 @@ export default function UserManagementPage(): React.ReactElement {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Profil</th>
-                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Contact</th>
-                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Rôle</th>
-                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Statut</th>
-                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Inscription</th>
-                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Actions</th>
+                  <th className="px-6 py-3 text-center font-500 text-[var(--text-secondary)]">Profil</th>
+                  <th className="px-6 py-3 text-center font-500 text-[var(--text-secondary)]">Contact</th>
+                  <th className="px-6 py-3 text-center font-500 text-[var(--text-secondary)]">Rôle</th>
+                  <th className="px-6 py-3 text-center font-500 text-[var(--text-secondary)]">Statut</th>
+                  <th className="px-6 py-3 text-center font-500 text-[var(--text-secondary)]">Inscription</th>
+                  <th className="px-6 py-3 text-center font-500 text-[var(--text-secondary)]">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -471,7 +471,7 @@ export default function UserManagementPage(): React.ReactElement {
 
                   return (
                     <tr key={user.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)] transition-smooth">
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-center">
                         <div className="flex items-center gap-3">
                           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400">
                             <UserRound className="h-4 w-4" />
@@ -482,7 +482,7 @@ export default function UserManagementPage(): React.ReactElement {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-center">
                         <div className="space-y-1">
                           <p className="flex items-center gap-2 text-[var(--text-secondary)] text-xs">
                             <Mail className="h-3.5 w-3.5 text-emerald-400" />
@@ -493,7 +493,7 @@ export default function UserManagementPage(): React.ReactElement {
                           </p>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-center">
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-500 ${
                           role === 'ADMIN'
                             ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-400'
@@ -502,7 +502,7 @@ export default function UserManagementPage(): React.ReactElement {
                           {role}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-center">
                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-500 ${
                           user.banned
                             ? 'bg-gradient-to-r from-red-500/20 to-rose-600/20 text-red-400'
@@ -512,14 +512,14 @@ export default function UserManagementPage(): React.ReactElement {
                           {user.banned ? 'Banni' : 'Actif'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-[var(--text-tertiary)] text-xs">
+                      <td className="px-6 py-4 text-center text-[var(--text-tertiary)] text-xs">
                         {new Date(user.createdAt).toLocaleDateString('fr-FR', {
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric',
                         })}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-center">
                         <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => openView(user)}

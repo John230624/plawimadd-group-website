@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 
 export async function PUT(
   req: NextRequest,
@@ -30,6 +31,14 @@ export async function PUT(
       data,
     });
 
+    await logActivity({
+      userId: req.user?.id || null,
+      action: 'UPDATE',
+      entity: 'CMS_PAGE',
+      entityId: id,
+      details: `Page CMS mise à jour : ${page.title}`,
+    });
+
     return NextResponse.json({ success: true, page }, { status: 200 });
   } catch {
     return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
@@ -47,6 +56,15 @@ export async function DELETE(
 
   try {
     await prisma.cmsPage.delete({ where: { id } });
+
+    await logActivity({
+      userId: req.user?.id || null,
+      action: 'DELETE',
+      entity: 'CMS_PAGE',
+      entityId: id,
+      details: `Page CMS supprimée : ${id}`,
+    });
+
     return NextResponse.json({ success: true, message: 'Page supprimée avec succès.' }, { status: 200 });
   } catch {
     return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });

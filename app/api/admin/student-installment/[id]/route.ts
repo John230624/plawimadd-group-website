@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
+import { sendEmail } from '@/lib/email';
 
 interface UpdateStudentInstallmentPayload {
   status: 'APPROVED' | 'REJECTED' | 'PENDING';
@@ -12,9 +14,7 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const authResult = await authorizeAdminRequest(req);
-  if (!authResult.authorized) {
-    return authResult.response!;
-  }
+  if (!authResult.authorized) return authResult.response!;
 
   const { id } = await context.params;
 
@@ -22,10 +22,20 @@ export async function PUT(
     const body = (await req.json()) as UpdateStudentInstallmentPayload;
 
     if (!body.status) {
-      return NextResponse.json(
-        { success: false, message: 'Le statut est obligatoire.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Le statut est obligatoire.' }, { status: 400 });
+    }
+
+    if (body.status === 'REJECTED' && !body.adminNote) {
+      return NextResponse.json({ success: false, message: 'Un motif de rejet est obligatoire.' }, { status: 400 });
+    }
+
+    const existing = await prisma.studentInstallmentRequest.findUnique({
+      where: { id },
+      include: { user: { select: { firstName: true, lastName: true, email: true } } },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ success: false, message: 'Demande introuvable.' }, { status: 404 });
     }
 
     const request = await prisma.studentInstallmentRequest.update({
@@ -34,15 +44,38 @@ export async function PUT(
         status: body.status,
         adminNote: body.adminNote || null,
         reviewedAt: body.status === 'PENDING' ? null : new Date(),
+        reviewedById: body.status !== 'PENDING' ? authResult.userId : null,
       },
     });
 
+    await logActivity({
+      userId: authResult.userId,
+      action: 'UPDATE',
+      entity: 'STUDENT_INSTALLMENT',
+      entityId: id,
+      details: `Demande etudiante ${id} -> ${body.status}${body.adminNote ? ' : ' + body.adminNote : ''}`,
+    });
+
+    if (existing.user?.email) {
+      const statusLabel = body.status === 'APPROVED' ? 'approuvee' : 'rejetee';
+      const noteHtml = body.adminNote
+        ? `<p><strong>Motif :</strong> ${body.adminNote}</p>`
+        : '';
+
+      await sendEmail({
+        to: existing.studentEmail || existing.user.email,
+        subject: `Votre demande de financement a ete ${statusLabel}`,
+        html: `<p>Bonjour ${existing.fullName},</p>
+<p>Votre demande de paiement par tranche a ete <strong>${statusLabel}</strong>.</p>
+${noteHtml}
+${body.status === 'APPROVED' ? '<p>Vous pouvez desormais passer une commande en mode etudiant avec paiement par tranche.</p>' : '<p>Si vous avez des questions, veuillez contacter notre equipe.</p>'}
+<p>Cordialement,<br/>L'equipe Plawimadd Group</p>`,
+      });
+    }
+
     return NextResponse.json({ success: true, request }, { status: 200 });
   } catch (error) {
-    console.error('Erreur lors de la mise à jour de la demande étudiante:', error);
-    return NextResponse.json(
-      { success: false, message: 'Erreur serveur. Veuillez réessayer plus tard.' },
-      { status: 500 }
-    );
+    console.error('Erreur lors de la mise a jour de la demande etudiante:', error);
+    return NextResponse.json({ success: false, message: 'Erreur serveur.' }, { status: 500 });
   }
 }

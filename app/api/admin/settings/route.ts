@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const authResult: AuthResult = await authorizeAdminRequest(req);
@@ -43,6 +44,8 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     for (const s of updated) {
       result[s.key] = s.value;
     }
+
+    await logActivity({ userId: authResult.userId, action: 'UPDATE', entity: 'SETTINGS', entityId: null, details: `Mise à jour des paramètres : ${Object.keys(body).join(', ')}` });
 
     return NextResponse.json({ success: true, settings: result }, { status: 200 });
   } catch (_error: unknown) {

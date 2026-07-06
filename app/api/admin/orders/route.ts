@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 // Renommer OrderStatus de lib/types pour éviter le conflit avec Prisma.OrderStatus
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { OrderStatus as CustomOrderStatus, PaymentStatus as CustomPaymentStatus } from '@/lib/types';
@@ -48,6 +49,7 @@ type OrderWithAllRelations = Prisma.OrderGetPayload<{
                         imgUrl: true;
                         price: true;
                         offerPrice: true;
+                        color: true;
                     };
                 };
             };
@@ -95,6 +97,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                                 imgUrl: true,
                                 price: true,
                                 offerPrice: true,
+                                color: true,
                             },
                         },
                     },
@@ -117,6 +120,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                     imgUrl: parsePrismaImgUrl(item.product?.imgUrl || null),
                     price: item.product?.price.toNumber() || 0,
                     offerPrice: item.product?.offerPrice?.toNumber() || null,
+                    color: item.product?.color || null,
                 }
             }));
 
@@ -182,6 +186,14 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
             },
         });
 
+        await logActivity({
+            userId: authResult.userId || null,
+            action: 'UPDATE',
+            entity: 'ORDER',
+            entityId: orderId,
+            details: `Commande #${orderId} marquée comme "${upperStatus}"`,
+        });
+
         return NextResponse.json({ success: true, message: 'Statut de la commande mis à jour.', order: updatedOrder }, { status: 200 });
     } catch (_error: unknown) {
         console.error('Erreur PUT commande:', _error);
@@ -218,6 +230,14 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
         if (deleteResult.count === 0) {
             return NextResponse.json({ success: false, message: 'Commande non trouvée ou déjà supprimée.' }, { status: 404 });
         }
+
+        await logActivity({
+            userId: authResult.userId || null,
+            action: 'DELETE',
+            entity: 'ORDER',
+            entityId: id,
+            details: `Commande #${id} supprimée`,
+        });
 
         return NextResponse.json({ success: true, message: 'Commande supprimée avec succès.' }, { status: 200 });
     } catch (_error: unknown) {

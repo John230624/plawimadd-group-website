@@ -211,7 +211,7 @@ export default function ImportExportPage(): React.ReactElement {
               <SellerTableHeader>
                 <SellerTableRow>
                   {Object.keys(previewRows[0]).map((header) => (
-                    <SellerTableCell key={header} isHeader>
+                    <SellerTableCell key={header} isHeader className="text-center">
                       {header}
                     </SellerTableCell>
                   ))}
@@ -221,7 +221,7 @@ export default function ImportExportPage(): React.ReactElement {
                 {previewRows.map((row, idx) => (
                   <SellerTableRow key={idx}>
                     {Object.values(row).map((val, cellIdx) => (
-                      <SellerTableCell key={cellIdx} className="text-[var(--text-secondary)]">
+                      <SellerTableCell key={cellIdx} className="text-[var(--text-secondary)] text-center">
                         {val}
                       </SellerTableCell>
                     ))}

@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowDown, ArrowUp, Calendar, CheckSquare, ChevronDown,
-  Clock, Clock3, Download, Eye, FileText, Search, ShoppingCart, Square, Trash2, Truck, XCircle, CalendarRange
+  Clock, Clock3, DollarSign, Download, Eye, FileText, Search, ShoppingCart, Square, Trash2, Truck, XCircle, CalendarRange
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -52,6 +52,22 @@ const paymentLabels: Record<string, string> = {
   REFUNDED: 'Remboursé',
 };
 
+function parseColorIds(color: string | null | undefined): string[] {
+  if (!color) return [];
+  try { const ids = JSON.parse(color); return Array.isArray(ids) ? ids : []; } catch { return []; }
+}
+
+function getColorDisplay(color: string | null | undefined, map: Record<string, { name: string; hex: string }>): string {
+  if (!color) return '';
+  try {
+    const ids = JSON.parse(color);
+    if (Array.isArray(ids) && ids.length > 0) {
+      return ids.map((id: string) => map[id]?.name || id).join(', ');
+    }
+  } catch {}
+  return color;
+}
+
 export default function OrdersPage(): React.ReactElement {
   const { formatPrice } = useAppContext();
   const { data: session, status } = useSession();
@@ -69,12 +85,72 @@ export default function OrdersPage(): React.ReactElement {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [colorMap, setColorMap] = useState<Record<string, { name: string; hex: string }>>({});
 
   const [sortKey, setSortKey] = useState<SortKey>('orderDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState('');
   const [bulkUpdating, setBulkUpdating] = useState(false);
+
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentOrderId, setPaymentOrderId] = useState<string | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('CASH');
+  const [paymentRef, setPaymentRef] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [recording, setRecording] = useState(false);
+  const [orderPayments, setOrderPayments] = useState<Record<string, any[]>>({});
+
+  const downloadInvoice = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/orders/invoice?orderId=${orderId}`);
+      if (!res.ok) { toast.error('Erreur generation facture'); return; }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `facture-${orderId.slice(0, 8)}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch { toast.error('Erreur'); }
+  };
+
+  const openPaymentModal = async (order: Order) => {
+    setPaymentOrderId(order.id);
+    setPaymentAmount('');
+    setPaymentMethod('CASH');
+    setPaymentRef('');
+    setPaymentNotes('');
+    setShowPaymentModal(true);
+    try {
+      const res = await axios.get(`/api/orders/${order.id}/payments`);
+      if (Array.isArray(res.data)) {
+        setOrderPayments((prev) => ({ ...prev, [order.id]: res.data }));
+      }
+    } catch {}
+  };
+
+  const recordPayment = async () => {
+    if (!paymentOrderId || !paymentAmount) return;
+    setRecording(true);
+    try {
+      const res = await axios.post(`/api/orders/${paymentOrderId}/payments`, {
+        amount: Number(paymentAmount),
+        paymentMethod,
+        reference: paymentRef || null,
+        notes: paymentNotes || null,
+      });
+      toast.success(res.data?.message || 'Paiement enregistré.');
+      setShowPaymentModal(false);
+      fetchAllOrders();
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.message) toast.error(err.response.data.message);
+      else toast.error('Erreur lors de l\'enregistrement du paiement.');
+    } finally {
+      setRecording(false);
+    }
+  };
 
   const fetchAllOrders = useCallback(async () => {
     if (status !== 'authenticated' || session?.user?.role !== UserRole.ADMIN) {
@@ -106,6 +182,19 @@ export default function OrdersPage(): React.ReactElement {
     }
     if (status === 'unauthenticated') router.push('/login');
   }, [fetchAllOrders, router, session?.user?.role, status]);
+
+  useEffect(() => {
+    fetch('/api/colors')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const map: Record<string, { name: string; hex: string }> = {};
+          data.forEach((c: { id: string; name: string; hex: string }) => { map[c.id] = { name: c.name, hex: c.hex }; });
+          setColorMap(map);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => { setPage(1); }, [searchTerm, statusFilter, paymentFilter, rangeStart, rangeEnd]);
 
@@ -465,14 +554,14 @@ export default function OrdersPage(): React.ReactElement {
               type="date"
               value={rangeStart}
               onChange={(e) => setRangeStart(e.target.value)}
-              className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-2.5 py-2 text-xs text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)] [color-scheme:dark]"
+              className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-2.5 py-2 text-xs text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-40 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
             />
             <span className="text-xs text-[var(--text-tertiary)]">—</span>
             <input
               type="date"
               value={rangeEnd}
               onChange={(e) => setRangeEnd(e.target.value)}
-              className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-2.5 py-2 text-xs text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)] [color-scheme:dark]"
+              className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-2.5 py-2 text-xs text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-40 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
             />
           </div>
         </div>
@@ -496,61 +585,61 @@ export default function OrdersPage(): React.ReactElement {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  <th className="w-10 px-2 py-3 text-left">
+                  <th className="w-10 px-2 py-3 text-center">
                     <button onClick={toggleSelectAll} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                       {allSelectedOnPage ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
                     </button>
                   </th>
-                  <th className="cursor-pointer px-6 py-3 text-left font-500 text-[var(--text-secondary)] select-none hover:text-[var(--text-primary)]" onClick={() => toggleSort('id')}>
+                  <th className="cursor-pointer px-6 py-3 text-center font-500 text-[var(--text-secondary)] select-none hover:text-[var(--text-primary)]" onClick={() => toggleSort('id')}>
                     Commande <SortIcon column="id" />
                   </th>
-                  <th className="cursor-pointer px-6 py-3 text-left font-500 text-[var(--text-secondary)] select-none hover:text-[var(--text-primary)]" onClick={() => toggleSort('userName')}>
+                  <th className="cursor-pointer px-6 py-3 text-center font-500 text-[var(--text-secondary)] select-none hover:text-[var(--text-primary)]" onClick={() => toggleSort('userName')}>
                     Client <SortIcon column="userName" />
                   </th>
-                  <th className="cursor-pointer px-6 py-3 text-left font-500 text-[var(--text-secondary)] select-none hover:text-[var(--text-primary)]" onClick={() => toggleSort('totalAmount')}>
+                  <th className="cursor-pointer px-6 py-3 text-center font-500 text-[var(--text-secondary)] select-none hover:text-[var(--text-primary)]" onClick={() => toggleSort('totalAmount')}>
                     Montant <SortIcon column="totalAmount" />
                   </th>
-                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Paiement</th>
-                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Livraison</th>
-                  <th className="cursor-pointer px-6 py-3 text-left font-500 text-[var(--text-secondary)] select-none hover:text-[var(--text-primary)]" onClick={() => toggleSort('orderDate')}>
+                  <th className="px-6 py-3 text-center font-500 text-[var(--text-secondary)]">Paiement</th>
+                  <th className="px-6 py-3 text-center font-500 text-[var(--text-secondary)]">Livraison</th>
+                  <th className="cursor-pointer px-6 py-3 text-center font-500 text-[var(--text-secondary)] select-none hover:text-[var(--text-primary)]" onClick={() => toggleSort('orderDate')}>
                     Date <SortIcon column="orderDate" />
                   </th>
-                  <th className="cursor-pointer px-6 py-3 text-left font-500 text-[var(--text-secondary)] select-none hover:text-[var(--text-primary)]" onClick={() => toggleSort('status')}>
+                  <th className="cursor-pointer px-6 py-3 text-center font-500 text-[var(--text-secondary)] select-none hover:text-[var(--text-primary)]" onClick={() => toggleSort('status')}>
                     Statut <SortIcon column="status" />
                   </th>
-                  <th className="px-6 py-3 text-left font-500 text-[var(--text-secondary)]">Actions</th>
+                  <th className="px-6 py-3 text-center font-500 text-[var(--text-secondary)]">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedOrders.map((order) => (
                   <tr key={order.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)] transition-smooth">
-                    <td className="px-2 py-4">
+                    <td className="px-2 py-4 text-center">
                       <button onClick={() => toggleSelect(order.id)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                         {selectedIds.has(order.id) ? <CheckSquare className="h-4 w-4 text-emerald-400" /> : <Square className="h-4 w-4" />}
                       </button>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       <p className="font-500 text-[var(--text-primary)]">#{order.id.slice(0, 8)}</p>
                       <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{order.orderItems.length} article(s)</p>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       <p className="font-500 text-[var(--text-primary)]">{order.userName}</p>
                       <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{order.userEmail}</p>
                     </td>
-                    <td className="px-6 py-4 font-500 text-[var(--text-primary)]">{formatPrice(order.totalAmount)}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center font-500 text-[var(--text-primary)]">{formatPrice(order.totalAmount)}</td>
+                    <td className="px-6 py-4 text-center">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-500 ${getStatusColor(order.paymentStatus)}`}>
                         {order.paymentStatus}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       <p className="text-xs text-[var(--text-secondary)]">{order.shippingCity}</p>
                       <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{order.shippingCountry}</p>
                     </td>
-                    <td className="px-6 py-4 text-xs text-[var(--text-tertiary)]">
+                    <td className="px-6 py-4 text-center text-xs text-[var(--text-tertiary)]">
                       {new Date(order.orderDate).toLocaleDateString('fr-FR')}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       <select
                         value={order.status}
                         onChange={(e) => handleStatusChange(e.target.value as OrderStatus, order.id)}
@@ -563,7 +652,7 @@ export default function OrdersPage(): React.ReactElement {
                         <option value={OrderStatus.CANCELLED}>Annulée</option>
                       </select>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       <div className="flex gap-2">
                         <button
                           onClick={() => setSelectedOrder(order)}
@@ -571,6 +660,20 @@ export default function OrdersPage(): React.ReactElement {
                           title="Détails"
                         >
                           <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => downloadInvoice(order.id)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-transparent bg-gradient-to-r from-emerald-500/20 to-teal-600/20 px-2.5 py-1.5 text-xs font-500 text-emerald-400 transition-all duration-300 hover:from-emerald-500/30 hover:to-teal-600/30 hover:shadow-lg"
+                          title="Facture"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => openPaymentModal(order)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-transparent bg-gradient-to-r from-amber-500/20 to-yellow-600/20 px-2.5 py-1.5 text-xs font-500 text-amber-400 transition-all duration-300 hover:from-amber-500/30 hover:to-yellow-600/30 hover:shadow-lg"
+                          title="Paiement"
+                        >
+                          <DollarSign className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => setOrderToDelete(order)}
@@ -635,6 +738,20 @@ export default function OrdersPage(): React.ReactElement {
                   {selectedOrder.paymentMethod || 'N/A'}
                 </span>
               </div>
+              {(orderPayments[selectedOrder.id]?.length ?? 0) > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-500 text-[var(--text-tertiary)]">Paiements enregistrés</p>
+                  {orderPayments[selectedOrder.id].map((pmt: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between rounded-md bg-[var(--bg-card)] px-3 py-2 text-xs">
+                      <div>
+                        <span className="text-[var(--text-primary)]">{pmt.paymentMethod}</span>
+                        {pmt.reference && <span className="ml-2 text-[var(--text-tertiary)]">#{pmt.reference}</span>}
+                      </div>
+                      <span className="font-500 text-emerald-400">{formatPrice(pmt.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="rounded-lg bg-[var(--bg-outer)] p-4">
               <p className="text-xs font-600 uppercase text-[var(--text-tertiary)]">Montant</p>
@@ -684,6 +801,21 @@ export default function OrdersPage(): React.ReactElement {
                     <div>
                       <p className="font-500 text-[var(--text-primary)]">{item.product.name}</p>
                       <p className="mt-1 text-xs text-[var(--text-tertiary)]">Quantité: {item.quantity}</p>
+                      {(() => {
+                        const ids = parseColorIds(item.product.color);
+                        const resolved = ids.map((id) => colorMap[id]).filter(Boolean) as { name: string; hex: string }[];
+                        if (resolved.length === 0) return null;
+                        return (
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                            {resolved.map((c, i) => (
+                              <span key={c.hex + i} className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--bg-card)] px-1.5 py-0.5 text-xs text-[var(--text-tertiary)]">
+                                <span className="h-2.5 w-2.5 rounded-full border border-[var(--border)]" style={{ backgroundColor: c.hex }} />
+                                {c.name}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <p className="font-500 text-[var(--text-primary)]">{formatPrice(item.priceAtOrder)}</p>
                   </div>
@@ -692,6 +824,73 @@ export default function OrdersPage(): React.ReactElement {
             </div>
           </div>
         ) : null}
+      </SellerModal>
+
+      {/* Payment Modal */}
+      <SellerModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        title="Enregistrer un paiement"
+        description={paymentOrderId ? `Commande #${paymentOrderId.slice(0, 8)}` : ''}
+        size="md"
+        footer={
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button onClick={() => setShowPaymentModal(false)}
+              className="rounded-lg border border-[var(--border)] bg-transparent px-4 py-2 text-sm font-500 text-[var(--text-secondary)] transition-smooth hover:bg-[var(--bg-hover)]">
+              Annuler
+            </button>
+            <button disabled={recording || !paymentAmount} onClick={recordPayment}
+              className="rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-500 text-white transition-smooth hover:opacity-90 disabled:opacity-40">
+              {recording ? 'Enregistrement...' : 'Enregistrer le paiement'}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Montant *</label>
+            <input
+              type="number"
+              value={paymentAmount}
+              onChange={(e) => setPaymentAmount(e.target.value)}
+              placeholder="0"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Mode de paiement *</label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
+            >
+              <option value="CASH">Espèces</option>
+              <option value="MOBILE_MONEY">Mobile Money</option>
+              <option value="CARD">Carte bancaire</option>
+              <option value="BANK_TRANSFER">Virement bancaire</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Référence (optionnel)</label>
+            <input
+              type="text"
+              value={paymentRef}
+              onChange={(e) => setPaymentRef(e.target.value)}
+              placeholder="Numéro de transaction"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Notes (optionnel)</label>
+            <textarea
+              value={paymentNotes}
+              onChange={(e) => setPaymentNotes(e.target.value)}
+              placeholder="Notes sur le paiement"
+              rows={3}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none transition-smooth focus:border-[var(--accent-blue)] resize-none"
+            />
+          </div>
+        </div>
       </SellerModal>
 
       {/* Delete Modal */}

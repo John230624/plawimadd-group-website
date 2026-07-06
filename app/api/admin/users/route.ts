@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -96,6 +97,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       select: userSelect,
     });
 
+    await logActivity({
+      userId: authResult.userId || null,
+      action: 'CREATE',
+      entity: 'USER',
+      entityId: newUser.id,
+      details: `Utilisateur "${email}" créé`,
+    });
+
     return NextResponse.json({ success: true, message: 'Utilisateur créé avec succès.', user: newUser }, { status: 201 });
   } catch (_error: unknown) {
     console.error('Erreur POST utilisateur:', _error);
@@ -159,6 +168,20 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, message: 'Utilisateur non trouvé.' }, { status: 404 });
     }
 
+    let details = `Utilisateur "${updatedUser.email}" mis à jour`;
+    if (data.banned !== undefined) {
+      details = data.banned === true
+        ? `Utilisateur "${updatedUser.email}" banni`
+        : `Utilisateur "${updatedUser.email}" débanni`;
+    }
+    await logActivity({
+      userId: authResult.userId || null,
+      action: 'UPDATE',
+      entity: 'USER',
+      entityId: updatedUser.id,
+      details,
+    });
+
     return NextResponse.json({ success: true, message: 'Utilisateur mis à jour.', user: updatedUser }, { status: 200 });
   } catch (_error: unknown) {
     console.error('Erreur PATCH utilisateur:', _error);
@@ -184,6 +207,14 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
     if (deleteResult.count === 0) {
       return NextResponse.json({ success: false, message: 'Utilisateur non trouvé ou déjà supprimé.' }, { status: 404 });
     }
+
+    await logActivity({
+      userId: authResult.userId || null,
+      action: 'DELETE',
+      entity: 'USER',
+      entityId: id,
+      details: `Utilisateur "${id}" supprimé`,
+    });
 
     return NextResponse.json({ success: true, message: 'Utilisateur supprimé avec succès.' }, { status: 200 });
   } catch (_error: unknown) {

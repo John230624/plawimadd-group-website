@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
+  ChevronRight,
   Heart,
   LayoutDashboard,
   LogIn,
@@ -28,6 +29,22 @@ interface AppContextShape {
   getWishlistCount: () => number;
 }
 
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  imgUrl: string[];
+  category?: { name: string };
+}
+
+interface MegaMenuCategory {
+  id: string;
+  name: string;
+  level: number;
+  children: { id: string; name: string }[];
+  _count: { products: number };
+}
+
 const navLinks = [
   { href: '/', label: 'Accueil' },
   { href: '/all-products', label: 'Catalogue' },
@@ -36,8 +53,8 @@ const navLinks = [
 ];
 
 export default function Navbar(): React.ReactElement {
-  const { searchTerm, setSearchTerm, getCartCount, getWishlistCount } =
-    useAppContext() as AppContextShape;
+  const { searchTerm, setSearchTerm, getCartCount, getWishlistCount, products } =
+    useAppContext() as AppContextShape & { products: Product[] };
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -45,7 +62,13 @@ export default function Navbar(): React.ReactElement {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMegaOpen, setIsMegaOpen] = useState(false);
+  const [megaCategories, setMegaCategories] = useState<MegaMenuCategory[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<Product[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const megaRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const isLoggedIn = status === 'authenticated';
   const isAdmin = Boolean(isLoggedIn && session?.user?.role === 'ADMIN');
@@ -59,9 +82,26 @@ export default function Navbar(): React.ReactElement {
     'Mon compte';
 
   useEffect(() => {
+    fetch('/api/categories')
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setMegaCategories(data.filter((c: MegaMenuCategory) => c.level === 0));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
       if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
         setIsAccountOpen(false);
+      }
+      if (megaRef.current && !megaRef.current.contains(event.target as Node)) {
+        setIsMegaOpen(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
       }
     };
 
@@ -79,8 +119,25 @@ export default function Navbar(): React.ReactElement {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    if (searchTerm.trim().length < 2) {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const q = searchTerm.trim().toLowerCase();
+    const matches = (products || []).filter(
+      p =>
+        p.name.toLowerCase().includes(q) ||
+        p.category?.name.toLowerCase().includes(q)
+    ).slice(0, 6);
+    setSearchSuggestions(matches);
+    setShowSuggestions(matches.length > 0);
+  }, [searchTerm, products]);
+
   const handleSearch = (value: string) => {
     setSearchTerm(value);
+    setShowSuggestions(false);
     if (pathname !== '/all-products') {
       router.push('/all-products');
     }
@@ -116,24 +173,149 @@ export default function Navbar(): React.ReactElement {
         </Link>
 
         <nav className="hidden items-center gap-1 rounded-full border border-slate-200/80 bg-slate-50/80 p-1 lg:flex">
-          {navLinks.map((link) => (
-            <Link key={link.href} href={link.href} className={getLinkClassName(link.href)}>
-              {link.label}
-            </Link>
-          ))}
+          {navLinks.map((link) =>
+            link.href === '/all-products' ? (
+              <div key={link.href} className="relative" ref={megaRef}>
+                <button
+                  type="button"
+                  onMouseEnter={() => setIsMegaOpen(true)}
+                  onClick={() => setIsMegaOpen(prev => !prev)}
+                  className={[
+                    'rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200',
+                    pathname.startsWith('/all-products')
+                      ? 'bg-[var(--brand-600)] text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-white hover:text-[var(--brand-700)]',
+                  ].join(' ')}
+                >
+                  {link.label}
+                </button>
+
+                {isMegaOpen && megaCategories.length > 0 && (
+                  <div
+                    className="fixed left-1/2 top-[72px] z-50 w-[min(90vw,1000px)] -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.16)]"
+                    onMouseLeave={() => setIsMegaOpen(false)}
+                  >
+                    <div className="grid grid-cols-4 gap-6 p-6">
+                      {megaCategories.slice(0, 8).map((cat) => (
+                        <div key={cat.id}>
+                          <Link
+                            href={`/all-products?category=${encodeURIComponent(cat.name)}`}
+                            onClick={() => setIsMegaOpen(false)}
+                            className="block text-sm font-semibold text-slate-900 hover:text-[var(--brand-700)]"
+                          >
+                            {cat.name}
+                            {cat._count.products > 0 && (
+                              <span className="ml-1.5 text-[10px] font-normal text-slate-400">
+                                ({cat._count.products})
+                              </span>
+                            )}
+                          </Link>
+                          {cat.children.length > 0 && (
+                            <div className="mt-2 space-y-1.5">
+                              {cat.children.slice(0, 6).map((child) => (
+                                <Link
+                                  key={child.id}
+                                  href={`/all-products?category=${encodeURIComponent(child.name)}`}
+                                  onClick={() => setIsMegaOpen(false)}
+                                  className="block text-xs text-slate-500 transition hover:text-[var(--brand-700)] hover:pl-0.5"
+                                >
+                                  {child.name}
+                                </Link>
+                              ))}
+                              {cat.children.length > 6 && (
+                                <Link
+                                  href={`/all-products?category=${encodeURIComponent(cat.name)}`}
+                                  onClick={() => setIsMegaOpen(false)}
+                                  className="block text-xs font-medium text-[var(--brand-600)] hover:underline"
+                                >
+                                  Voir tout ({cat.children.length})
+                                </Link>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border-t border-slate-100 bg-slate-50 px-6 py-3">
+                      <Link
+                        href="/all-products"
+                        onClick={() => setIsMegaOpen(false)}
+                        className="flex items-center justify-center gap-1 text-xs font-medium text-slate-600 transition hover:text-[var(--brand-700)]"
+                      >
+                        Voir tous les produits <ChevronRight className="h-3 w-3" />
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link key={link.href} href={link.href} className={getLinkClassName(link.href)}>
+                {link.label}
+              </Link>
+            )
+          )}
         </nav>
 
         <div className="hidden flex-1 items-center justify-end gap-3 md:flex">
-          <label className="flex h-10 w-full max-w-[440px] items-center gap-3 rounded-full border border-slate-200 bg-slate-50/80 px-4 text-sm text-slate-500 shadow-inner transition duration-200 focus-within:border-[var(--brand-300)] focus-within:bg-white focus-within:shadow-[0_10px_30px_rgba(37,99,235,0.08)]">
-            <Search className="h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(event) => handleSearch(event.target.value)}
-              placeholder="Rechercher parmi nos produits"
-              className="w-full bg-transparent text-slate-800 outline-none placeholder:text-slate-400 caret-[var(--brand-600)]"
-            />
-          </label>
+          <div className="relative w-full max-w-[440px]" ref={searchRef}>
+            <label className="flex h-10 w-full items-center gap-3 rounded-full border border-slate-200 bg-slate-50/80 px-4 text-sm text-slate-500 shadow-inner transition duration-200 focus-within:border-[var(--brand-300)] focus-within:bg-white focus-within:shadow-[0_10px_30px_rgba(37,99,235,0.08)]">
+              <Search className="h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                onFocus={() => { if (searchSuggestions.length > 0) setShowSuggestions(true); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(searchTerm); }}
+                placeholder="Rechercher parmi nos produits"
+                className="w-full bg-transparent text-slate-800 outline-none placeholder:text-slate-400 caret-[var(--brand-600)]"
+              />
+            </label>
+
+            {showSuggestions && searchSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_52px_rgba(15,23,42,0.14)]">
+                <div className="p-2">
+                  {searchSuggestions.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        router.push(`/product/${p.id}`);
+                        setSearchTerm('');
+                        setShowSuggestions(false);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-slate-50"
+                    >
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                        <Image
+                          src={p.imgUrl?.[0] || '/images/default_product_image.png'}
+                          alt={p.name}
+                          width={40}
+                          height={40}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-900">{p.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {p.price?.toLocaleString()} CFA
+                          {p.category?.name ? ` — ${p.category.name}` : ''}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t border-slate-100 p-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSearch(searchTerm)}
+                    className="flex w-full items-center justify-center rounded-xl py-2 text-xs font-medium text-[var(--brand-600)] hover:bg-slate-50"
+                  >
+                    Voir tous les resultats
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center gap-2 text-slate-700">
             <button
@@ -311,6 +493,35 @@ export default function Navbar(): React.ReactElement {
                 {link.label}
               </Link>
             ))}
+
+            {megaCategories.length > 0 && (
+              <div className="border-t border-slate-100 pt-2 mt-1">
+                <p className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Categories
+                </p>
+                {megaCategories.slice(0, 6).map((cat) => (
+                  <div key={cat.id}>
+                    <Link
+                      href={`/all-products?category=${encodeURIComponent(cat.name)}`}
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center justify-between rounded-2xl px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-white/70 hover:text-[var(--brand-700)]"
+                    >
+                      {cat.name}
+                      {cat._count.products > 0 && (
+                        <span className="text-[10px] text-slate-400">{cat._count.products}</span>
+                      )}
+                    </Link>
+                  </div>
+                ))}
+                <Link
+                  href="/all-products"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-1 rounded-2xl px-4 py-2.5 text-xs font-medium text-[var(--brand-600)] hover:underline"
+                >
+                  Toutes les categories <ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+            )}
 
             {isLoggedIn ? (
               <>

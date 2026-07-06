@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth'; // Pour l'authentification de l'utilisateur
 import { authOptions } from '@/lib/authOptions';
+import { logActivity } from '@/lib/logActivity';
 
 // Interface pour le corps de la requête POST de ce endpoint
 interface CreateOrderAfterPaymentPayload {
@@ -139,6 +140,14 @@ export async function POST(req: NextRequest) {
                 where: { userId: user.id },
             });
             console.log(`[Create Order After Payment] Panier de l'utilisateur ${user.id} vidé.`);
+        });
+
+        await logActivity({
+          userId,
+          action: 'CREATE',
+          entity: 'ORDER',
+          entityId: orderId,
+          details: `Commande créée après paiement`,
         });
 
         return NextResponse.json({ success: true, orderId: orderId, message: 'Commande créée avec succès' }, { status: 200 });

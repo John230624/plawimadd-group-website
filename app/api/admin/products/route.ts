@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 import { Decimal } from '@prisma/client/runtime/library';
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
@@ -57,6 +58,17 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
             default:
                 return NextResponse.json({ success: false, message: 'Action inconnue.' }, { status: 400 });
+        }
+
+        for (const id of ids) {
+            const actionLabel = action === 'delete' ? 'DELETE' : 'UPDATE';
+            const details = {
+                delete: `Suppression du produit ${id}`,
+                setCategory: `Mise à jour de la catégorie du produit ${id}`,
+                setStock: `Mise à jour du stock du produit ${id}`,
+                setVisible: `Mise à jour de la visibilité du produit ${id}`,
+            }[action] || `Action ${action} sur le produit ${id}`;
+            await logActivity({ userId: authResult.userId, action: actionLabel, entity: 'PRODUCT', entityId: id, details });
         }
 
         return NextResponse.json({ success: true, count: result.count }, { status: 200 });

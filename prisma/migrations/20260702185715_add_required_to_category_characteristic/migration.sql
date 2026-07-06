@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `category_characteristics` ADD COLUMN `required` BOOLEAN NOT NULL DEFAULT true;

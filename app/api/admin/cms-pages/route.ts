@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const authResult: AuthResult = await authorizeAdminRequest(req);
@@ -41,6 +42,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const page = await prisma.cmsPage.create({
       data: { slug, title, content, published: published ?? false },
+    });
+
+    await logActivity({
+      userId: authResult.userId || null,
+      action: 'CREATE',
+      entity: 'CMS_PAGE',
+      entityId: page.id,
+      details: `Page "${title}" (slug: ${slug}) créée`,
     });
 
     return NextResponse.json({ success: true, page }, { status: 201 });

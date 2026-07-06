@@ -54,7 +54,7 @@ export default function ProductCarouselSection({
   subtitle,
   showcaseItems = [],
 }: ProductCarouselSectionProps): React.ReactElement | null {
-  const { addToCart, formatPrice, router, toggleWishlist, isInWishlist } = useAppContext();
+  const { addToCart, formatPrice, router, toggleWishlist, isInWishlist, colors } = useAppContext();
 
   const isStudentOffers = mode === 'student-offers';
   const hasRealProducts = products.length > 0;
@@ -98,6 +98,10 @@ export default function ProductCarouselSection({
                   const price = getDisplayPrice(product);
                   const discountPercent = getDiscountPercent(product);
                   const imageSrc = product.imgUrl?.[0] || assets.default_product_image.src;
+                  const productColorIds: string[] = (() => {
+                    if (!product.color) return [];
+                    try { const p = JSON.parse(product.color); return Array.isArray(p) ? p : []; } catch { return []; }
+                  })();
 
                   return (
                     <article
@@ -154,6 +158,21 @@ export default function ProductCarouselSection({
                         <h3 className="min-h-[44px] text-[1.05rem] font-semibold leading-6 text-slate-900">
                           {product.name}
                         </h3>
+
+                        {productColorIds.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {productColorIds.map((id) => {
+                              const c = colors.find((col) => col.id === id);
+                              if (!c) return null;
+                              return (
+                                <div key={id} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-500">
+                                  <span className="h-2 w-2 rounded-full border border-slate-200" style={{ backgroundColor: c.hex }} />
+                                  {c.name}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
 
                         <div className="mt-1 flex items-center gap-2 text-sm text-slate-600">
                           <CheckCircle2 className="h-4 w-4 text-emerald-500" />

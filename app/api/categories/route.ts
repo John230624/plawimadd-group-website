@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { logActivity } from '@/lib/logActivity';
 import { categorySchema } from '@/lib/validation';
 import { ZodError } from 'zod';
 
@@ -11,7 +12,12 @@ import { ZodError } from 'zod';
 export async function GET(): Promise<NextResponse> { // Pas de 'req' nécessaire ici, donc pas de modification de signature
     try {
         const categories = await prisma.category.findMany({
-            orderBy: { name: 'asc' },
+            include: {
+                _count: { select: { products: true } },
+                parent: { select: { id: true, name: true } },
+                children: { select: { id: true, name: true } },
+            },
+            orderBy: [{ level: 'asc' }, { name: 'asc' }],
         });
         return NextResponse.json(categories, { status: 200 });
     } catch (_error: unknown) {
@@ -28,14 +34,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
         const body = await req.json();
         const parsed = categorySchema.parse(body);
-        const { name, description, imageUrl } = parsed;
+        const { name, description, imageUrl, parentId } = parsed;
+
+        let level = 0;
+        if (parentId) {
+            const parent = await prisma.category.findUnique({ where: { id: parentId }, select: { level: true } });
+            level = parent ? parent.level + 1 : 0;
+        }
 
         const newCategory = await prisma.category.create({
             data: {
                 name: name.trim(),
                 description: description || null,
                 imageUrl: imageUrl || null,
+                parentId: parentId || null,
+                level,
             },
+        });
+
+        await logActivity({
+            userId: req.user?.id || null,
+            action: 'CREATE',
+            entity: 'CATEGORY',
+            entityId: newCategory.id,
+            details: `Catégorie "${name}" créée`,
         });
 
         return NextResponse.json({ message: 'Catégorie créée avec succès !', category: newCategory }, { status: 201 });

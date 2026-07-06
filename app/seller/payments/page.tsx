@@ -2,25 +2,30 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ArrowDownWideNarrow,
+  ArrowUpWideNarrow,
   CreditCard,
-  Search,
-  Eye,
   DollarSign,
-  ArrowUpRight,
+  Download,
+  Eye,
+  RefreshCw,
+  Search,
   Undo2,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import Loading from '@/components/Loading';
+import SellerBadge from '@/components/seller/SellerBadge';
 import SellerButton from '@/components/seller/SellerButton';
 import SellerEmptyState from '@/components/seller/SellerEmptyState';
 import SellerFilterBar from '@/components/seller/SellerFilterBar';
-import SellerInput from '@/components/seller/SellerInput';
 import SellerModal from '@/components/seller/SellerModal';
+import SellerPanel from '@/components/seller/SellerPanel';
 import SellerPagination from '@/components/seller/SellerPagination';
 import SellerSectionHeader from '@/components/seller/SellerSectionHeader';
 import SellerSelect from '@/components/seller/SellerSelect';
-import SellerBadge from '@/components/seller/SellerBadge';
 import StatCard from '@/components/seller/StatCard';
 import {
   SellerTable,
@@ -48,6 +53,17 @@ interface Payment {
   };
 }
 
+interface PaymentsResponse {
+  data: Payment[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+type SortField = 'transactionId' | 'amount' | 'status' | 'createdAt';
+type SortDir = 'asc' | 'desc';
+
 const pageSize = 15;
 
 const statusBadge: Record<string, 'success' | 'primary' | 'error' | 'warning'> = {
@@ -64,38 +80,56 @@ const statusLabels: Record<string, string> = {
   REFUNDED: 'Remboursé',
 };
 
+const methodLabels: Record<string, string> = {
+  CARTE: 'Carte',
+  MOBILE_MONEY: 'Mobile Money',
+  CASH: 'Espèces',
+  BANK_TRANSFER: 'Virement',
+  KKIA_PAY: 'KkiaPay',
+};
+
 export default function PaymentsPage(): React.ReactElement {
   const { formatPrice } = useAppContext();
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'createdAt', dir: 'desc' });
+  const [refunding, setRefunding] = useState<string | null>(null);
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (statusFilter !== 'ALL') params.set('status', statusFilter);
       if (searchTerm) params.set('search', searchTerm);
+      if (statusFilter !== 'ALL') params.set('status', statusFilter);
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
+      params.set('page', String(page));
+      params.set('limit', String(pageSize));
+      params.set('sortBy', sort.field);
+      params.set('sortOrder', sort.dir);
       const res = await fetch(`/api/admin/payments?${params}`);
-      const data = await res.json();
-      setPayments(Array.isArray(data) ? data : data?.data ?? []);
+      const result: PaymentsResponse = await res.json();
+      setPayments(result.data ?? []);
+      setTotal(result.total ?? 0);
+      setTotalPages(result.totalPages ?? 1);
     } catch {
       toast.error('Impossible de charger les paiements.');
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, searchTerm]);
+  }, [searchTerm, statusFilter, dateFrom, dateTo, page, sort]);
 
   useEffect(() => { fetchPayments(); }, [fetchPayments]);
-  useEffect(() => { setPage(1); }, [searchTerm, statusFilter]);
 
-  const paginated = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return payments.slice(start, start + pageSize);
-  }, [payments, page]);
+  useEffect(() => { setPage(1); }, [searchTerm, statusFilter, dateFrom, dateTo]);
 
   const stats = useMemo(() => {
     const totalReceived = payments.filter((p) => p.status === 'COMPLETED').reduce((s, p) => s + p.amount, 0);
@@ -103,6 +137,131 @@ export default function PaymentsPage(): React.ReactElement {
     const refundedTotal = payments.filter((p) => p.status === 'REFUNDED').reduce((s, p) => s + p.amount, 0);
     return { totalReceived, pendingTotal, refundedTotal };
   }, [payments]);
+
+  const breakdownByMethod = useMemo(() => {
+    const map: Record<string, number> = {};
+    payments.forEach((p) => {
+      const method = methodLabels[p.method] || p.method;
+      map[method] = (map[method] || 0) + p.amount;
+    });
+    return Object.entries(map).sort(([, a], [, b]) => b - a);
+  }, [payments]);
+
+  const toggleSort = (field: SortField) => {
+    setSort((prev) => (prev.field === field ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: 'asc' }));
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sort.field !== field) return <ArrowUpWideNarrow className="ml-1 h-3 w-3 opacity-30" />;
+    return sort.dir === 'asc' ? (
+      <ArrowUpWideNarrow className="ml-1 h-3 w-3 text-[var(--accent-green)]" />
+    ) : (
+      <ArrowDownWideNarrow className="ml-1 h-3 w-3 text-[var(--accent-green)]" />
+    );
+  };
+
+  const handleRefund = async (payment: Payment) => {
+    setRefunding(payment.id);
+    try {
+      const res = await fetch(`/api/admin/payments/${payment.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'REFUNDED' }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Erreur');
+      toast.success('Paiement remboursé avec succès.');
+      fetchPayments();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors du remboursement.');
+    } finally {
+      setRefunding(null);
+    }
+  };
+
+  function exportCSV() {
+    const header = 'Transaction ID;Commande;Client;Methode;Montant;Statut;Date\n';
+    const rows = payments.map((p) =>
+      [
+        p.transactionId || '',
+        `#${p.orderId.slice(0, 8)}`,
+        p.client,
+        methodLabels[p.method] || p.method,
+        formatPrice(p.amount),
+        statusLabels[p.status] || p.status,
+        new Date(p.createdAt).toLocaleDateString('fr-FR'),
+      ].join(';')
+    ).join('\n');
+    const csv = '\uFEFF' + header + rows;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `paiements_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportPDF() {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    doc.setFillColor(18, 18, 18);
+    doc.rect(0, 0, pageW, 50, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(241, 245, 249);
+    doc.text('Journal des paiements', 20, 22);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, 20, 32);
+    doc.text(`${total} paiement(s)`, 20, 40);
+    const statsY = 60;
+    const statWidth = (pageW - 40) / 3;
+    const boxes = [
+      { label: 'Total recu', value: formatPrice(stats.totalReceived), color: [16, 185, 129] },
+      { label: 'En attente', value: formatPrice(stats.pendingTotal), color: [59, 130, 246] },
+      { label: 'Rembourse', value: formatPrice(stats.refundedTotal), color: [239, 68, 68] },
+    ];
+    boxes.forEach((box, i) => {
+      const x = 20 + i * (statWidth + 5);
+      doc.setFillColor(24, 24, 24);
+      doc.roundedRect(x, statsY, statWidth, 22, 3, 3, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(box.color[0], box.color[1], box.color[2]);
+      doc.text(box.value, x + 4, statsY + 9);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text(box.label, x + 4, statsY + 17);
+    });
+    autoTable(doc, {
+      head: [['Transaction ID', 'Commande', 'Client', 'Methode', 'Montant', 'Statut', 'Date']],
+      body: payments.map((p) => [
+        p.transactionId || 'N/A',
+        `#${p.orderId.slice(0, 8)}`,
+        p.client,
+        methodLabels[p.method] || p.method,
+        formatPrice(p.amount),
+        statusLabels[p.status] || p.status,
+        new Date(p.createdAt).toLocaleDateString('fr-FR'),
+      ]),
+      startY: statsY + 32,
+      styles: { fontSize: 7, textColor: [241, 245, 249], fillColor: [18, 18, 18], lineColor: [30, 41, 59], lineWidth: 0.3 },
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+      alternateRowStyles: { fillColor: [24, 24, 24] },
+      margin: { top: statsY + 32, bottom: 20 },
+    });
+    doc.save(`paiements_${new Date().toISOString().slice(0, 10)}.pdf`);
+  }
+
+  const getRowClass = (status: string) => {
+    if (status === 'FAILED') return 'bg-red-50/50';
+    if (status === 'PENDING') return 'bg-amber-50/50';
+    if (status === 'REFUNDED') return 'bg-slate-50/30';
+    return '';
+  };
 
   if (loading) {
     return (
@@ -114,25 +273,37 @@ export default function PaymentsPage(): React.ReactElement {
 
   return (
     <div className="flex min-h-full flex-col gap-8">
-      <SellerSectionHeader title="Journal des paiements" />
+      <SellerSectionHeader
+        title="Journal des paiements"
+        action={
+          <div className="flex gap-2">
+            <SellerButton variant="outline" size="sm" icon={Download} onClick={exportCSV}>CSV</SellerButton>
+            <SellerButton variant="outline" size="sm" icon={Download} onClick={exportPDF}>PDF</SellerButton>
+          </div>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard title="Total reçu" value={formatPrice(stats.totalReceived)} description="Paiements complétés" icon={DollarSign} accentColor="green" />
-        <StatCard title="En attente" value={formatPrice(stats.pendingTotal)} description="Paiements en attente" icon={ArrowUpRight} accentColor="blue" />
+        <StatCard title="En attente" value={formatPrice(stats.pendingTotal)} description="Paiements en attente" icon={RefreshCw} accentColor="blue" />
         <StatCard title="Remboursé" value={formatPrice(stats.refundedTotal)} description="Montant remboursé" icon={Undo2} accentColor="red" />
       </div>
 
       <SellerFilterBar>
-        <SellerInput
-          icon={Search}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Rechercher par ID transaction"
-        />
         <div className="flex items-center gap-3">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+              placeholder="Rechercher par transaction ou client"
+              className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] pl-10 pr-4 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)]"
+            />
+          </div>
           <SellerSelect
             value={statusFilter}
-            onChange={(v) => setStatusFilter(v)}
+            onChange={(v) => { setStatusFilter(v); setPage(1); }}
             options={[
               { value: 'ALL', label: 'Tous' },
               { value: 'COMPLETED', label: 'Complétés' },
@@ -140,9 +311,24 @@ export default function PaymentsPage(): React.ReactElement {
               { value: 'FAILED', label: 'Échoués' },
               { value: 'REFUNDED', label: 'Remboursés' },
             ]}
+            className="[&_button]:!h-9 [&_button]:!py-1.5 [&_button]:!px-3 w-[180px] shrink-0"
           />
-          <div className="rounded-lg bg-[var(--bg-hover)] px-4 py-2 text-sm text-[var(--text-secondary)]">
-            {payments.length} résultat(s)
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+            className="h-9 w-[135px] shrink-0 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2.5 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-40 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+            title="jj/mm/aaaa"
+          />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+            className="h-9 w-[135px] shrink-0 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2.5 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-40 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+            title="jj/mm/aaaa"
+          />
+          <div className="rounded-lg bg-[var(--bg-hover)] px-3 py-1.5 text-xs text-[var(--text-secondary)] shrink-0">
+            {total} résultat(s)
           </div>
         </div>
       </SellerFilterBar>
@@ -150,67 +336,111 @@ export default function PaymentsPage(): React.ReactElement {
       {payments.length === 0 ? (
         <SellerEmptyState
           title="Aucun paiement"
-          description="Aucun paiement trouvé."
+          description="Aucun paiement trouvé pour les filtres en cours."
           icon={CreditCard}
         />
       ) : (
-        <SellerTable className="!border-0 !bg-transparent [&_thead]:!border-y-0 [&_thead]:!bg-transparent [&_tbody]:!divide-y-0 [&_tr]:!hover:bg-transparent">
-          <SellerTableHeader>
-            <SellerTableRow>
-              <SellerTableCell isHeader>ID Transaction</SellerTableCell>
-              <SellerTableCell isHeader>Commande</SellerTableCell>
-              <SellerTableCell isHeader>Client</SellerTableCell>
-              <SellerTableCell isHeader>Méthode</SellerTableCell>
-              <SellerTableCell isHeader>Montant</SellerTableCell>
-              <SellerTableCell isHeader>Statut</SellerTableCell>
-              <SellerTableCell isHeader>Date</SellerTableCell>
-              <SellerTableCell isHeader>Actions</SellerTableCell>
-            </SellerTableRow>
-          </SellerTableHeader>
-          <SellerTableBody>
-            {paginated.map((payment) => (
-              <SellerTableRow key={payment.id}>
-                <SellerTableCell>
-                  <span className="font-mono text-xs text-[var(--text-primary)]">
-                    {payment.transactionId}
-                  </span>
+        <>
+          <SellerTable className="!border-0 !bg-transparent [&_thead]:!border-y-0 [&_thead]:!bg-transparent [&_tbody]:!divide-y-0 [&_tr]:!hover:bg-transparent">
+            <SellerTableHeader>
+              <SellerTableRow>
+                <SellerTableCell isHeader className="text-center cursor-pointer select-none" onClick={() => toggleSort('transactionId')}>
+                  <span className="flex items-center">ID Transaction <SortIcon field="transactionId" /></span>
                 </SellerTableCell>
-                <SellerTableCell className="text-[var(--text-secondary)]">
-                  #{payment.orderId.slice(0, 8)}
+                <SellerTableCell isHeader className="text-center">Commande</SellerTableCell>
+                <SellerTableCell isHeader className="text-center">Client</SellerTableCell>
+                <SellerTableCell isHeader className="text-center">Méthode</SellerTableCell>
+                <SellerTableCell isHeader className="text-center cursor-pointer select-none" onClick={() => toggleSort('amount')}>
+                  <span className="flex items-center">Montant <SortIcon field="amount" /></span>
                 </SellerTableCell>
-                <SellerTableCell className="text-[var(--text-primary)]">
-                  {payment.client}
+                <SellerTableCell isHeader className="text-center cursor-pointer select-none" onClick={() => toggleSort('status')}>
+                  <span className="flex items-center">Statut <SortIcon field="status" /></span>
                 </SellerTableCell>
-                <SellerTableCell className="text-[var(--text-secondary)]">
-                  {payment.method}
+                <SellerTableCell isHeader className="text-center cursor-pointer select-none" onClick={() => toggleSort('createdAt')}>
+                  <span className="flex items-center">Date <SortIcon field="createdAt" /></span>
                 </SellerTableCell>
-                <SellerTableCell className="font-medium text-[var(--text-primary)]">
-                  {formatPrice(payment.amount)}
-                </SellerTableCell>
-                <SellerTableCell>
-                  <SellerBadge color={statusBadge[payment.status] || 'slate'}>
-                    {statusLabels[payment.status] || payment.status}
-                  </SellerBadge>
-                </SellerTableCell>
-                <SellerTableCell className="text-[var(--text-secondary)]">
-                  {new Date(payment.createdAt).toLocaleDateString('fr-FR')}
-                </SellerTableCell>
-                <SellerTableCell>
-                  <SellerButton variant="outline" size="sm" icon={Eye} onClick={() => setSelectedPayment(payment)}>
-                    Détail
-                  </SellerButton>
-                </SellerTableCell>
+                <SellerTableCell isHeader className="text-center">Actions</SellerTableCell>
               </SellerTableRow>
-            ))}
-          </SellerTableBody>
-          <tfoot>
-            <tr>
-              <td colSpan={8}>
-                <SellerPagination page={page} pageSize={pageSize} totalItems={payments.length} onPageChange={setPage} />
-              </td>
-            </tr>
-          </tfoot>
-        </SellerTable>
+            </SellerTableHeader>
+            <SellerTableBody>
+              {payments.map((payment) => (
+                <SellerTableRow key={payment.id} className={getRowClass(payment.status)}>
+                  <SellerTableCell className="text-center">
+                    <span className="font-mono text-xs text-[var(--text-primary)]">
+                      {payment.transactionId}
+                    </span>
+                  </SellerTableCell>
+                  <SellerTableCell className="text-[var(--text-secondary)] text-center">
+                    #{payment.orderId.slice(0, 8)}
+                  </SellerTableCell>
+                  <SellerTableCell className="text-[var(--text-primary)] text-center">
+                    {payment.client}
+                  </SellerTableCell>
+                  <SellerTableCell className="text-[var(--text-secondary)] text-center">
+                    {methodLabels[payment.method] || payment.method}
+                  </SellerTableCell>
+                  <SellerTableCell className="font-medium text-[var(--text-primary)] text-center">
+                    {formatPrice(payment.amount)}
+                  </SellerTableCell>
+                  <SellerTableCell className="text-center">
+                    <SellerBadge color={statusBadge[payment.status] || 'slate'}>
+                      {statusLabels[payment.status] || payment.status}
+                    </SellerBadge>
+                  </SellerTableCell>
+                  <SellerTableCell className="text-[var(--text-secondary)] text-center">
+                    {new Date(payment.createdAt).toLocaleDateString('fr-FR')}
+                  </SellerTableCell>
+                  <SellerTableCell className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <SellerButton variant="outline" size="sm" icon={Eye} onClick={() => setSelectedPayment(payment)}>
+                        Détail
+                      </SellerButton>
+                      {payment.status === 'COMPLETED' && (
+                        <SellerButton
+                          variant="outline"
+                          size="sm"
+                          icon={Undo2}
+                          onClick={() => handleRefund(payment)}
+                          disabled={refunding === payment.id}
+                        >
+                          {refunding === payment.id ? '...' : 'Rembourser'}
+                        </SellerButton>
+                      )}
+                    </div>
+                  </SellerTableCell>
+                </SellerTableRow>
+              ))}
+            </SellerTableBody>
+            <tfoot>
+              <tr>
+                <td colSpan={8}>
+                  <SellerPagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
+                </td>
+              </tr>
+            </tfoot>
+          </SellerTable>
+
+          {breakdownByMethod.length > 0 && (
+            <SellerPanel className="p-5">
+              <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Ventilation par méthode de paiement</h3>
+              <div className="space-y-2">
+                {breakdownByMethod.map(([method, amount]) => {
+                  const maxVal = breakdownByMethod[0]?.[1] || 1;
+                  const pct = (amount / maxVal) * 100;
+                  return (
+                    <div key={method} className="flex items-center gap-3">
+                      <span className="w-40 text-xs text-[var(--text-secondary)] truncate shrink-0">{method}</span>
+                      <div className="flex h-6 flex-1 overflow-hidden rounded-md bg-[var(--bg-hover)]">
+                        <div className="h-full rounded-md bg-[var(--accent-green)]/60 transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="w-28 text-right text-xs font-medium text-[var(--text-primary)] shrink-0">{formatPrice(amount)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </SellerPanel>
+          )}
+        </>
       )}
 
       <SellerModal
@@ -235,7 +465,7 @@ export default function PaymentsPage(): React.ReactElement {
               </div>
               <div className="rounded-lg bg-[var(--bg-outer)] p-4">
                 <p className="mb-2 text-xs font-medium text-[var(--text-tertiary)]">Méthode</p>
-                <p className="text-sm text-[var(--text-primary)]">{selectedPayment.method}</p>
+                <p className="text-sm text-[var(--text-primary)]">{methodLabels[selectedPayment.method] || selectedPayment.method}</p>
               </div>
               <div className="rounded-lg bg-[var(--bg-outer)] p-4">
                 <p className="mb-2 text-xs font-medium text-[var(--text-tertiary)]">Montant</p>

@@ -17,7 +17,7 @@ function getDisplayPrice(price: number, offerPrice: number | null): number {
 }
 
 export default function WishlistPage(): React.ReactElement {
-  const { products, wishlistItems, toggleWishlist, addToCart, formatPrice, router } = useAppContext();
+  const { products, wishlistItems, toggleWishlist, addToCart, formatPrice, router, colors } = useAppContext();
 
   const favoriteProducts = useMemo(
     () => products.filter((product) => wishlistItems.includes(product.id)),
@@ -55,6 +55,10 @@ export default function WishlistPage(): React.ReactElement {
                 {favoriteProducts.map((product) => {
                   const imageSrc = product.imgUrl?.[0] || '/images/default_product_image.png';
                   const displayPrice = getDisplayPrice(product.price, product.offerPrice);
+                  const productColorIds: string[] = (() => {
+                    if (!product.color) return [];
+                    try { const p = JSON.parse(product.color); return Array.isArray(p) ? p : []; } catch { return []; }
+                  })();
 
                   return (
                     <article
@@ -83,6 +87,20 @@ export default function WishlistPage(): React.ReactElement {
                         <h2 className="min-h-[54px] text-[1.05rem] font-semibold leading-6 text-slate-950">
                           {product.name}
                         </h2>
+                        {productColorIds.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {productColorIds.map((id) => {
+                              const c = colors.find((col) => col.id === id);
+                              if (!c) return null;
+                              return (
+                                <div key={id} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-500">
+                                  <span className="h-2 w-2 rounded-full border border-slate-200" style={{ backgroundColor: c.hex }} />
+                                  {c.name}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                         <p className="mt-2 text-sm text-slate-500">{product.brand || 'Plawimadd'}</p>
                         <p className="mt-3 text-[1.15rem] font-semibold text-slate-950">
                           {formatPrice(displayPrice)}

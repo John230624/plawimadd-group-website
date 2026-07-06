@@ -46,7 +46,7 @@ interface ProductCardProps {
  */
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     // Récupération des fonctions et états nécessaires depuis le contexte
-    const { addToCart, formatPrice, cartItems, router, isLoggedIn } = useAppContext();
+    const { addToCart, formatPrice, cartItems, router, isLoggedIn, colors } = useAppContext();
     const toastShownRef = useRef<boolean>(false); // Pour éviter les toasts multiples rapides
 
     if (!product) return null;
@@ -60,6 +60,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     const imageUrl = (product.imgUrl && product.imgUrl.length > 0)
         ? product.imgUrl[0]
         : assets.default_product_image.src; // Utilisez .src pour les StaticImageData
+
+    const productColorIds: string[] = (() => {
+      if (!product.color) return [];
+      try { const p = JSON.parse(product.color); return Array.isArray(p) ? p : []; } catch { return []; }
+    })();
 
     const isInCart = Boolean(cartItems[product.id]);
 
@@ -149,6 +154,21 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
                 {/* Description */}
                 <p className="text-zinc-500 text-xs line-clamp-3 mb-2">{product.description}</p>
+
+                {productColorIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1 mt-1">
+                    {productColorIds.map((id) => {
+                      const c = colors.find((col) => col.id === id);
+                      if (!c) return null;
+                      return (
+                        <div key={id} className="flex items-center gap-1 rounded-md border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-500">
+                          <span className="h-2.5 w-2.5 rounded-full border border-zinc-200" style={{ backgroundColor: c.hex }} />
+                          {c.name}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Note */}
                 <div className="flex items-center gap-1 mb-0">

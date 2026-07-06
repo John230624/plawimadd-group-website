@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeAdminRequest } from '@/lib/authUtils';
 import prisma from '@/lib/prisma';
+import { logActivity } from '@/lib/logActivity';
 import { orderStatusSchema } from '@/lib/validation';
 import { ZodError } from 'zod';
 
@@ -27,6 +28,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { status: 404 }
       );
     }
+
+    await logActivity({ userId: auth.userId, action: 'UPDATE', entity: 'ORDER', entityId: orderId, details: `Mise à jour du statut de la commande ${orderId} vers ${status}` });
 
     return NextResponse.json(
       { success: true, message: 'Statut de la commande mis à jour avec succès.' },
