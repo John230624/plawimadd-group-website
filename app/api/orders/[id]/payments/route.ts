@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
+import { recordInstallmentPayment, InstallmentError } from '@/lib/installments';
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeAdminRequest(_req);
+  const authResult: AuthResult = await authorizeByPermission(_req, 'payments.view');
   if (!authResult.authorized) return authResult.response!;
 
   const { id } = await params;
@@ -40,7 +41,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeAdminRequest(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'orders.edit');
   if (!authResult.authorized) return authResult.response!;
 
   const { id } = await params;
@@ -48,67 +49,40 @@ export async function POST(
   try {
     const { amount, paymentMethod, reference, notes } = await req.json();
 
-    if (!amount || amount <= 0) {
-      return NextResponse.json({ success: false, message: 'Montant invalide.' }, { status: 400 });
-    }
-
-    if (!paymentMethod) {
-      return NextResponse.json({ success: false, message: 'Mode de paiement requis.' }, { status: 400 });
-    }
-
-    const order = await prisma.order.findUnique({ where: { id } });
-    if (!order) {
-      return NextResponse.json({ success: false, message: 'Commande introuvable.' }, { status: 404 });
-    }
-
-    const payment = await prisma.orderPayment.create({
-      data: {
-        orderId: id,
-        amount,
-        paymentMethod,
-        reference: reference || null,
-        notes: notes || null,
-        recordedById: (req as any).user?.id || null,
-        paidAt: new Date(),
-      },
+    // Enregistre la tranche, recalcule le reste, met à jour la commande et
+    // synchronise la vente au comptoir (PosTransaction) si applicable.
+    const result = await recordInstallmentPayment({
+      orderId: id,
+      amount: Number(amount),
+      paymentMethod,
+      reference: reference || null,
+      notes: notes || null,
+      recordedById: authResult.userId || null,
     });
-
-    const allPayments = await prisma.orderPayment.findMany({
-      where: { orderId: id },
-    });
-    const totalPaid = allPayments.reduce((s, p) => s + Number(p.amount), 0);
-    const isFullyPaid = totalPaid >= Number(order.totalAmount);
-
-    if (isFullyPaid) {
-      await prisma.order.update({
-        where: { id },
-        data: {
-          status: 'PAID_SUCCESS',
-          paymentStatus: 'COMPLETED',
-        },
-      });
-
-      await prisma.payment.updateMany({
-        where: { orderId: id },
-        data: { status: 'COMPLETED', paymentDate: new Date() },
-      });
-    } else {
-      await prisma.order.update({
-        where: { id },
-        data: { paymentStatus: 'PENDING' },
-      });
-    }
 
     await logActivity({
-      userId: (req as any).user?.id || null,
+      userId: authResult.userId || null,
       action: 'CREATE',
       entity: 'ORDER_PAYMENT',
-      entityId: payment.id,
-      details: `Paiement ${paymentMethod} de ${amount} enregistre sur commande ${id.slice(0, 8)}`,
+      entityId: result.paymentId,
+      details: `Paiement ${paymentMethod} de ${Math.round(Number(amount))} enregistre sur commande ${id.slice(0, 8)}. Reste: ${Math.round(result.remaining)}${result.isFullyPaid ? ' (SOLDÉE)' : ''}`,
     });
 
-    return NextResponse.json({ success: true, data: payment, isFullyPaid }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        message: result.isFullyPaid ? 'Paiement enregistré. Commande soldée.' : 'Paiement enregistré.',
+        data: { id: result.paymentId },
+        totalPaid: result.totalPaid,
+        remaining: result.remaining,
+        isFullyPaid: result.isFullyPaid,
+      },
+      { status: 201 },
+    );
   } catch (error) {
+    if (error instanceof InstallmentError) {
+      return NextResponse.json({ success: false, message: error.message }, { status: error.status });
+    }
     console.error('Erreur enregistrement paiement:', error);
     return NextResponse.json({ success: false, message: 'Erreur serveur.' }, { status: 500 });
   }

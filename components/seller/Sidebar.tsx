@@ -8,7 +8,6 @@ import {
   Archive,
   BarChart3,
   Box,
-  CreditCard,
   Calendar,
   FileText,
   GraduationCap,
@@ -24,14 +23,15 @@ import {
   ShoppingCart,
   Shield,
   SlidersHorizontal,
+  Store,
   Tag,
-  Upload,
   Users,
   Home,
   ChevronUp,
   ChevronDown,
   Languages,
   User,
+  Receipt,
 } from 'lucide-react';
 
 import SellerBrand from '@/components/seller/SellerBrand';
@@ -42,6 +42,8 @@ interface MenuItem {
   name: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
+  permission?: string;
+  adminOnly?: boolean;
   onClick?: () => void;
   color?: string;
   hasArrow?: boolean;
@@ -56,57 +58,89 @@ const menuSections: MenuSection[] = [
   {
     title: 'sidebar.admin',
     items: [
-      { name: 'sidebar.admin', path: '/seller', icon: LayoutGrid },
-      { name: 'sidebar.users', path: '/seller/users', icon: Users },
-      { name: 'sidebar.roles', path: '/seller/roles', icon: Shield },
-      { name: 'sidebar.orders', path: '/seller/orders', icon: ShoppingCart },
+      { name: 'sidebar.admin', path: '/seller', icon: LayoutGrid, permission: 'reports.view' },
+      { name: 'sidebar.users', path: '/seller/users', icon: Users, permission: 'users.view', adminOnly: true },
+      { name: 'sidebar.roles', path: '/seller/roles', icon: Shield, permission: 'permissions.manage', adminOnly: true },
     ],
   },
   {
     title: 'sidebar.products',
     items: [
-      { name: 'sidebar.products', path: '/seller/product-list', icon: Box },
-      { name: 'sidebar.categories', path: '/seller/categories', icon: Layers3 },
-      { name: 'sidebar.characteristics', path: '/seller/characteristics', icon: SlidersHorizontal },
-      { name: 'sidebar.colors', path: '/seller/colors', icon: Palette },
-      { name: 'sidebar.stocks', path: '/seller/stocks', icon: Package2 },
+      { name: 'sidebar.products', path: '/seller/product-list', icon: Box, permission: 'products.view' },
+      { name: 'sidebar.categories', path: '/seller/categories', icon: Layers3, permission: 'categories.view' },
+      { name: 'sidebar.characteristics', path: '/seller/characteristics', icon: SlidersHorizontal, permission: 'characteristics.view' },
+      { name: 'sidebar.colors', path: '/seller/colors', icon: Palette, permission: 'colors.view' },
+      { name: 'sidebar.stocks', path: '/seller/stocks', icon: Package2, permission: 'products.manage-stock' },
     ],
   },
   {
     title: 'sidebar.sales',
     items: [
-      { name: 'sidebar.promotions', path: '/seller/promotions', icon: Tag },
-      { name: 'sidebar.reviews', path: '/seller/reviews', icon: MessageSquareText },
-      { name: 'sidebar.payments', path: '/seller/payments', icon: CreditCard },
+      { name: 'sidebar.pos', path: '/seller/pos', icon: Store, permission: 'pos.access' },
+      { name: 'sidebar.orders', path: '/seller/orders', icon: ShoppingCart, permission: 'orders.view' },
+      { name: 'sidebar.invoices', path: '/seller/invoices', icon: Receipt, permission: 'pos.view-transactions' },
+      { name: 'sidebar.promotions', path: '/seller/promotions', icon: Tag, permission: 'promotions.view' },
+      { name: 'sidebar.reviews', path: '/seller/reviews', icon: MessageSquareText, permission: 'reviews.view' },
     ],
   },
   {
     title: 'sidebar.students',
     items: [
-      { name: 'sidebar.studentRequests', path: '/seller/student-installment', icon: GraduationCap },
-      { name: 'sidebar.studentInstallments', path: '/seller/student-installment/orders', icon: Calendar },
-    ],
-  },
-  {
-    title: 'sidebar.content',
-    items: [
-      { name: 'sidebar.cmsPages', path: '/seller/pages', icon: FileText },
-      { name: 'sidebar.importExport', path: '/seller/import-export', icon: Upload },
+      { name: 'sidebar.studentRequests', path: '/seller/student-installment', icon: GraduationCap, permission: 'students.view' },
+      { name: 'sidebar.studentInstallments', path: '/seller/student-installment/orders', icon: Calendar, permission: 'students.view' },
+      { name: 'sidebar.customOffers', path: '/seller/custom-offers', icon: SlidersHorizontal, permission: 'students.view' },
     ],
   },
   {
     title: 'sidebar.config',
     items: [
+      { name: 'sidebar.content', path: '/seller/content', icon: FileText, adminOnly: true },
       { name: 'sidebar.settings', path: '/seller/settings', icon: Settings },
-      { name: 'sidebar.reports', path: '/seller/reports', icon: BarChart3 },
-      { name: 'sidebar.activityLog', path: '/seller/activity-logs', icon: History },
-      { name: 'sidebar.trash', path: '/seller/trash', icon: Archive },
+      { name: 'sidebar.reports', path: '/seller/reports', icon: BarChart3, permission: 'reports.view' },
+      { name: 'sidebar.activityLog', path: '/seller/activity-logs', icon: History, permission: 'activity.view', adminOnly: true },
+      { name: 'sidebar.trash', path: '/seller/trash', icon: Archive, adminOnly: true },
     ],
   },
 ];
 
-// Export flat list for mobile nav compatibility
-export const sellerMenuItems: MenuItem[] = menuSections.flatMap((section) => section.items);
+export function useSellerMenuSections(): MenuSection[] {
+  const { data: session, status } = useSession();
+  const [permissionSlugs, setPermissionSlugs] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (status !== 'authenticated' || session?.user?.role === 'ADMIN') return;
+
+    let cancelled = false;
+    fetch('/api/auth/permissions')
+      .then((response) => response.json())
+      .then((data: { permissions?: string[] }) => {
+        if (!cancelled) setPermissionSlugs(new Set(data.permissions || []));
+      })
+      .catch(() => {
+        if (!cancelled) setPermissionSlugs(new Set());
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.role, status]);
+
+  return useMemo(() => {
+    const isAdmin = status === 'authenticated' && session?.user?.role === 'ADMIN';
+
+    return menuSections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => {
+          if (isAdmin) return true;
+          if (item.adminOnly) return false;
+          if (!item.permission) return true;
+          return permissionSlugs.has(item.permission);
+        }),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [permissionSlugs, session?.user?.role, status]);
+}
 
 export default function Sidebar(): React.ReactElement {
   const pathname = usePathname();
@@ -115,6 +149,10 @@ export default function Sidebar(): React.ReactElement {
   const [searchQuery, setSearchQuery] = useState('');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const visibleSections = useSellerMenuSections();
+  const canAccessSettings = visibleSections.some((section) =>
+    section.items.some((item) => item.path === '/seller/settings')
+  );
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -128,9 +166,9 @@ export default function Sidebar(): React.ReactElement {
   }, []);
 
   const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return menuSections;
+    if (!searchQuery.trim()) return visibleSections;
 
-    return menuSections
+    return visibleSections
       .map((section) => ({
         ...section,
         items: section.items.filter((item) =>
@@ -138,7 +176,7 @@ export default function Sidebar(): React.ReactElement {
         ),
       }))
       .filter((section) => section.items.length > 0);
-  }, [searchQuery, t]);
+  }, [searchQuery, t, visibleSections]);
 
   const user = session?.user || {
     name: 'Utilisateur',
@@ -189,7 +227,7 @@ export default function Sidebar(): React.ReactElement {
                         : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
                     }`}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
+                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-yellow-400'}`} />
                     <span className="truncate">{t(name)}</span>
                   </Link>
                 );
@@ -221,10 +259,12 @@ export default function Sidebar(): React.ReactElement {
 
             {/* Menu Items Group 1 */}
             <div className="py-1 border-b border-[var(--border)]">
-              <Link href="/seller/settings" className="flex items-center gap-3 px-2 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth">
-                <Settings className="h-4 w-4" />
-                <span>{t('profile.settings')}</span>
-              </Link>
+              {canAccessSettings ? (
+                <Link href="/seller/settings" className="flex items-center gap-3 px-2 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth">
+                  <Settings className="h-4 w-4" />
+                  <span>{t('profile.settings')}</span>
+                </Link>
+              ) : null}
               <button
                 onClick={toggleLocale}
                 className="flex w-full items-center justify-between px-2 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-smooth"

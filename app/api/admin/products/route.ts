@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { Decimal } from '@prisma/client/runtime/library';
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req);
+    const authResult: AuthResult = await authorizeByPermission(req, 'products.edit');
     if (!authResult.authorized) {
         return authResult.response!;
     }

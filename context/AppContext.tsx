@@ -60,7 +60,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-    const [cartItems, setCartItems] = useState<Record<string, number>>({});
+    const [cartItems, setCartItems] = useState<Record<string, number>>(() => {
+      if (typeof window !== 'undefined') {
+        try {
+          const saved = localStorage.getItem('cartItems');
+          return saved ? JSON.parse(saved) : {};
+        } catch {
+          return {};
+        }
+      }
+      return {};
+    });
     const [wishlistItems, setWishlistItems] = useState<string[]>([]);
     const [loadingCart, setLoadingCart] = useState(true);
     const [initialCartLoaded, setInitialCartLoaded] = useState(false);
@@ -118,17 +128,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             setInitialCartLoaded(false);
             console.log("[AppContext] User authenticated:", userFromSession.id);
         } else if (status === 'unauthenticated') {
-            console.log("[AppContext] User unauthenticated, clearing data.");
+            console.log("[AppContext] User unauthenticated, keeping guest cart.");
             setCurrentUser(null);
             setIsLoggedIn(false);
-            setCartItems({});
             setUserOrders([]);
             setUserAddresses([]);
-            localStorage.removeItem('cartItems');
+            
+            // Charger et préserver le panier invité depuis localStorage au lieu de le vider
+            try {
+                const savedCart = localStorage.getItem('cartItems');
+                if (savedCart) {
+                    setCartItems(JSON.parse(savedCart));
+                }
+            } catch (err) {
+                console.error("Error keeping local cart for unauthenticated user:", err);
+            }
+
             // Réinitialiser les drapeaux de chargement initial lors de la déconnexion
             setInitialOrdersLoaded(false);
             setInitialAddressesLoaded(false);
-            setInitialCartLoaded(false);
+            setInitialCartLoaded(true);
         }
     }, [session, status]);
 
@@ -280,10 +299,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [baseUrl, isLoggedIn, currentUser?.id]); // Dépendance à baseUrl
 
-    const addToCart = useCallback(async (productId: string, variantId?: string): Promise<boolean> => {
+    const addToCart = useCallback(async (productId: string, variantId?: string, quantity: number = 1): Promise<boolean> => {
         const idAsString = variantId ? `${productId}:${variantId}` : String(productId);
         const currentQuantity = cartItems[idAsString] || 0;
-        const newQuantity = currentQuantity + 1;
+        const addedQuantity = Math.max(1, Math.floor(quantity));
+        const newQuantity = currentQuantity + addedQuantity;
 
         const newCart = { ...cartItems, [idAsString]: newQuantity };
         setCartItems(newCart);

@@ -1,111 +1,188 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-
-import { catalogItems } from './data';
-import SectionHeader from './SectionHeader';
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CatalogSectionProps {
-  onBrowseCatalog: () => void;
+  onBrowseCatalog: (category?: string) => void;
 }
 
-const loopingCatalogItems = [...catalogItems, ...catalogItems];
+const catalogCategories = [
+  {
+    id: 'smartphones',
+    title: 'Smartphones',
+    image: '/images/catalog/catalog-smartphone.jpg',
+    categoryName: 'Smartphones',
+  },
+  {
+    id: 'ordinateurs',
+    title: 'Ordinateurs',
+    image: '/images/catalog/catalog-laptop.jpg',
+    categoryName: 'Ordinateurs',
+  },
+  {
+    id: 'televiseurs',
+    title: 'Téléviseurs',
+    image: '/images/catalog/catalog-tv.jpg',
+    categoryName: 'Televiseurs',
+  },
+  {
+    id: 'casques',
+    title: 'Casques audio',
+    image: '/images/catalog/catalog-headphones.jpg',
+    categoryName: 'Audio',
+  },
+  {
+    id: 'machines-cafe',
+    title: 'Machines à café',
+    image: '/images/catalog/catalog-coffee-machine.jpg',
+    categoryName: 'Electromenager',
+  },
+  {
+    id: 'montres',
+    title: 'Montres connectées',
+    image: '/images/catalog/catalog-smartwatch.jpg',
+    categoryName: 'Montres connectees',
+  },
+];
 
 export default function CatalogSection({
   onBrowseCatalog,
 }: CatalogSectionProps): React.ReactElement {
-  const catalogScrollRef = useRef<HTMLDivElement>(null);
-  const [catalogScrollProgress, setCatalogScrollProgress] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const updateScrollButtons = () => {
+    const container = scrollRef.current;
+    if (container) {
+      setCanScrollLeft(container.scrollLeft > 5);
+      setCanScrollRight(
+        container.scrollLeft + container.clientWidth < container.scrollWidth - 5
+      );
+    }
+  };
 
   useEffect(() => {
-    const element = catalogScrollRef.current;
-    if (!element) return;
-
-    const updateProgress = () => {
-      const loopWidth = element.scrollWidth / 2;
-      const currentScroll = loopWidth > 0 ? element.scrollLeft % loopWidth : 0;
-      const progress = loopWidth > 0 ? (currentScroll / loopWidth) * 100 : 0;
-      setCatalogScrollProgress(progress);
-    };
-
-    updateProgress();
-    element.addEventListener('scroll', updateProgress);
-
-    const interval = window.setInterval(() => {
-      const loopWidth = element.scrollWidth / 2;
-      if (loopWidth <= 0) return;
-
-      const firstCard = element.querySelector<HTMLElement>('[data-catalog-card="true"]');
-      const gap = 16;
-      const step = firstCard ? firstCard.offsetWidth + gap : Math.min(320, Math.max(220, Math.round(element.clientWidth * 0.32)));
-      const nextScroll = element.scrollLeft + step;
-
-      if (nextScroll >= loopWidth) {
-        element.scrollTo({ left: nextScroll - loopWidth, behavior: 'auto' });
-        return;
-      }
-
-      element.scrollTo({ left: nextScroll, behavior: 'smooth' });
-    }, 3200);
-
+    const container = scrollRef.current;
+    if (container) {
+      updateScrollButtons();
+      container.addEventListener('scroll', updateScrollButtons);
+      window.addEventListener('resize', updateScrollButtons);
+    }
     return () => {
-      element.removeEventListener('scroll', updateProgress);
-      window.clearInterval(interval);
+      if (container) {
+        container.removeEventListener('scroll', updateScrollButtons);
+      }
+      window.removeEventListener('resize', updateScrollButtons);
     };
   }, []);
+
+  const handleScrollLeft = () => {
+    const container = scrollRef.current;
+    if (container) {
+      const cardWidth = container.firstElementChild
+        ? (container.firstElementChild as HTMLElement).offsetWidth
+        : 280;
+      const gap = 24; // gap-6
+      container.scrollBy({ left: -(cardWidth + gap), behavior: 'smooth' });
+    }
+  };
+
+  const handleScrollRight = () => {
+    const container = scrollRef.current;
+    if (container) {
+      const cardWidth = container.firstElementChild
+        ? (container.firstElementChild as HTMLElement).offsetWidth
+        : 280;
+      const gap = 24; // gap-6
+      container.scrollBy({ left: cardWidth + gap, behavior: 'smooth' });
+    }
+  };
 
   return (
     <motion.section
       initial={{ opacity: 0, y: 18 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.18 }}
+      viewport={{ once: true, amount: 0.15 }}
       transition={{ duration: 0.65, ease: 'easeOut' }}
-      className="px-2 pb-2 pt-12 md:px-0 md:pt-14"
+      className="px-2 pb-6 pt-12 md:px-0 md:pt-14 relative"
     >
       <div className="px-3 py-4 md:px-0 md:py-0">
-        <SectionHeader
-          title="Catalogue"
-          actionLabel="Aller au catalogue"
-          onAction={onBrowseCatalog}
-        />
+        {/* Custom Section Header with Navigation Arrows */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-8">
+          <h2 className="text-[1.35rem] font-semibold text-[#222] md:text-[1.55rem]">
+            Catalogue
+          </h2>
 
-        <div ref={catalogScrollRef} className="catalog-scroll mt-8 pb-4">
-          <div className="grid min-w-full auto-cols-[78vw] grid-flow-col gap-4 md:auto-cols-[calc((100%-16px)/2)] xl:auto-cols-[calc((100%-64px)/5)]">
-            {loopingCatalogItems.map((item, index) => (
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => onBrowseCatalog()}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-[#d8d8d8] bg-white px-5 py-2.5 text-sm font-semibold text-[#333] transition hover:border-[#ff6a00] hover:text-[#ff6a00]"
+            >
+              Aller au catalogue
+              <ArrowRight className="h-4 w-4" />
+            </button>
+
+            {/* Slider Navigation Arrows */}
+            <div className="hidden md:flex items-center gap-2">
               <button
-                key={`${item.title}-${index}`}
                 type="button"
-                onClick={onBrowseCatalog}
-                data-catalog-card="true"
-                className="group relative min-w-0 overflow-hidden rounded-[1.75rem] text-left"
+                onClick={handleScrollLeft}
+                disabled={!canScrollLeft}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm focus:outline-none"
+                aria-label="Catégories précédentes"
               >
-                <div className="relative min-h-[250px] overflow-hidden rounded-[1.75rem] md:min-h-[280px]">
-                  <Image
-                    src={item.image}
-                    alt={item.title}
-                    fill
-                    className="object-cover transition duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.06)_0%,rgba(15,23,42,0.28)_100%)]" />
-                  <div
-                    className="absolute bottom-4 right-4 max-w-[190px] overflow-hidden rounded-[1rem] px-4 py-2 text-center text-sm font-medium leading-5 text-white whitespace-nowrap backdrop-blur-sm"
-                    style={{ backgroundColor: 'rgba(143, 139, 136, 0.52)' }}
-                  >
-                    {item.title}
-                  </div>
-                </div>
+                <ChevronLeft className="h-5 w-5" />
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={handleScrollRight}
+                disabled={!canScrollRight}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm focus:outline-none"
+                aria-label="Catégories suivantes"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="relative mt-5 h-[4px] w-full overflow-hidden rounded-full bg-slate-200/60">
-          <div
-            className="absolute top-0 h-full rounded-full bg-[var(--brand-500)] transition-all duration-500"
-            style={{ width: '22%', left: `${catalogScrollProgress * 0.78}%` }}
-          />
+        {/* Carousel Container showing exactly 4 items on desktop */}
+        <div
+          ref={scrollRef}
+          className="catalog-scroll flex gap-6 overflow-x-auto scrollbar-none snap-x snap-mandatory pb-4 w-full scroll-smooth"
+        >
+          {catalogCategories.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onBrowseCatalog(item.categoryName)}
+              className="group relative flex flex-col items-center bg-[#efefef] hover:bg-[#f7f7f7] shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:shadow-none rounded-[1.25rem] p-6 text-center transition-all duration-300 snap-align-start w-[82vw] sm:w-[calc((100%-24px)/2)] md:w-[calc((100%-48px)/3)] lg:w-[calc((100%-72px)/4)] shrink-0 focus:outline-none"
+            >
+              {/* Category Title - Closer to the image */}
+              <div className="pt-2 pb-2">
+                <h3 className="font-extrabold text-slate-900 text-[1.1rem] md:text-[1.2rem] tracking-tight">
+                  {item.title}
+                </h3>
+              </div>
+
+              {/* Product Image - Centered and Sharp (no rounded corners) */}
+              <div className="relative w-[90%] aspect-[4/3] max-h-[170px] md:max-h-[190px] mt-1 mb-2 flex items-center justify-center overflow-hidden">
+                <Image
+                  src={item.image}
+                  alt={item.title}
+                  fill
+                  sizes="(max-width: 768px) 200px, 280px"
+                  className="object-cover scale-105 group-hover:scale-100 transition-transform duration-500 ease-out"
+                  priority
+                />
+              </div>
+            </button>
+          ))}
         </div>
       </div>
     </motion.section>

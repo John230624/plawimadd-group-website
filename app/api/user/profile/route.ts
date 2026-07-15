@@ -1,31 +1,25 @@
 // C:\xampp\htdocs\plawimadd_group\app\api\user\profile\route.ts
-// Cette route gère la récupération et la mise à jour (future) du profil complet de l'utilisateur authentifié.
+// Cette route gère la récupération, la mise à jour (profil et mot de passe) et la suppression du compte de l'utilisateur.
 
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma'; // Importez votre client Prisma
-
-// IMPORTATION DES FONCTIONS ET INTERFACES D'AUTHUTILS
-// Importer authorizeLoggedInUser pour cette route, car elle n'a pas de paramètres dynamiques
+import prisma from '@/lib/prisma';
 import { authorizeLoggedInUser, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
+import bcrypt from 'bcryptjs';
+import { validatePassword } from '@/lib/passwordPolicy';
 
 /**
  * GET /api/user/profile
  * Récupère le profil complet de l'utilisateur actuellement authentifié.
- * Nécessite une authentification.
- * @param {NextRequest} req La requête Next.js entrante.
- * @returns {Promise<NextResponse>} La réponse JSON avec le profil utilisateur ou un message d'erreur.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
-    // CORRECTION ICI : Utiliser authorizeLoggedInUser
     const authResult: AuthResult = await authorizeLoggedInUser(req);
     if (!authResult.authorized) {
         return authResult.response!;
     }
-    const userId = authResult.userId!; // Récupère l'ID de l'utilisateur authentifié
+    const userId = authResult.userId!;
 
     try {
-        // Récupère le profil utilisateur complet depuis la base de données
         const user = await prisma.user.findUnique({
             where: { id: userId },
             include: {
@@ -41,7 +35,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             return NextResponse.json({ success: false, message: 'Profil utilisateur non trouvé.' }, { status: 404 });
         }
 
-        // IMPORTANT : Excluez les champs sensibles comme le mot de passe avant d'envoyer la réponse au client
         const { password: _password, resetPasswordToken: _resetPasswordToken, resetPasswordExpires: _resetPasswordExpires, ...safeUser } = user;
 
         return NextResponse.json({ success: true, user: safeUser }, { status: 200 });
@@ -54,14 +47,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 /**
  * PATCH /api/user/profile
- * Met à jour le profil de l'utilisateur actuellement authentifié.
- * Nécessite une authentification.
- * Permet de mettre à jour des champs comme firstName, lastName, phoneNumber.
- * @param {NextRequest} req La requête Next.js entrante, contenant les données à mettre à jour.
- * @returns {Promise<NextResponse>} La réponse JSON avec le profil mis à jour ou un message d'erreur.
+ * Met à jour le profil de l'utilisateur (Prénom, Nom, Téléphone, et/ou Mot de passe).
  */
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
-    // CORRECTION ICI : Utiliser authorizeLoggedInUser
     const authResult: AuthResult = await authorizeLoggedInUser(req);
     if (!authResult.authorized) {
         return authResult.response!;
@@ -71,33 +59,58 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     try {
         const body = await req.json();
 
-        // Définition d'une interface pour les données de mise à jour reçues
         interface UpdateProfileData {
             firstName?: string;
             lastName?: string;
             phoneNumber?: string;
-            email?: string; // Garder la prudence avec l'email
+            password?: string;
         }
 
         const updateData: UpdateProfileData = {};
 
-        // Validez et ajoutez les champs à l'objet updateData si présents dans le body
+        // 1. Gestion des informations de profil de base
         if (typeof body.firstName === 'string') {
             updateData.firstName = body.firstName;
         }
         if (typeof body.lastName === 'string') {
             updateData.lastName = body.lastName;
         }
-        // Assurez-vous que phoneNumber est de type String? dans votre schema.prisma
         if (typeof body.phoneNumber === 'string' || body.phoneNumber === null) {
             updateData.phoneNumber = body.phoneNumber;
         }
-        // Pour l'email, il est FORTEMENT recommandé de mettre en place un processus de vérification
-        // (ex: envoi d'un email de confirmation) si l'utilisateur change son adresse email.
-        // Ne l'activez pas sans cette sécurité.
-        // if (typeof body.email === 'string') {
-        // updateData.email = body.email;
-        // }
+
+        // 2. Gestion du changement de mot de passe
+        if (body.newPassword) {
+            if (!body.currentPassword) {
+                return NextResponse.json({ success: false, message: "Le mot de passe actuel est requis pour changer de mot de passe." }, { status: 400 });
+            }
+
+            // Récupérer le mot de passe actuel stocké en base de données
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { password: true },
+            });
+
+            if (!user) {
+                return NextResponse.json({ success: false, message: "Utilisateur non trouvé." }, { status: 404 });
+            }
+
+            // Vérifier que le mot de passe actuel est correct
+            const isMatch = await bcrypt.compare(body.currentPassword, user.password);
+            if (!isMatch) {
+                return NextResponse.json({ success: false, message: "Le mot de passe actuel est incorrect." }, { status: 400 });
+            }
+
+            // Valider la force du nouveau mot de passe
+            const passwordCheck = validatePassword(body.newPassword);
+            if (!passwordCheck.valid) {
+                return NextResponse.json({ success: false, message: passwordCheck.message }, { status: 400 });
+            }
+
+            // Hacher le nouveau mot de passe
+            const salt = await bcrypt.genSalt(10);
+            updateData.password = await bcrypt.hash(body.newPassword, salt);
+        }
 
         // Vérifiez si des données à mettre à jour sont présentes
         if (Object.keys(updateData).length === 0) {
@@ -108,7 +121,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
         const updatedUser = await prisma.user.update({
             where: { id: userId },
             data: updateData,
-            include: { // Incluez les relations que vous voulez retourner dans la réponse mise à jour
+            include: {
                 addresses: true,
                 cartItems: true,
                 orders: true,
@@ -116,21 +129,100 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
             }
         });
 
-        // Excluez les champs sensibles avant d'envoyer la réponse
         const { password: _password, resetPasswordToken: _resetPasswordToken, resetPasswordExpires: _resetPasswordExpires, ...safeUpdatedUser } = updatedUser;
 
         await logActivity({
-          userId,
-          action: 'UPDATE',
-          entity: 'USER',
-          entityId: userId,
-          details: 'Mise à jour du profil utilisateur',
+            userId,
+            action: 'UPDATE',
+            entity: 'USER',
+            entityId: userId,
+            details: body.newPassword ? 'Mise à jour du profil et modification du mot de passe' : 'Mise à jour du profil utilisateur',
         });
 
         return NextResponse.json({ success: true, message: "Profil mis à jour avec succès.", user: safeUpdatedUser }, { status: 200 });
 
-    } catch (_error: unknown) { // CORRECTION : Renommé 'error' en '_error'
+    } catch (_error: unknown) {
         console.error("Erreur lors de la mise à jour du profil utilisateur:", _error);
         return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
+    }
+}
+
+/**
+ * DELETE /api/user/profile
+ * Supprime le compte de l'utilisateur actuellement authentifié.
+ * S'il y a des données sensibles liées à des transactions ou des commandes, le profil est anonymisé.
+ */
+export async function DELETE(req: NextRequest): Promise<NextResponse> {
+    const authResult: AuthResult = await authorizeLoggedInUser(req);
+    if (!authResult.authorized) {
+        return authResult.response!;
+    }
+    const userId = authResult.userId!;
+
+    try {
+        // Vérifier si des entités empêchent une suppression physique (clés étrangères sans cascade)
+        const userWithCriticalData = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                orders: { select: { id: true }, take: 1 },
+                posTransactions: { select: { id: true }, take: 1 },
+                posSessions: { select: { id: true }, take: 1 },
+            }
+        });
+
+        if (!userWithCriticalData) {
+            return NextResponse.json({ success: false, message: "Utilisateur non trouvé." }, { status: 404 });
+        }
+
+        const hasCriticalData = userWithCriticalData.orders.length > 0 || 
+                                userWithCriticalData.posTransactions.length > 0 || 
+                                userWithCriticalData.posSessions.length > 0;
+
+        if (hasCriticalData) {
+            // Anonymisation sécurisée du compte pour préserver l'historique financier et les contraintes de clés étrangères
+            const randomSuffix = Math.random().toString(36).substring(2, 8);
+            const anonymizedEmail = `deleted-${userId.slice(0, 8)}-${randomSuffix}@plawimadd-deleted.com`;
+            const randomPassword = await bcrypt.hash(Math.random().toString(36), 10);
+
+            await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    firstName: "Compte",
+                    lastName: "Supprimé",
+                    phoneNumber: null,
+                    email: anonymizedEmail,
+                    password: randomPassword,
+                    banned: true,
+                    bannedAt: new Date(),
+                }
+            });
+
+            await logActivity({
+                userId,
+                action: 'UPDATE',
+                entity: 'USER',
+                entityId: userId,
+                details: 'Compte utilisateur anonymisé et désactivé (suppression de compte)',
+            });
+
+            return NextResponse.json({ success: true, message: "Votre compte a été supprimé (anonymisé et désactivé) avec succès." }, { status: 200 });
+        } else {
+            // Aucun historique bloquant, suppression complète et propre dans la base de données
+            await prisma.$transaction([
+                prisma.address.deleteMany({ where: { userId } }),
+                prisma.cartItem.deleteMany({ where: { userId } }),
+                prisma.reviewReply.deleteMany({ where: { userId } }),
+                prisma.review.deleteMany({ where: { userId } }),
+                prisma.userRoleModel.deleteMany({ where: { userId } }),
+                prisma.userPermission.deleteMany({ where: { userId } }),
+                prisma.user.delete({ where: { id: userId } })
+            ]);
+
+            return NextResponse.json({ success: true, message: "Votre compte a été définitivement supprimé." }, { status: 200 });
+        }
+    } catch (_error: unknown) {
+        console.error("Erreur lors de la suppression du compte utilisateur:", _error);
+        return NextResponse.json({ success: false, message: "Erreur serveur lors de la suppression du compte." }, { status: 500 });
     }
 }

@@ -662,19 +662,25 @@ model PosSession {
 }
 
 model PosTransaction {
-  id             String   @id @default(uuid()) @db.VarChar(255)
-  sessionId      String   @db.VarChar(255)
-  userId         String   @db.VarChar(255)
-  customerName   String?  @db.VarChar(255)
-  customerPhone  String?  @db.VarChar(20)
-  totalAmount    Decimal  @db.Decimal(10, 2)
-  discount       Decimal  @default(0) @db.Decimal(10, 2)
-  discountReason String?  @db.Text
-  finalAmount    Decimal  @db.Decimal(10, 2)
-  tip            Decimal  @default(0) @db.Decimal(10, 2) // Pourboire
-  paymentMethod  String   @default("CASH") // CASH, MOBILE_MONEY, CARD
-  invoiceNumber  String   @unique @db.VarChar(50)
-  createdAt      DateTime @default(now())
+  id               String   @id @default(uuid()) @db.VarChar(255)
+  sessionId        String   @db.VarChar(255)
+  userId           String   @db.VarChar(255)
+  customerName     String?  @db.VarChar(255)
+  customerPhone    String?  @db.VarChar(20)
+  customerEmail    String?  @db.VarChar(255)
+  customerIFU      String?  @map("customerIFU") @db.VarChar(100)
+  customerAddress  String?  @map("customerAddress") @db.Text
+  totalAmount      Decimal  @db.Decimal(10, 2)
+  discount         Decimal  @default(0) @db.Decimal(10, 2)
+  discountReason   String?  @db.Text
+  finalAmount      Decimal  @db.Decimal(10, 2)
+  paidAmount       Decimal  @default(0) @db.Decimal(10, 2)
+  remainingBalance Decimal  @default(0) @db.Decimal(10, 2)
+  dueDate          DateTime?
+  tip              Decimal  @default(0) @db.Decimal(10, 2)
+  paymentMethod    String   @default("CASH") // CASH, TRANSFER, INSTALLMENT
+  invoiceNumber    String   @unique @db.VarChar(50)
+  createdAt        DateTime @default(now())
 
   session PosSession           @relation(fields: [sessionId], references: [id])
   user    User                 @relation(fields: [userId], references: [id])
@@ -696,3 +702,40 @@ model PosTransactionItem {
 
   @@map("pos_transaction_items")
 }
+
+model HeroSlide {
+  id          String   @id @default(uuid()) @db.VarChar(255)
+  title       String   @db.VarChar(255)
+  tagline     String   @db.VarChar(255)
+  description String   @db.Text
+  image       String   @db.VarChar(255)
+  category    String   @db.VarChar(255)
+  bgColor     String   @db.VarChar(50)
+  accentColor String   @db.VarChar(50)
+  layout      String   @db.VarChar(50) // 'left' | 'right' | 'center'
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("hero_slides")
+}
+
+model CustomOffer {
+  id          String   @id @default(uuid()) @db.VarChar(255)
+  title       String   @db.VarChar(255)
+  description String   @db.Text
+  badgeText   String   @default("PROMO") @db.VarChar(255)
+  image       String   @default("/images/background_etudiant2.jpg") @db.VarChar(255)
+  detailsJson String   @default("[]") @db.Text
+  buttonText  String   @default("Voir l'offre") @db.VarChar(255)
+  buttonUrl   String   @default("/offer") @db.VarChar(255)
+  bgColor     String   @default("bg-slate-950") @db.VarChar(255)
+  textColor   String   @default("text-white") @db.VarChar(255)
+  isActive    Boolean  @default(true)
+  isStudent   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("custom_offers")
+}
+

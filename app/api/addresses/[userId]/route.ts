@@ -166,3 +166,42 @@ export async function PUT(req: NextRequest, context: Context): Promise<NextRespo
     );
   }
 }
+
+/**
+ * DELETE - Supprimer une adresse existante (?addressId=123)
+ */
+export async function DELETE(req: NextRequest, context: Context): Promise<NextResponse> {
+  const authResult: AuthResult = await authorizeUser(req, context);
+  if (!authResult.authorized) return authResult.response!;
+
+  const userId = authResult.userId!;
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const idParam = searchParams.get('addressId');
+    const addressId = idParam ? parseInt(idParam, 10) : NaN;
+
+    if (!addressId || Number.isNaN(addressId)) {
+      return NextResponse.json({ success: false, message: 'ID requis.' }, { status: 400 });
+    }
+
+    const deleted = await prisma.address.deleteMany({
+      where: { id: addressId, userId },
+    });
+
+    if (deleted.count === 0) {
+      return NextResponse.json(
+        { success: false, message: 'Adresse non trouvée ou non autorisée.' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true, message: 'Adresse supprimée.' }, { status: 200 });
+  } catch (error) {
+    console.error('Erreur suppression adresse:', error);
+    return NextResponse.json(
+      { success: false, message: 'Erreur serveur lors de la suppression.' },
+      { status: 500 }
+    );
+  }
+}

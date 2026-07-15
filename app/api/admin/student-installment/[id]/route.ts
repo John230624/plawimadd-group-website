@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest } from '@/lib/authUtils';
+import { authorizeByPermission } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { sendEmail } from '@/lib/email';
 
@@ -13,13 +13,13 @@ export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const authResult = await authorizeAdminRequest(req);
-  if (!authResult.authorized) return authResult.response!;
-
   const { id } = await context.params;
 
   try {
     const body = (await req.json()) as UpdateStudentInstallmentPayload;
+    const permission = body.status === 'REJECTED' ? 'students.reject' : 'students.approve';
+    const authResult = await authorizeByPermission(req, permission);
+    if (!authResult.authorized) return authResult.response!;
 
     if (!body.status) {
       return NextResponse.json({ success: false, message: 'Le statut est obligatoire.' }, { status: 400 });

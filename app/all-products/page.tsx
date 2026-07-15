@@ -1,17 +1,164 @@
 'use client';
 
-import React, { ChangeEvent, Suspense, useEffect, useMemo, useState } from 'react';
+import React, { ChangeEvent, Suspense, useEffect, useMemo, useState, useRef } from 'react';
 import Image from 'next/image';
-import { Grid2x2, Heart, LayoutList, SlidersHorizontal } from 'lucide-react';
+import { Grid2x2, LayoutList, SlidersHorizontal, Check, ChevronDown, Search } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { toast } from 'react-toastify';
 
 import HomeFooter from '@/components/home/HomeFooter';
 import ProductCarouselSection from '@/components/home/ProductCarouselSection';
+import ProductCard from '@/components/ProductCard';
 import FilterSidebar from '@/components/product/FilterSidebar';
-import SellerSelect from '@/components/seller/SellerSelect';
 import { useAppContext } from '@/context/AppContext';
 import type { Product } from '@/lib/types';
+
+interface CatalogSelectOption {
+  value: string;
+  label: string;
+}
+
+interface CatalogSelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: CatalogSelectOption[];
+  className?: string;
+  align?: 'left' | 'right';
+}
+
+function CatalogSelect({
+  value,
+  onChange,
+  options,
+  className = '',
+  align = 'left',
+}: CatalogSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  const activeOption = options.find((o) => o.value === value) || options[0];
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="flex h-11 w-full items-center justify-between gap-3 rounded-[2px] border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 outline-none transition duration-300 hover:bg-slate-50 focus:border-slate-800"
+      >
+        <span className="truncate">{activeOption?.label}</span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-300 ${
+            isOpen ? 'rotate-180 text-slate-750' : ''
+          }`}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          className={`absolute z-40 mt-1.5 min-w-full overflow-hidden rounded-[2px] border border-slate-200 bg-white p-1 shadow-[0_4px_20px_rgba(0,0,0,0.08)] ${
+            align === 'right' ? 'right-0' : 'left-0'
+          }`}
+        >
+          {options.map((option) => {
+            const isActive = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className={`flex w-full items-center justify-between rounded-[2px] px-3.5 py-2.5 text-left text-xs font-bold transition duration-200 ${
+                  isActive
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-655 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <span>{option.label}</span>
+                {isActive && <Check className="h-3.5 w-3.5 shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface FilterPopoverProps {
+  label: string;
+  active?: boolean;
+  children: React.ReactNode;
+  onReset?: () => void;
+}
+
+function FilterPopover({ label, active = false, children, onReset }: FilterPopoverProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={`flex h-11 items-center gap-1.5 rounded-[2px] border px-4.5 text-xs font-bold transition duration-200 focus:outline-none ${
+          active
+            ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
+            : 'border-slate-200 bg-white text-slate-650 hover:bg-slate-50'
+        }`}
+      >
+        <span>{label}</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-250 ${
+            isOpen ? 'rotate-180 text-slate-700' : ''
+          }`}
+        />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 mt-1.5 z-40 w-64 overflow-hidden rounded-[2px] border border-slate-200 bg-white p-4 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
+          <div className="space-y-4">
+            {children}
+          </div>
+          {onReset && (
+            <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  onReset();
+                  setIsOpen(false);
+                }}
+                className="text-[9px] font-extrabold uppercase tracking-wider text-slate-450 hover:text-slate-750"
+              >
+                Réinitialiser
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const preferredCategoryOrder = [
   'Ordinateurs',
@@ -117,7 +264,7 @@ function buildQueryString(
 
 export default function AllProductsPageWrapper(): React.ReactElement {
   return (
-    <Suspense fallback={<div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600" /></div>}>
+    <Suspense fallback={<div className="flex justify-center py-20"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-[#ff6a00]" /></div>}>
       <AllProductsPage />
     </Suspense>
   );
@@ -130,10 +277,6 @@ function AllProductsPage(): React.ReactElement {
     errorProducts,
     searchTerm,
     setSearchTerm,
-    formatPrice,
-    addToCart,
-    toggleWishlist,
-    isInWishlist,
   } = useAppContext();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -289,7 +432,7 @@ function AllProductsPage(): React.ReactElement {
 
   if (loadingProducts) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-xl font-semibold text-slate-700">
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f5f5] text-xl font-semibold text-[#333]">
         <p>Chargement des produits...</p>
       </div>
     );
@@ -297,41 +440,51 @@ function AllProductsPage(): React.ReactElement {
 
   if (errorProducts) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center text-lg font-semibold text-red-600">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#f5f5f5] p-4 text-center text-lg font-semibold text-red-600">
         <p>Erreur lors du chargement des produits: {errorProducts}</p>
         <p className="mt-4">Veuillez rafraichir la page ou verifier votre connexion.</p>
       </div>
     );
   }
 
+  const hasActiveFilters =
+    showOnlyAvailable ||
+    showOnlyOffers ||
+    selectedColorFilter.size > 0 ||
+    priceRange.min !== '' ||
+    priceRange.max !== '' ||
+    moqMax !== '' ||
+    selectedCertifications.length > 0;
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-4 pb-0 pt-6 md:px-6 lg:px-8">
-        <section className="px-2 pb-2 md:px-0">
-          <div className="px-3 py-4 md:px-0 md:py-0">
-            <div className="flex flex-col gap-6">
+    <div className="flex min-h-screen flex-col bg-[#f5f5f5]">
+      <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-4 pb-0 pt-4 md:px-6 lg:px-8">        <section className="pb-4 pt-2">
+          <div className="rounded-[2px] bg-white border border-slate-200 p-5 md:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+            <div className="flex flex-col gap-4">
               <div>
-                <p className="text-sm text-slate-500">
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-450">
                   Accueil / Catalogue
                   {categoryParam !== 'All' ? ` / ${formatCategoryTitle(categoryParam)}` : ''}
                   {brandParam ? ` / ${brandParam}` : ''}
                 </p>
-                <h1 className="mt-4 text-[2.2rem] font-semibold tracking-[-0.04em] text-slate-950 md:text-[3.25rem]">
+                <h1 className="mt-1 text-xl sm:text-2xl font-extrabold leading-snug text-slate-900">
                   {brandParam || (categoryParam !== 'All' ? formatCategoryTitle(categoryParam) : 'Catalogue')}
                 </h1>
               </div>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <label className="flex h-11 w-full items-center gap-3 rounded-[2px] border border-slate-200 bg-white px-4 text-xs text-slate-500 transition duration-200 focus-within:border-slate-800 lg:flex-1">
+                  <Search className="h-4 w-4 text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher un produit..."
+                    value={searchTerm}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => setSearchTerm(event.target.value)}
+                    className="w-full bg-transparent text-slate-800 outline-none placeholder:text-slate-400 font-semibold text-xs"
+                    aria-label="Rechercher des produits"
+                  />
+                </label>
 
-              <div className="flex flex-col gap-4 rounded-[1.75rem] bg-white/75 p-4 shadow-[0_14px_36px_rgba(15,23,42,0.05)] md:flex-row md:items-center">
-                <input
-                  type="text"
-                  placeholder="Rechercher un produit"
-                  value={searchTerm}
-                  onChange={(event: ChangeEvent<HTMLInputElement>) => setSearchTerm(event.target.value)}
-                  className="w-full rounded-full border border-slate-200 bg-white px-5 py-3.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[var(--brand-300)] md:flex-1"
-                  aria-label="Rechercher des produits"
-                />
-
-                <SellerSelect
+                <CatalogSelect
                   value={categoryParam}
                   onChange={(value) =>
                     router.push(
@@ -342,8 +495,204 @@ function AllProductsPage(): React.ReactElement {
                     )
                   }
                   options={categoryOptions}
-                  className="w-full md:w-[260px]"
+                  className="w-full lg:w-[220px]"
                 />
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <CatalogSelect
+                    value={sortBy}
+                    onChange={setSortBy}
+                    options={catalogSortOptions}
+                    className="w-full lg:w-[150px]"
+                  />
+                  <FilterPopover
+                    label="Prix"
+                    active={priceRange.min !== '' || priceRange.max !== ''}
+                    onReset={() => setPriceRange({ min: '', max: '' })}
+                  >
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Tranche de prix</h4>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={priceRange.min}
+                          onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs outline-none focus:border-slate-800 focus:bg-white"
+                        />
+                        <span className="text-slate-400 text-xs">-</span>
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={priceRange.max}
+                          onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs outline-none focus:border-slate-800 focus:bg-white"
+                        />
+                      </div>
+                    </div>
+                  </FilterPopover>
+
+                  <FilterPopover
+                    label="Disponibilité"
+                    active={showOnlyAvailable || showOnlyOffers}
+                    onReset={() => {
+                      setShowOnlyAvailable(false);
+                      setShowOnlyOffers(false);
+                    }}
+                  >
+                    <div className="space-y-2.5">
+                      <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showOnlyAvailable}
+                          onChange={(e) => setShowOnlyAvailable(e.target.checked)}
+                          className="rounded text-slate-900 focus:ring-slate-900 h-4 w-4 border-slate-350"
+                        />
+                        <span>En stock uniquement</span>
+                      </label>
+                      <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showOnlyOffers}
+                          onChange={(e) => setShowOnlyOffers(e.target.checked)}
+                          className="rounded text-slate-900 focus:ring-slate-900 h-4 w-4 border-slate-350"
+                        />
+                        <span>En promotion</span>
+                      </label>
+                    </div>
+                  </FilterPopover>
+
+                  <FilterPopover
+                    label="Couleurs"
+                    active={selectedColorFilter.size > 0}
+                    onReset={() => setSelectedColorFilter(new Set())}
+                  >
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Couleurs</h4>
+                      <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto pr-1">
+                        {allColors.map((color) => {
+                          const isSelected = selectedColorFilter.has(color.name);
+                          return (
+                            <button
+                              key={color.id}
+                              type="button"
+                              onClick={() => {
+                                const newSet = new Set(selectedColorFilter);
+                                if (newSet.has(color.name)) {
+                                  newSet.delete(color.name);
+                                } else {
+                                  newSet.add(color.name);
+                                }
+                                setSelectedColorFilter(newSet);
+                              }}
+                              className={`rounded-lg border px-2 py-1.5 text-[10px] font-bold text-center truncate transition ${
+                                isSelected
+                                  ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
+                                  : 'border-slate-200 bg-slate-50 text-slate-650 hover:bg-slate-100'
+                              }`}
+                            >
+                              {color.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </FilterPopover>
+
+                  <FilterPopover
+                    label="Filtres"
+                    active={moqMax !== '' || selectedCertifications.length > 0}
+                    onReset={() => {
+                      setMoqMax('');
+                      setSelectedCertifications([]);
+                    }}
+                  >
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">MOQ max</h4>
+                        <input
+                          type="number"
+                          placeholder="MOQ max"
+                          value={moqMax}
+                          onChange={(e) => setMoqMax(e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs outline-none focus:border-slate-800 focus:bg-white"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Certifications</h4>
+                        <div className="space-y-2">
+                          {['CE', 'FCC', 'RoHS', 'ISO 9001'].map((cert) => {
+                            const isChecked = selectedCertifications.includes(cert);
+                            return (
+                              <label key={cert} className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedCertifications(prev => [...prev, cert]);
+                                    } else {
+                                      setSelectedCertifications(prev => prev.filter(c => c !== cert));
+                                    }
+                                  }}
+                                  className="rounded text-slate-900 focus:ring-slate-900 h-4 w-4 border-slate-350"
+                                />
+                                <span>{cert}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </FilterPopover>
+
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOnlyAvailable(false);
+                        setShowOnlyOffers(false);
+                        setSelectedColorFilter(new Set());
+                        setPriceRange({ min: '', max: '' });
+                        setMoqMax('');
+                        setSelectedCertifications([]);
+                        setMinRating(0);
+                      }}
+                      className="text-[10px] font-bold uppercase tracking-wider text-red-500 hover:text-red-650 transition px-2 py-1.5"
+                    >
+                      Effacer
+                    </button>
+                  )}
+
+                  {/* View mode toggle */}
+                  <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2 ml-1">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('list')}
+                      className={`flex h-9 w-9 items-center justify-center rounded-[2px] border transition focus:outline-none ${
+                        viewMode === 'list'
+                          ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700'
+                      }`}
+                      aria-label="Vue Liste"
+                    >
+                      <LayoutList className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('grid')}
+                      className={`flex h-9 w-9 items-center justify-center rounded-[2px] border transition focus:outline-none ${
+                        viewMode === 'grid'
+                          ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700'
+                      }`}
+                      aria-label="Vue Grille"
+                    >
+                      <Grid2x2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -351,8 +700,8 @@ function AllProductsPage(): React.ReactElement {
 
         {categoryParam === 'All' ? (
           groupedProducts.length === 0 ? (
-            <section className="px-2 pb-12 pt-10 md:px-0">
-              <div className="rounded-[1.75rem] bg-white/70 px-6 py-10 text-center text-slate-600 shadow-[0_14px_36px_rgba(15,23,42,0.04)]">
+            <section className="pb-12 pt-4">
+              <div className="rounded-[20px] bg-white px-6 py-10 text-center text-[#666] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
                 Aucun produit ne correspond a votre recherche ou a vos filtres.
               </div>
             </section>
@@ -377,9 +726,9 @@ function AllProductsPage(): React.ReactElement {
         ) : (
           <>
             {brandGroups.length > 0 ? (
-              <section className="px-2 pb-2 pt-8 md:px-0">
+              <section className="pb-2 pt-2">
                 <div className="catalog-scroll pb-4">
-                  <div className="grid min-w-full auto-cols-[220px] grid-flow-col gap-5">
+                  <div className="grid min-w-full auto-cols-[180px] grid-flow-col gap-2">
                     {brandGroups.map((group) => {
                       const cover = group.items[0];
                       const imageSrc = cover.imgUrl?.[0] || '/images/default_product_image.png';
@@ -397,18 +746,18 @@ function AllProductsPage(): React.ReactElement {
                               })
                             )
                           }
-                          className={`overflow-hidden rounded-[1.9rem] border bg-white text-left shadow-[0_14px_36px_rgba(15,23,42,0.05)] transition ${
+                          className={`overflow-hidden rounded-lg border bg-white p-3 text-left shadow-none transition hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(0,0,0,0.10)] ${
                             isActive
-                              ? 'border-[var(--brand-300)] ring-2 ring-[rgba(96,165,250,0.18)]'
+                              ? 'border-[#ff6a00] ring-2 ring-[#ff6a00]/10'
                               : 'border-transparent'
                           }`}
                         >
-                          <div className="relative h-[210px] bg-slate-100">
-                            <Image src={imageSrc} alt={group.brand} fill className="object-contain p-5" />
+                          <div className="relative aspect-square rounded-md bg-[#f7f7f7]">
+                            <Image src={imageSrc} alt={group.brand} fill sizes="180px" className="object-contain p-3" />
                           </div>
-                          <div className="px-4 pb-4 pt-3">
-                            <p className="text-lg font-semibold text-slate-950">{group.brand}</p>
-                            <p className="mt-1 text-sm text-slate-500">{group.items.length} produits</p>
+                          <div className="pt-3">
+                            <p className="truncate text-sm font-semibold text-[#222]">{group.brand}</p>
+                            <p className="mt-1 text-xs text-[#777]">{group.items.length} produits</p>
                           </div>
                         </button>
                       );
@@ -416,286 +765,43 @@ function AllProductsPage(): React.ReactElement {
                   </div>
                 </div>
 
-                <div className="mt-5 h-[4px] w-full overflow-hidden rounded-full bg-slate-200/60">
-                  <div className="h-full w-24 rounded-full bg-[var(--brand-500)]" />
+                <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-[#e8e8e8]">
+                  <div className="h-full w-24 rounded-full bg-[#ff6a00]" />
                 </div>
               </section>
-            ) : null}
-
-            <section className="px-2 pb-12 pt-10 md:px-0">
-              <div className="px-3 py-4 md:px-0 md:py-0">
-                <div className="flex gap-6">
-                  {/* Sidebar filters */}
-                  <div className="hidden lg:block lg:w-64 xl:w-72">
-                    <FilterSidebar
-                      products={selectedBrandProducts}
-                      availableCategories={availableCategories}
-                      selectedCategory={categoryParam}
-                      onCategoryChange={(cat) => router.push(buildQueryString(new URLSearchParams(searchParams.toString()), { category: cat, brand: null }))}
-                      showOnlyAvailable={showOnlyAvailable}
-                      onAvailableChange={setShowOnlyAvailable}
-                      showOnlyOffers={showOnlyOffers}
-                      onOffersChange={setShowOnlyOffers}
-                      allColors={allColors}
-                      selectedColorFilter={selectedColorFilter}
-                      onColorFilterChange={setSelectedColorFilter}
-                      priceRange={priceRange}
-                      onPriceRangeChange={setPriceRange}
-                      moqMax={moqMax}
-                      onMoqMaxChange={setMoqMax}
-                      selectedCertifications={selectedCertifications}
-                      onCertificationsChange={setSelectedCertifications}
-                      minRating={minRating}
-                      onMinRatingChange={setMinRating}
-                      onReset={() => {
-                        setShowOnlyAvailable(false);
-                        setShowOnlyOffers(false);
-                        setSelectedColorFilter(new Set());
-                        setPriceRange({ min: '', max: '' });
-                        setMoqMax('');
-                        setSelectedCertifications([]);
-                        setMinRating(0);
-                      }}
-                      isOpen={true}
-                    />
+            ) : null}            <section className="pb-12 pt-3">
+              <div className="w-full">
+                {paginatedProducts.length === 0 ? (
+                  <div className="mt-3 rounded-[2px] bg-white border border-slate-200 px-6 py-10 text-center text-slate-500 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+                    Aucun produit ne correspond à cette sélection.
                   </div>
-
-                  {/* Main content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                      <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                        <h2 className="text-[2.1rem] font-semibold tracking-[-0.04em] text-slate-950">
-                          {brandParam || formatCategoryTitle(categoryParam)}
-                        </h2>
-
-                        <SellerSelect
-                          value={sortBy}
-                          onChange={setSortBy}
-                          options={catalogSortOptions}
-                          className="w-full md:w-[220px]"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setIsFiltersOpen((current) => !current)}
-                          className={`inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm transition lg:hidden ${
-                            isFiltersOpen || showOnlyAvailable || showOnlyOffers
-                              ? 'border-[var(--brand-300)] bg-[rgba(191,219,254,0.18)] text-[var(--brand-700)]'
-                              : 'border-slate-200 bg-white text-slate-500'
-                          }`}
-                        >
-                          <SlidersHorizontal className="h-4 w-4" />
-                          Filtres
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setViewMode('list')}
-                          className={`flex h-12 w-12 items-center justify-center rounded-full border transition ${
-                            viewMode === 'list'
-                              ? 'border-[var(--brand-300)] bg-[rgba(191,219,254,0.18)] text-[var(--brand-700)]'
-                              : 'border-slate-200 bg-white text-slate-400'
-                          }`}
-                        >
-                          <LayoutList className="h-5 w-5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setViewMode('grid')}
-                          className={`flex h-12 w-12 items-center justify-center rounded-full transition ${
-                            viewMode === 'grid'
-                              ? 'bg-[var(--brand-600)] text-white'
-                              : 'border border-slate-200 bg-white text-slate-400'
-                          }`}
-                        >
-                          <Grid2x2 className="h-5 w-5" />
-                        </button>
-                      </div>
+                ) : (
+                  <>
+                    <div
+                      className={`mt-3 ${
+                        viewMode === 'grid'
+                          ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'
+                          : 'grid grid-cols-1 gap-2'
+                      }`}
+                    >
+                      {paginatedProducts.map((product) => (
+                        <ProductCard key={product.id} product={product} />
+                      ))}
                     </div>
 
-                    {/* Mobile filter sidebar */}
-                    <FilterSidebar
-                      products={selectedBrandProducts}
-                      availableCategories={availableCategories}
-                      selectedCategory={categoryParam}
-                      onCategoryChange={(cat) => router.push(buildQueryString(new URLSearchParams(searchParams.toString()), { category: cat, brand: null }))}
-                      showOnlyAvailable={showOnlyAvailable}
-                      onAvailableChange={setShowOnlyAvailable}
-                      showOnlyOffers={showOnlyOffers}
-                      onOffersChange={setShowOnlyOffers}
-                      allColors={allColors}
-                      selectedColorFilter={selectedColorFilter}
-                      onColorFilterChange={setSelectedColorFilter}
-                      priceRange={priceRange}
-                      onPriceRangeChange={setPriceRange}
-                      moqMax={moqMax}
-                      onMoqMaxChange={setMoqMax}
-                      selectedCertifications={selectedCertifications}
-                      onCertificationsChange={setSelectedCertifications}
-                      minRating={minRating}
-                      onMinRatingChange={setMinRating}
-                      onReset={() => {
-                        setShowOnlyAvailable(false);
-                        setShowOnlyOffers(false);
-                        setSelectedColorFilter(new Set());
-                        setPriceRange({ min: '', max: '' });
-                        setMoqMax('');
-                        setSelectedCertifications([]);
-                        setMinRating(0);
-                      }}
-                      isOpen={isFiltersOpen}
-                      onClose={() => setIsFiltersOpen(false)}
-                    />
-
-                    {paginatedProducts.length === 0 ? (
-                      <div className="mt-8 rounded-[1.75rem] bg-white/70 px-6 py-10 text-center text-slate-600 shadow-[0_14px_36px_rgba(15,23,42,0.04)]">
-                        Aucun produit ne correspond a cette selection.
-                      </div>
-                    ) : (
-                      <>
-                        <div
-                          className={`mt-8 ${
-                            viewMode === 'grid'
-                              ? 'grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3'
-                              : 'flex flex-col gap-5'
-                          }`}
+                    {hasMore ? (
+                      <div className="mt-10 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => setVisibleCount((prev) => prev + 12)}
+                          className="inline-flex items-center gap-2 rounded-[2px] border border-slate-200 bg-white px-8 py-3.5 text-xs font-bold text-slate-700 transition hover:border-slate-850 hover:bg-slate-50"
                         >
-                          {paginatedProducts.map((product) => {
-                            const displayPrice = getDisplayPrice(product);
-                            const imageSrc = product.imgUrl?.[0] || '/images/default_product_image.png';
-                            const discountPercent =
-                              product.offerPrice && product.offerPrice < product.price
-                                ? Math.round(((product.price - product.offerPrice) / product.price) * 100)
-                                : null;
-
-                            return (
-                              <article
-                                key={product.id}
-                                className={`overflow-hidden rounded-[1.75rem] bg-white shadow-[0_14px_36px_rgba(15,23,42,0.06)] ${
-                                  viewMode === 'list' ? 'md:grid md:grid-cols-[280px_1fr]' : ''
-                                }`}
-                              >
-                                <div className="relative rounded-[1.75rem] bg-slate-100 p-5">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleWishlist(product.id)}
-                                    className={`absolute left-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/88 shadow-sm transition ${
-                                      isInWishlist(product.id)
-                                        ? 'text-rose-500'
-                                        : 'text-slate-400 hover:text-[var(--brand-700)]'
-                                    }`}
-                                  >
-                                    <Heart
-                                      className={`h-5 w-5 stroke-[1.8] ${isInWishlist(product.id) ? 'fill-current' : ''}`}
-                                    />
-                                  </button>
-
-                                  {discountPercent ? (
-                                    <div className="absolute bottom-5 right-5 z-10 rounded-full bg-[var(--brand-500)] px-3 py-1 text-xs font-semibold text-white">
-                                      -{discountPercent}%
-                                    </div>
-                                  ) : null}
-
-                                  <button
-                                    type="button"
-                                    className="relative mx-auto block h-[290px] w-full cursor-pointer"
-                                    onClick={() => router.push(`/product/${product.id}`)}
-                                  >
-                                    <Image
-                                      src={imageSrc}
-                                      alt={product.name}
-                                      fill
-                                      className="object-contain"
-                                    />
-                                  </button>
-                                </div>
-
-                                <div className={`px-5 pb-4 pt-3 ${viewMode === 'list' ? 'md:flex md:flex-col md:justify-center md:px-7' : ''}`}>
-                                  <div className="mb-1.5 flex justify-center gap-2">
-                                    {Array.from({ length: 5 }).map((_, index) => (
-                                      <span
-                                        key={index}
-                                        className={`h-2.5 w-2.5 rounded-full ${
-                                          index === 1 ? 'bg-slate-300' : 'bg-slate-200'
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-
-                                  <h3 className="min-h-[54px] text-[1.05rem] font-semibold leading-6 text-slate-900">
-                                    {product.name}
-                                  </h3>
-
-                                  {getProductColorIds(product).length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {getProductColorIds(product).map((id) => {
-                                        const c = allColors.find((col) => col.id === id);
-                                        if (!c) return null;
-                                        return (
-                                          <div key={id} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-500">
-                                            <span className="h-2 w-2 rounded-full border border-slate-200" style={{ backgroundColor: c.hex }} />
-                                            {c.name}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-
-                                  <div className="mt-1 text-sm text-emerald-600">Disponible</div>
-
-                                  <div className="mt-2 flex items-end gap-2">
-                                    <p className="text-[1.15rem] font-semibold text-slate-950">
-                                      {formatPrice(displayPrice)}
-                                    </p>
-                                    {product.offerPrice && product.offerPrice < product.price ? (
-                                      <p className="text-sm text-slate-400 line-through">
-                                        {formatPrice(product.price)}
-                                      </p>
-                                    ) : null}
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      const success = await addToCart(product.id);
-                                      if (success) {
-                                        toast.success('Ajoute au panier');
-                                      }
-                                    }}
-                                    className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-[var(--brand-950)] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[var(--brand-900)]"
-                                  >
-                                    Ajouter au panier
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => router.push(`/product/${product.id}`)}
-                                    className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-[var(--brand-300)] bg-white px-6 py-3.5 text-sm font-semibold text-[var(--brand-700)] transition hover:bg-[rgba(191,219,254,0.16)]"
-                                  >
-                                    Voir le produit
-                                  </button>
-                                </div>
-                              </article>
-                            );
-                          })}
-                        </div>
-
-                        {hasMore ? (
-                          <div className="mt-10 flex justify-center">
-                            <button
-                              type="button"
-                              onClick={() => setVisibleCount((prev) => prev + 12)}
-                              className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-300)] bg-white px-8 py-3.5 text-sm font-semibold text-[var(--brand-700)] transition hover:bg-[rgba(191,219,254,0.18)]"
-                            >
-                              Voir plus de produits
-                            </button>
-                          </div>
-                        ) : null}
-                      </>
-                    )}
-                  </div>
-                </div>
+                          Voir plus de produits
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </div>
             </section>
           </>

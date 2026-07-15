@@ -39,10 +39,10 @@ const HomeProducts = () => {
     }
 
     return (
-        <div className="flex flex-col items-center pt-14">
-            <p className="text-2xl font-medium text-left w-full">Produits populaires</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-6 pb-14 w-full">
-                {products.map((product: Product) => (
+        <section className="flex flex-col items-center">
+            <p className="w-full text-left text-[1.45rem] font-semibold text-[#222]">Produits populaires</p>
+            <div className="mt-4 grid w-full grid-cols-2 gap-2 pb-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+                {products.slice(0, 12).map((product: Product) => (
                     <ProductCard
                         key={product.id}
                         product={product}
@@ -52,11 +52,11 @@ const HomeProducts = () => {
             </div>
             <button
                 onClick={() => router.push('/all-products')}
-                className="px-12 py-2.5 border rounded text-zinc-600 hover:bg-blue-500 hover:text-zinc-50 transition"
+                className="rounded-full border border-[#d8d8d8] bg-white px-10 py-2.5 text-sm font-semibold text-[#333] transition hover:border-[#ff6a00] hover:text-[#ff6a00]"
             >
                 Voir plus
             </button>
-        </div>
+        </section>
     );
 };
 

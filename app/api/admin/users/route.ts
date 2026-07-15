@@ -4,6 +4,7 @@ import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { syncUserSystemRole } from '@/lib/roleSync';
 
 const userSelect = {
   id: true,
@@ -33,6 +34,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     if (roleFilter?.toUpperCase() === 'USER') {
       whereClause.role = 'USER';
+    } else if (roleFilter?.toUpperCase() === 'SELLER') {
+      whereClause.role = 'SELLER';
     } else if (roleFilter?.toUpperCase() === 'ADMIN') {
       whereClause.role = 'ADMIN';
     }
@@ -81,20 +84,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const upperRole = role?.toUpperCase();
-    if (upperRole && upperRole !== 'ADMIN' && upperRole !== 'USER') {
-      return NextResponse.json({ success: false, message: 'Rôle invalide. Les rôles autorisés sont "ADMIN" ou "USER".' }, { status: 400 });
+    if (upperRole && upperRole !== 'ADMIN' && upperRole !== 'SELLER' && upperRole !== 'USER') {
+      return NextResponse.json({ success: false, message: 'Role invalide. Les roles autorises sont ADMIN, SELLER ou USER.' }, { status: 400 });
     }
 
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        firstName: firstName || null,
-        lastName: lastName || null,
-        phoneNumber: phoneNumber || null,
-        role: upperRole as 'ADMIN' | 'USER' | undefined,
-      },
-      select: userSelect,
+    const legacyRole = (upperRole || 'USER') as 'ADMIN' | 'SELLER' | 'USER';
+    const newUser = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          firstName: firstName || null,
+          lastName: lastName || null,
+          phoneNumber: phoneNumber || null,
+          role: legacyRole,
+        },
+        select: userSelect,
+      });
+      await syncUserSystemRole(tx, created.id, legacyRole);
+      return created;
     });
 
     await logActivity({
@@ -141,8 +149,8 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     if (fields.phoneNumber !== undefined) data.phoneNumber = fields.phoneNumber;
     if (fields.role !== undefined) {
       const upperRole = fields.role.toUpperCase();
-      if (upperRole !== 'ADMIN' && upperRole !== 'USER') {
-        return NextResponse.json({ success: false, message: 'Rôle invalide.' }, { status: 400 });
+      if (upperRole !== 'ADMIN' && upperRole !== 'SELLER' && upperRole !== 'USER') {
+        return NextResponse.json({ success: false, message: 'Role invalide.' }, { status: 400 });
       }
       data.role = upperRole;
     }
@@ -161,6 +169,9 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
         data: { ...data, updatedAt: new Date() },
       });
       if (result.count === 0) throw new Error('Utilisateur non trouvé.');
+      if (typeof data.role === 'string') {
+        await syncUserSystemRole(tx, id, data.role as 'ADMIN' | 'SELLER' | 'USER');
+      }
       return tx.user.findUnique({ where: { id }, select: userSelect });
     });
 

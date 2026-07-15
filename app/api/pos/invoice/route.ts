@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeLoggedInUser, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { generateInvoicePDF } from '@/lib/invoice';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeLoggedInUser(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'pos.view-transactions');
   if (!authResult.authorized) return authResult.response!;
+  const userId = authResult.userId!;
+  const isAdmin = authResult.userRole === 'ADMIN';
 
   const { searchParams } = new URL(req.url);
   const transactionId = searchParams.get('transactionId');
@@ -21,12 +23,27 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
 
     if (!transaction) return NextResponse.json({ message: 'Transaction introuvable' }, { status: 404 });
+    if (!isAdmin && transaction.userId !== userId) {
+      return NextResponse.json({ message: 'Acces interdit' }, { status: 403 });
+    }
+
+    // Historique des tranches encaissées (pour les ventes à crédit)
+    const orderPayments = transaction.paymentMethod === 'INSTALLMENT'
+      ? await prisma.orderPayment.findMany({
+          where: { orderId: `POS-${transaction.id}` },
+          orderBy: { paidAt: 'asc' },
+        })
+      : [];
+    const remainingBalance = Number(transaction.remainingBalance);
 
     const pdf = generateInvoicePDF({
       invoiceNumber: transaction.invoiceNumber,
       date: transaction.createdAt,
       customerName: transaction.customerName,
       customerPhone: transaction.customerPhone,
+      customerEmail: transaction.customerEmail,
+      customerIFU: transaction.customerIFU,
+      customerAddress: transaction.customerAddress,
       items: transaction.items.map((item) => ({
         name: item.product.name,
         quantity: item.quantity,
@@ -37,11 +54,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       discount: Number(transaction.discount),
       discountReason: transaction.discountReason,
       total: Number(transaction.finalAmount),
+      paidAmount: Number(transaction.paidAmount),
+      remainingBalance,
+      dueDate: transaction.dueDate,
       paymentMethod: transaction.paymentMethod,
-      sellerName: transaction.user.firstName && transaction.user.lastName
+      sellerName: transaction.user?.firstName && transaction.user?.lastName
         ? `${transaction.user.firstName} ${transaction.user.lastName}`
         : 'Vendeur',
-      sellerPhone: transaction.user.phoneNumber || undefined,
+      sellerPhone: transaction.user?.phoneNumber || undefined,
+      payments: orderPayments.map((p) => ({
+        amount: Number(p.amount),
+        method: p.paymentMethod,
+        paidAt: p.paidAt,
+        reference: p.reference,
+      })),
+      isFullyPaid: remainingBalance <= 0.5,
     });
 
     const pdfBuffer = Buffer.from(pdf.output('arraybuffer'));
@@ -49,7 +76,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return new NextResponse(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="facture-${transaction.invoiceNumber}.pdf"`,
+        'Content-Disposition': `inline; filename="facture-${transaction.invoiceNumber}.pdf"`,
         'Content-Length': pdfBuffer.length.toString(),
       },
     });

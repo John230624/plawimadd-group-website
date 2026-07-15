@@ -4,15 +4,19 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
+  BadgeDollarSign,
   BarChart3,
   Calendar,
   Crown,
+  DollarSign,
   Download,
   Eye,
   Package,
   ShoppingCart,
   TrendingUp,
+  TrendingDown,
   Users,
+  Warehouse,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import jsPDF from 'jspdf';
@@ -68,6 +72,17 @@ interface ReportsData {
   todayRevenue: number;
   todayOrders: number;
   pendingOrders: number;
+  averageOrderValue: number;
+  totalStockUnits: number;
+  stockValueAtSellingPrice: number;
+  stockValueAtCostPrice: number;
+  stockProfitPotential: number;
+  productsAddedThisPeriod: number;
+  productsAddedToday: number;
+  totalCostOfGoodsSold: number;
+  realizedProfit: number;
+  profitMargin: number;
+  fullyCostedOrders: number;
 }
 
 const pageSize = 10;
@@ -156,6 +171,26 @@ export default function ReportsPage(): React.ReactElement {
     return data.recentOrders.slice(start, start + pageSize);
   }, [data?.recentOrders, page]);
 
+  const revenueSparkline = useMemo(() => {
+    return (data?.monthlyRevenues || []).map((m) => Math.round(m.revenue / 100));
+  }, [data?.monthlyRevenues]);
+
+  const profitSparkline = useMemo(() => {
+    if (!data) return [];
+    return [0, data.realizedProfit].map((v) => Math.round(Math.abs(v) / 100));
+  }, [data]);
+
+  const ordersSparkline = useMemo(() => {
+    if (!data) return [];
+    return [data.todayOrders, data.totalOrders - data.todayOrders, data.pendingOrders].map((v) => Math.round(v));
+  }, [data]);
+
+  const stockSparkline = useMemo(() => {
+    if (!data) return [];
+    const val = Math.round(data.stockValueAtSellingPrice / 10000);
+    return [val, Math.round(val * 0.8), Math.round(val * 1.1)];
+  }, [data]);
+
   function exportCSV() {
     if (!data) return;
     const header = 'Rang;Produit;Vendus;Revenu\n---\n';
@@ -195,9 +230,9 @@ export default function ReportsPage(): React.ReactElement {
     const statWidth = (pageW - 40) / 4;
     const boxes = [
       { label: 'Revenus totaux', value: formatPrice(data.totalRevenue), color: [16, 185, 129] },
+      { label: 'Bénéfice net', value: formatPrice(data.realizedProfit), color: data.realizedProfit >= 0 ? [16, 185, 129] : [239, 68, 68] },
       { label: 'Commandes', value: String(data.totalOrders), color: [59, 130, 246] },
-      { label: 'Produits', value: String(data.totalProducts), color: [245, 158, 11] },
-      { label: 'Clients', value: String(data.totalCustomers), color: [59, 130, 246] },
+      { label: 'Stock', value: `${data.totalStockUnits} unités`, color: [245, 158, 11] },
     ];
     boxes.forEach((box, i) => {
       const x = 20 + i * (statWidth + 5);
@@ -235,158 +270,206 @@ export default function ReportsPage(): React.ReactElement {
 
   return (
     <div className="flex min-h-full flex-col gap-8">
-      <SellerSectionHeader
-        title="Rapports & Analytiques"
-        action={
-          <div className="flex gap-2">
-            <SellerButton variant="outline" size="sm" icon={Download} onClick={exportCSV}>CSV</SellerButton>
-            <SellerButton variant="outline" size="sm" icon={Download} onClick={exportPDF}>PDF</SellerButton>
+      {/* Header */}
+      <div className="flex items-center justify-between pb-4">
+        <div>
+          <h1 className="text-3xl font-700 text-[var(--text-primary)]">Rapports & Analytiques</h1>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            {data.totalOrders} commande(s) · {data.totalStockUnits} unité(s) en stock · {formatPrice(data.totalRevenue)} CA
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 rounded-xl p-0.5" style={{ backgroundColor: '#121212' }}>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+              className="h-8 w-[130px] rounded-lg border-0 bg-transparent px-2.5 text-xs text-[var(--text-primary)] outline-none [color-scheme:dark]"
+              title="Date début"
+            />
+            <span className="text-xs text-[var(--text-tertiary)]">—</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+              className="h-8 w-[130px] rounded-lg border-0 bg-transparent px-2.5 text-xs text-[var(--text-primary)] outline-none [color-scheme:dark]"
+              title="Date fin"
+            />
           </div>
-        }
-      />
+          <SellerButton variant="outline" size="sm" icon={Download} onClick={exportCSV}>CSV</SellerButton>
+          <SellerButton variant="outline" size="sm" icon={Download} onClick={exportPDF}>PDF</SellerButton>
+        </div>
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* 4 stat cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Revenus totaux"
-          value={formatPrice(data.totalRevenue)}
-          description="Chiffre d'affaires global"
+          value={`${formatPrice(data.totalRevenue)}`}
           icon={TrendingUp}
           accentColor="green"
+          change={`${data.todayRevenue > 0 ? '+' : ''}${formatPrice(data.todayRevenue)} aujourd'hui`}
+          changeType={data.todayRevenue > 0 ? 'positive' : 'neutral'}
+          sparklineData={revenueSparkline}
+        />
+        <StatCard
+          title={data.realizedProfit >= 0 ? 'Bénéfice net' : 'Perte nette'}
+          value={`${formatPrice(Math.abs(data.realizedProfit))}`}
+          description={`Marge ${data.profitMargin}%`}
+          icon={data.realizedProfit >= 0 ? BadgeDollarSign : TrendingDown}
+          accentColor={data.realizedProfit >= 0 ? 'green' : 'red'}
+          change={`Coût ventes: ${formatPrice(data.totalCostOfGoodsSold)}`}
+          changeType={data.realizedProfit >= 0 ? 'positive' : 'negative'}
+          sparklineData={profitSparkline}
         />
         <StatCard
           title="Commandes"
           value={String(data.totalOrders)}
-          description="Total des commandes"
           icon={ShoppingCart}
           accentColor="blue"
+          change={`${data.pendingOrders} en attente · ${data.todayOrders} aujourd'hui`}
+          changeType={data.pendingOrders > 0 ? 'negative' : 'positive'}
+          sparklineData={ordersSparkline}
         />
         <StatCard
-          title="Produits"
-          value={String(data.totalProducts)}
-          description="Produits en catalogue"
-          icon={Package}
+          title="Stock"
+          value={`${data.totalStockUnits} unités`}
+          description={`${formatPrice(data.stockValueAtSellingPrice)} valeur vente`}
+          icon={Warehouse}
           accentColor="amber"
-        />
-        <StatCard
-          title="Clients"
-          value={String(data.totalCustomers)}
-          description="Clients enregistrés"
-          icon={Users}
-          accentColor="blue"
+          change={`${data.productsAddedThisPeriod} nouveau(x)`}
+          changeType="positive"
+          sparklineData={stockSparkline}
         />
       </div>
 
-      {/* Filtres */}
-      <SellerFilterBar>
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-            className="h-9 w-[135px] rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2.5 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)] [color-scheme:dark]"
-            title="Date début"
-          />
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-            className="h-9 w-[135px] rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2.5 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)] [color-scheme:dark]"
-            title="Date fin"
-          />
-          <div className="rounded-lg bg-[var(--bg-hover)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
-            {data.totalOrders} commande(s)
+      {/* Revenus par mois + Top produits */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SellerPanel className="p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <BarChart3 className="h-5 w-5 text-[var(--accent-blue)]" />
+            <h2 className="text-lg font-700 text-[var(--text-primary)]">Revenus par mois</h2>
           </div>
-        </div>
-      </SellerFilterBar>
+          {data.monthlyRevenues.length === 0 ? (
+            <SellerEmptyState title="Aucun revenu" description="Aucune donnée disponible." icon={BarChart3} />
+          ) : (
+            <div className="space-y-3">
+              {paginatedMonths.map((item, idx) => {
+                const [y, m] = item.month.split('-');
+                const maxVal = Math.max(...data.monthlyRevenues.map((r) => r.revenue), 1);
+                const pct = (item.revenue / maxVal) * 100;
+                return (
+                  <div key={idx} className="flex items-center gap-3">
+                    <span className="w-20 shrink-0 text-xs text-[var(--text-secondary)]">
+                      {monthLabels[Number(m) - 1]} {y}
+                    </span>
+                    <div className="flex h-6 flex-1 overflow-hidden rounded bg-[var(--bg-hover)]">
+                      <div className="h-full rounded bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="w-28 text-right text-xs font-medium text-[var(--text-primary)]">{formatPrice(item.revenue)}</span>
+                  </div>
+                );
+              })}
+              <SellerPagination page={monthPage} pageSize={pageSize} totalItems={data.monthlyRevenues.length} onPageChange={setMonthPage} />
+            </div>
+          )}
+        </SellerPanel>
 
-      {/* Top produits */}
-      <SellerPanel className="p-6">
-        <div className="mb-4 flex items-center gap-3">
-          <Crown className="h-5 w-5 text-amber-400" />
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Top produits</h2>
-        </div>
-        {data.topProducts.length === 0 ? (
-          <SellerEmptyState title="Aucun produit" description="Aucune donnée disponible." icon={Package} />
-        ) : (
-          <>
-            <SellerTable className="!border-0 !bg-transparent [&_thead]:!border-y-0 [&_thead]:!bg-transparent [&_tbody]:!divide-y-0 [&_tr]:!hover:bg-transparent">
-              <SellerTableHeader>
-                <SellerTableRow>
-                  <SellerTableCell isHeader className="text-center w-12">#</SellerTableCell>
-                  <SellerTableCell isHeader className="text-center">Produit</SellerTableCell>
-                  <SellerTableCell isHeader className="text-center">Vendus</SellerTableCell>
-                  <SellerTableCell isHeader className="text-center">Revenu</SellerTableCell>
-                </SellerTableRow>
-              </SellerTableHeader>
-              <SellerTableBody>
+        <SellerPanel className="p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <Crown className="h-5 w-5 text-amber-400" />
+            <h2 className="text-lg font-700 text-[var(--text-primary)]">Top produits</h2>
+          </div>
+          {data.topProducts.length === 0 ? (
+            <SellerEmptyState title="Aucun produit" description="Aucune donnée disponible." icon={Package} />
+          ) : (
+            <>
+              <div className="space-y-2">
                 {paginatedTop.map((product) => (
-                  <SellerTableRow key={product.rank}>
-                    <SellerTableCell className="text-center">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--bg-hover)] text-sm font-bold text-[var(--text-primary)]">
-                        {product.rank}
-                      </span>
-                    </SellerTableCell>
-                    <SellerTableCell className="text-center font-medium text-[var(--text-primary)]">
-                      {product.name}
-                    </SellerTableCell>
-                    <SellerTableCell className="text-center text-[var(--text-secondary)]">
-                      {product.totalSold}
-                    </SellerTableCell>
-                    <SellerTableCell className="text-center font-medium text-[var(--accent-green)]">
-                      {formatPrice(product.revenue)}
-                    </SellerTableCell>
-                  </SellerTableRow>
+                  <div key={product.rank} className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2.5 transition hover:border-amber-400/30">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-hover)] text-xs font-bold text-[var(--text-primary)]">
+                      {product.rank}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-[var(--text-primary)]">{product.name}</p>
+                      <p className="text-xs text-[var(--text-tertiary)]">{product.totalSold} vendu(s)</p>
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold text-[var(--accent-green)]">{formatPrice(product.revenue)}</span>
+                  </div>
                 ))}
-              </SellerTableBody>
-            </SellerTable>
-            <SellerPagination page={topPage} pageSize={pageSize} totalItems={data.topProducts.length} onPageChange={setTopPage} />
-          </>
-        )}
-      </SellerPanel>
+              </div>
+              <SellerPagination page={topPage} pageSize={pageSize} totalItems={data.topProducts.length} onPageChange={setTopPage} />
+            </>
+          )}
+        </SellerPanel>
+      </div>
 
-      {/* Revenus par mois */}
-      <SellerPanel className="p-6">
-        <div className="mb-4 flex items-center gap-3">
-          <Calendar className="h-5 w-5 text-[var(--accent-blue)]" />
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Revenus par mois</h2>
-        </div>
-        {data.monthlyRevenues.length === 0 ? (
-          <SellerEmptyState title="Aucun revenu" description="Aucune donnée disponible." icon={BarChart3} />
-        ) : (
-          <>
-            <SellerTable className="!border-0 !bg-transparent [&_thead]:!border-y-0 [&_thead]:!bg-transparent [&_tbody]:!divide-y-0 [&_tr]:!hover:bg-transparent">
-              <SellerTableHeader>
-                <SellerTableRow>
-                  <SellerTableCell isHeader className="text-center">Mois</SellerTableCell>
-                  <SellerTableCell isHeader className="text-center">Revenus</SellerTableCell>
-                </SellerTableRow>
-              </SellerTableHeader>
-              <SellerTableBody>
-                {paginatedMonths.map((item, idx) => {
-                  const [y, m] = item.month.split('-');
-                  return (
-                    <SellerTableRow key={idx}>
-                      <SellerTableCell className="text-center font-medium text-[var(--text-primary)]">
-                        {monthLabels[Number(m) - 1]} {y}
-                      </SellerTableCell>
-                      <SellerTableCell className="text-center font-medium text-[var(--accent-green)]">
-                        {formatPrice(item.revenue)}
-                      </SellerTableCell>
-                    </SellerTableRow>
-                  );
-                })}
-              </SellerTableBody>
-            </SellerTable>
-            <SellerPagination page={monthPage} pageSize={pageSize} totalItems={data.monthlyRevenues.length} onPageChange={setMonthPage} />
-          </>
-        )}
-      </SellerPanel>
+      {/* Analyse stock + Résumé période */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SellerPanel className="p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <Warehouse className="h-5 w-5 text-amber-400" />
+            <h2 className="text-lg font-700 text-[var(--text-primary)]">Analyse du stock</h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] p-4">
+              <p className="text-xs font-medium text-[var(--text-tertiary)]">Valeur de vente</p>
+              <p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{formatPrice(data.stockValueAtSellingPrice)}</p>
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{data.totalStockUnits} unité(s) en stock</p>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] p-4">
+              <p className="text-xs font-medium text-[var(--text-tertiary)]">Valeur de revient</p>
+              <p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{formatPrice(data.stockValueAtCostPrice)}</p>
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Coût d'achat estimé</p>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] p-4">
+              <p className="text-xs font-medium text-[var(--text-tertiary)]">Potentiel de gain</p>
+              <p className="mt-1 text-xl font-bold text-emerald-400">{formatPrice(data.stockProfitPotential)}</p>
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Marge si tout vendu au prix actuel</p>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] p-4">
+              <p className="text-xs font-medium text-[var(--text-tertiary)]">Produits en catalogue</p>
+              <p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{data.totalProducts}</p>
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{data.productsAddedToday} ajouté(s) aujourd'hui</p>
+            </div>
+          </div>
+        </SellerPanel>
+
+        <SellerPanel className="p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <DollarSign className="h-5 w-5 text-[var(--accent-blue)]" />
+            <h2 className="text-lg font-700 text-[var(--text-primary)]">Résumé de la période</h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] p-4">
+              <p className="text-xs font-medium text-[var(--text-tertiary)]">Clients</p>
+              <p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{data.totalCustomers}</p>
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Enregistrés</p>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] p-4">
+              <p className="text-xs font-medium text-[var(--text-tertiary)]">Panier moyen</p>
+              <p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{formatPrice(data.averageOrderValue)}</p>
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Par commande</p>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] p-4">
+              <p className="text-xs font-medium text-[var(--text-tertiary)]">Aujourd'hui</p>
+              <p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{formatPrice(data.todayRevenue)}</p>
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{data.todayOrders} commande(s)</p>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] p-4">
+              <p className="text-xs font-medium text-[var(--text-tertiary)]">En attente</p>
+              <p className="mt-1 text-xl font-bold text-amber-400">{data.pendingOrders}</p>
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Commande(s) à traiter</p>
+            </div>
+          </div>
+        </SellerPanel>
+      </div>
 
       {/* Dernières commandes */}
       <SellerPanel className="p-6">
         <div className="mb-4 flex items-center gap-3">
           <ShoppingCart className="h-5 w-5 text-[var(--accent-blue)]" />
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Dernières commandes</h2>
+          <h2 className="text-lg font-700 text-[var(--text-primary)]">Dernières commandes</h2>
         </div>
         {data.recentOrders.length === 0 ? (
           <SellerEmptyState title="Aucune commande" description="Aucune commande récente." icon={ShoppingCart} />

@@ -1,5 +1,7 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+import { LOGO_BASE64 } from './logo-base64';
+
 
 interface InvoiceOrderItem {
   name: string;
@@ -32,181 +34,372 @@ interface InvoiceOrderData {
   isFullyPaid: boolean;
 }
 
-const primary = [37, 99, 235] as const;
-const gray = [107, 114, 128] as const;
-const dark = [17, 24, 39] as const;
-const lightGray = [243, 244, 246] as const;
-const green = [22, 163, 74] as const;
-const amber = [217, 119, 6] as const;
+function formatAmount(amount: number): string {
+  return Math.round(amount)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+function formatDate(d: Date): string {
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+export function numberToFrenchWords(n: number): string {
+  if (n === 0) return 'zéro';
+
+  const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
+  const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
+  const tens = ['', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix'];
+
+  function convertUnder100(val: number): string {
+    if (val < 10) return units[val];
+    if (val < 20) return teens[val - 10];
+    const ten = Math.floor(val / 10);
+    const unit = val % 10;
+
+    if (ten === 7) {
+      return 'soixante-' + (unit === 1 ? 'et-onze' : teens[unit]);
+    }
+    if (ten === 9) {
+      return 'quatre-vingt-' + teens[unit];
+    }
+    if (unit === 0) {
+      return ten === 8 ? 'quatre-vingts' : tens[ten];
+    }
+    if (unit === 1) {
+      return tens[ten] + '-et-un';
+    }
+    return tens[ten] + '-' + units[unit];
+  }
+
+  function convertUnder1000(val: number): string {
+    if (val < 100) return convertUnder100(val);
+    const hundred = Math.floor(val / 100);
+    const remainder = val % 100;
+    let result = '';
+    if (hundred === 1) {
+      result = 'cent';
+    } else {
+      result = units[hundred] + ' cent';
+      if (remainder === 0) result += 's';
+    }
+    if (remainder > 0) {
+      result += ' ' + convertUnder100(remainder);
+    }
+    return result;
+  }
+
+  function convert(val: number): string {
+    if (val === 0) return '';
+    if (val < 1000) return convertUnder1000(val);
+    if (val < 1000000) {
+      const thousands = Math.floor(val / 1000);
+      const remainder = val % 1000;
+      let result = '';
+      if (thousands === 1) {
+        result = 'mille';
+      } else {
+        result = convertUnder1000(thousands) + ' mille';
+      }
+      if (remainder > 0) {
+        result += ' ' + convertUnder1000(remainder);
+      }
+      return result;
+    }
+    if (val < 1000000000) {
+      const millions = Math.floor(val / 1000000);
+      const remainder = val % 1000000;
+      let result = convertUnder1000(millions) + ' million';
+      if (millions > 1) result += 's';
+      if (remainder > 0) {
+        result += ' ' + convert(remainder);
+      }
+      return result;
+    }
+    return val.toString();
+  }
+
+  return convert(n).trim().replace(/\s+/g, ' ');
+}
 
 const methodLabels: Record<string, string> = {
-  CASH: 'Especes',
-  MOBILE_MONEY: 'Mobile Money',
-  CARD: 'Carte bancaire',
-  BANK_TRANSFER: 'Virement bancaire',
-  INSTALLMENT_STUDENT: 'Echelonnement etudiant',
-  KKiapay: 'Kkiapay',
+  CASH: 'ESPECES',
+  MOBILE_MONEY: 'MOBILE MONEY',
+  CARD: 'CARTE BANCAIRE',
+  BANK_TRANSFER: 'VIREMENT BANCAIRE',
+  INSTALLMENT_STUDENT: 'ECHELONNEMENT ETUDIANT',
+  KKiapay: 'KKIAPAY',
 };
 
 export function generateOrderInvoicePDF(data: InvoiceOrderData): jsPDF {
   const doc = new jsPDF({ format: 'a4', unit: 'mm' });
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
-  // Header
-  doc.setFillColor(...primary);
-  doc.rect(0, 0, pageWidth, 45, 'F');
+  // White background
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.text('PLAWIMADD GROUP', 20, 20);
-  doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(14);
+  // Header Left - Company Logo and Information
+  doc.addImage(LOGO_BASE64, 'PNG', 15, 8, 30, 20);
 
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text('IFU : 3202226549581', 50, 18);
+  doc.text('RCCM : RB/ABC/22 B 6030', 50, 23);
+
+  // Header Right - Invoice Meta Information
   const typeLabel = data.type === 'student' ? 'FACTURE - PAIEMENT ETUDIANT'
     : data.type === 'pos' ? 'FACTURE - VENTE EN MAGASIN'
-    : 'FACTURE';
-  doc.text(typeLabel, 20, 32);
-  doc.setFont('Helvetica', 'normal');
+    : 'FACTURE DE VENTE';
 
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
-  doc.text(`N° ${data.invoiceNumber}`, pageWidth - 20, 20, { align: 'right' });
+  doc.text(typeLabel, pageWidth - 15, 15, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(`Date: ${data.orderDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}`, pageWidth - 20, 28, { align: 'right' });
-  doc.text(`Ref: ${data.orderId.slice(0, 8)}`, pageWidth - 20, 34, { align: 'right' });
+  doc.text(`Facture # ${data.invoiceNumber}`, pageWidth - 15, 20, { align: 'right' });
+  doc.text(`Date : ${formatDate(data.orderDate)}`, pageWidth - 15, 25, { align: 'right' });
+  doc.text(`Réf : ${data.orderId.slice(0, 8).toUpperCase()}`, pageWidth - 15, 30, { align: 'right' });
 
-  doc.setDrawColor(...primary);
-  doc.setLineWidth(0.5);
-  doc.line(20, 49, pageWidth - 20, 49);
+  // Divider line
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.3);
+  doc.line(15, 33, pageWidth - 15, 33);
 
-  // Customer info
-  doc.setFontSize(9);
-  doc.setTextColor(...gray);
-  doc.text('Client:', 20, 58);
-  doc.setTextColor(...dark);
-  doc.setFontSize(10);
-  doc.text(data.customerName, 20, 63);
-  doc.setFontSize(8);
-  doc.setTextColor(...gray);
+  // Seller Details Table
+  autoTable(doc, {
+    startY: 36,
+    margin: { left: 15 },
+    tableWidth: 120,
+    body: [
+      [
+        'Adresse',
+        "GODOMEY\nA COTE DE L'IMMEUBLE PEACE AND LOVE EN FACE DU TRAFIC LOCAL DE L'ECHANGEUR DE GODOMEY\nABOMEY CALAVI",
+      ],
+      [
+        'Contact',
+        `97918000 / 97747178\nplawimaddgroupbeninbranch1@gmail.com`,
+      ],
+    ],
+    theme: 'plain',
+    styles: {
+      fontSize: 8,
+      cellPadding: 1,
+      textColor: [0, 0, 0] as any,
+    },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 18 },
+      1: { cellWidth: 102 },
+    },
+  });
 
-  if (data.customerEmail) doc.text(`Email: ${data.customerEmail}`, 20, 69);
-  if (data.customerPhone) doc.text(`Tel: ${data.customerPhone}`, 20, 74);
+  const sellerEndY = (doc as any).lastAutoTable.finalY || 55;
+  const clientStartY = Math.max(sellerEndY + 4, 45);
 
-  // Shipping address
-  if (data.shippingAddress) {
-    const addrY = data.customerPhone ? 80 : 75;
-    doc.setFontSize(9);
-    doc.setTextColor(...gray);
-    doc.text('Adresse livraison:', pageWidth - 90, 58);
-    doc.setFontSize(8);
-    doc.setTextColor(...dark);
-    doc.text(data.shippingAddress, pageWidth - 90, 63, { maxWidth: 70 });
-  }
+  // Client Details Box
+  autoTable(doc, {
+    startY: clientStartY,
+    margin: { left: 15, right: 15 },
+    head: [['CLIENT']],
+    body: [
+      ['Nom', data.customerName],
+      ['IFU', ''],
+      ['Adresse', data.shippingAddress || ''],
+      ['Contact', [data.customerPhone, data.customerEmail].filter(Boolean).join(' / ') || ''],
+    ],
+    theme: 'grid',
+    headStyles: {
+      fillColor: [240, 240, 240] as any,
+      textColor: [0, 0, 0] as any,
+      fontStyle: 'bold',
+      fontSize: 8.5,
+      cellPadding: 2,
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2,
+      textColor: [0, 0, 0] as any,
+    },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 20 },
+      1: { cellWidth: 160 },
+    },
+    styles: {
+      lineColor: [200, 200, 200] as any,
+      lineWidth: 0.1,
+    },
+  });
 
-  // Paid / remaining summary
-  const infoEnd = data.shippingAddress ? 85 : (!data.customerPhone ? 72 : 80);
-  doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(...dark);
-  doc.text(`Total: ${data.totalAmount.toLocaleString('fr-FR')} ${data.currency}`, pageWidth - 20, infoEnd, { align: 'right' });
+  const clientEndY = (doc as any).lastAutoTable.finalY || 80;
+  const itemsStartY = clientEndY + 6;
 
-  if (data.totalPaid > 0) {
-    const paidY = infoEnd + 5;
-    doc.setTextColor(...green);
-    doc.text(`Paye: ${data.totalPaid.toLocaleString('fr-FR')} ${data.currency}`, pageWidth - 20, paidY, { align: 'right' });
-    if (!data.isFullyPaid) {
-      doc.setTextColor(...amber);
-      doc.text(`Reste: ${(data.totalAmount - data.totalPaid).toLocaleString('fr-FR')} ${data.currency}`, pageWidth - 20, paidY + 5, { align: 'right' });
-    }
-  }
-  doc.setFont('Helvetica', 'normal');
-
-  // Order items table
-  (doc as any).autoTable({
-    startY: infoEnd + 12,
-    head: [['#', 'Produit', 'Qté', 'Prix unit.', 'Total']],
+  // Main Items Table
+  autoTable(doc, {
+    startY: itemsStartY,
+    margin: { left: 15, right: 15 },
+    head: [['#', 'Désignation', `Prix unitaire (${data.currency})`, 'Quantité', `Montant (${data.currency})`]],
     body: data.items.map((item, index) => [
       index + 1,
       item.name,
+      formatAmount(item.unitPrice),
       item.quantity,
-      `${item.unitPrice.toLocaleString('fr-FR')} ${data.currency}`,
-      `${item.totalPrice.toLocaleString('fr-FR')} ${data.currency}`,
+      formatAmount(item.totalPrice),
     ]),
-    foot: [
-      ['', '', '', 'Sous-total', `${data.items.reduce((s, i) => s + i.totalPrice, 0).toLocaleString('fr-FR')} ${data.currency}`],
-    ],
     theme: 'grid',
-    headStyles: { fillColor: primary as any, textColor: 255, fontStyle: 'bold', fontSize: 9 },
-    footStyles: { fillColor: lightGray as any, textColor: dark as any, fontStyle: 'bold', fontSize: 9 },
-    bodyStyles: { fontSize: 9, textColor: dark as any },
-    alternateRowStyles: { fillColor: lightGray as any },
+    headStyles: {
+      fillColor: [240, 240, 240] as any,
+      textColor: [0, 0, 0] as any,
+      fontStyle: 'bold',
+      fontSize: 8.5,
+      cellPadding: 2.5,
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2.5,
+      textColor: [0, 0, 0] as any,
+    },
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' },
-      2: { halign: 'center' },
-      3: { halign: 'right' },
-      4: { halign: 'right' },
+      1: { halign: 'left' },
+      2: { halign: 'right', cellWidth: 40 },
+      3: { halign: 'center', cellWidth: 20 },
+      4: { halign: 'right', cellWidth: 40 },
     },
-    margin: { left: 20, right: 20 },
+    styles: {
+      lineColor: [200, 200, 200] as any,
+      lineWidth: 0.1,
+    },
   });
 
-  // Payments table
-  const itemsEnd = (doc as any).lastAutoTable.finalY + 8;
+  const itemsEndY = (doc as any).lastAutoTable.finalY || 130;
+  const taxSectionStartY = itemsEndY + 8;
 
-  (doc as any).autoTable({
-    startY: itemsEnd,
-    head: [['Mode de paiement', 'Reference', 'Montant', 'Date']],
-    body: data.payments.map((p) => [
-      methodLabels[p.method] || p.method,
-      p.reference || '-',
-      `${p.amount.toLocaleString('fr-FR')} ${data.currency}`,
-      p.paidAt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }),
-    ]),
-    foot: [
-      ['', '', `Total paye: ${data.totalPaid.toLocaleString('fr-FR')} ${data.currency}`, ''],
+  // Header Ventilation
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text('--- VENTILATION DES IMPOTS ---', 15, taxSectionStartY);
+
+  // Tax Table
+  autoTable(doc, {
+    startY: taxSectionStartY + 2,
+    margin: { left: 15 },
+    tableWidth: 110,
+    head: [['Groupe', 'Total', 'Imposable', 'Impôt']],
+    body: [
+      ['E - TPS', '', formatAmount(data.totalAmount), ''],
     ],
     theme: 'grid',
-    headStyles: { fillColor: primary as any, textColor: 255, fontStyle: 'bold', fontSize: 8 },
-    footStyles: { fillColor: lightGray as any, textColor: dark as any, fontStyle: 'bold', fontSize: 9 },
-    bodyStyles: { fontSize: 8, textColor: dark as any },
-    alternateRowStyles: { fillColor: lightGray as any },
-    columnStyles: {
-      2: { halign: 'right' },
-      3: { halign: 'center' },
+    headStyles: {
+      fillColor: [240, 240, 240] as any,
+      textColor: [0, 0, 0] as any,
+      fontStyle: 'bold',
+      fontSize: 8,
+      cellPadding: 2,
     },
-    margin: { left: 20, right: 20 },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2.5,
+      textColor: [0, 0, 0] as any,
+    },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 25 },
+      1: { halign: 'right', cellWidth: 25 },
+      2: { halign: 'right', cellWidth: 35 },
+      3: { halign: 'right', cellWidth: 25 },
+    },
+    styles: {
+      lineColor: [200, 200, 200] as any,
+      lineWidth: 0.1,
+    },
   });
 
-  // Status
-  const endY = (doc as any).lastAutoTable.finalY + 10;
-  doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(11);
+  const taxEndY = (doc as any).lastAutoTable.finalY || 160;
 
-  if (data.isFullyPaid) {
-    doc.setTextColor(...green);
-    doc.text('FACTURE SOLDEE', pageWidth / 2, endY, { align: 'center' });
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...gray);
-    doc.text('Tous les paiements ont ete recus. Merci de votre confiance !', pageWidth / 2, endY + 6, { align: 'center' });
-  } else if (data.totalPaid > 0) {
-    doc.setTextColor(...amber);
-    doc.text('FACTURE PARTIELLEMENT SOLDEE', pageWidth / 2, endY, { align: 'center' });
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...gray);
-    doc.text(`Reste a payer: ${(data.totalAmount - data.totalPaid).toLocaleString('fr-FR')} ${data.currency}`, pageWidth / 2, endY + 6, { align: 'center' });
-  } else {
-    doc.setTextColor(...amber);
-    doc.text('EN ATTENTE DE PAIEMENT', pageWidth / 2, endY, { align: 'center' });
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...gray);
-    doc.text('Aucun paiement enregistre pour cette commande.', pageWidth / 2, endY + 6, { align: 'center' });
+  // Total Box on the right (aligned with the ventilation table)
+  const totalBoxX = 140;
+  const totalBoxY = taxSectionStartY + 2;
+  const totalBoxW = 55;
+  const totalBoxH = 13;
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.4);
+  doc.rect(totalBoxX, totalBoxY, totalBoxW, totalBoxH);
+  doc.rect(totalBoxX + 0.6, totalBoxY + 0.6, totalBoxW - 1.2, totalBoxH - 1.2);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Total : ${formatAmount(data.totalAmount)} ${data.currency}`, totalBoxX + totalBoxW / 2, totalBoxY + totalBoxH / 2 + 3.5, { align: 'center' });
+
+  // Payment Breakdown Section
+  const paymentSectionStartY = Math.max(taxEndY, totalBoxY + totalBoxH) + 8;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text('--- REPARTITION DES PAIEMENTS ---', 15, paymentSectionStartY);
+
+  const paymentRows = data.payments.map((p) => [
+    methodLabels[p.method] || p.method,
+    formatAmount(p.amount)
+  ]);
+  
+  if (!data.isFullyPaid && (data.totalAmount - data.totalPaid) > 0) {
+    paymentRows.push(['RESTE A PAYER', formatAmount(data.totalAmount - data.totalPaid)]);
   }
 
+  autoTable(doc, {
+    startY: paymentSectionStartY + 2,
+    margin: { left: 15 },
+    tableWidth: 90,
+    head: [['Type de paiement', 'Payé']],
+    body: paymentRows,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [240, 240, 240] as any,
+      textColor: [0, 0, 0] as any,
+      fontStyle: 'bold',
+      fontSize: 8,
+      cellPadding: 2,
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2.5,
+      textColor: [0, 0, 0] as any,
+    },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 50 },
+      1: { halign: 'right', cellWidth: 40 },
+    },
+    styles: {
+      lineColor: [200, 200, 200] as any,
+      lineWidth: 0.1,
+    },
+  });
+
+  const paymentEndY = (doc as any).lastAutoTable.finalY || 190;
+  const sentenceStartY = paymentEndY + 8;
+
+  // Final amount in letters
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.setTextColor(...gray);
-  doc.text('Plawimadd Group - Votre partenaire technologique', pageWidth / 2, 275, { align: 'center' });
-  doc.text('Contact: support@plawimadd.com | Tel: +225 XX XX XX XX', pageWidth / 2, 280, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
+  const phrase = `Arrêté la présente facture à la somme de ${numberToFrenchWords(data.totalAmount)} francs CFA TTC`;
+  const splitPhrase = doc.splitTextToSize(phrase, pageWidth - 30);
+  doc.text(splitPhrase, 15, sentenceStartY);
+
+  // Footer note
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(120, 120, 120);
+  doc.text('Merci de votre confiance.', pageWidth / 2, pageHeight - 12, { align: 'center' });
+  doc.text('Plawimadd Group - Facture de vente en ligne', pageWidth / 2, pageHeight - 8, { align: 'center' });
 
   return doc;
 }

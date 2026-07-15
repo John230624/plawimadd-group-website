@@ -68,6 +68,21 @@ export default function AddressCheckoutModal({
     setMode(userAddresses.length ? 'select' : 'create');
   }, [isOpen, selectedAddressId, userAddresses]);
 
+  useEffect(() => {
+    if (isOpen && mode === 'create') {
+      const userFullName = currentUser
+        ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.name || ''
+        : '';
+      const userPhone = currentUser?.phoneNumber || '';
+
+      setForm((prev) => ({
+        ...prev,
+        fullName: prev.fullName || userFullName,
+        phoneNumber: prev.phoneNumber || userPhone,
+      }));
+    }
+  }, [isOpen, mode, currentUser]);
+
   const selectedAddress = useMemo(
     () => userAddresses.find((address) => address.id === selectedId) || null,
     [selectedId, userAddresses]
@@ -154,11 +169,10 @@ export default function AddressCheckoutModal({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-[980px] overflow-hidden rounded-[2rem] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.18)]">
+      <div className="w-full max-w-[980px] overflow-hidden rounded-lg bg-white shadow-[0_30px_90px_rgba(15,23,42,0.18)]">
         <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5 md:px-8">
           <div>
-            <p className="text-sm text-slate-500">Finalisation de commande</p>
-            <h2 className="mt-1 text-[1.8rem] font-semibold tracking-[-0.04em] text-slate-950">
+            <h2 className="text-[1.8rem] font-semibold tracking-[-0.04em] text-slate-950">
               Adresse de livraison
             </h2>
           </div>
@@ -166,22 +180,22 @@ export default function AddressCheckoutModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr] text-left">
           <div className="border-b border-slate-200 p-6 lg:border-b-0 lg:border-r lg:p-8">
             <div className="mb-5 flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setMode('select')}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
                   mode === 'select'
-                    ? 'bg-[var(--brand-600)] text-white'
-                    : 'bg-slate-100 text-slate-600'
+                    ? 'bg-[#ff6a00] text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 Mes adresses
@@ -189,10 +203,10 @@ export default function AddressCheckoutModal({
               <button
                 type="button"
                 onClick={() => setMode('create')}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
                   mode === 'create'
-                    ? 'bg-[var(--brand-600)] text-white'
-                    : 'bg-slate-100 text-slate-600'
+                    ? 'bg-[#ff6a00] text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 Nouvelle adresse
@@ -200,15 +214,15 @@ export default function AddressCheckoutModal({
             </div>
 
             {mode === 'select' ? (
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                 {loadingAddresses ? (
                   <div className="flex min-h-[220px] items-center justify-center text-slate-500">
                     <Loader2 className="h-5 w-5 animate-spin" />
                   </div>
                 ) : userAddresses.length === 0 ? (
-                  <div className="rounded-[1.5rem] bg-slate-50 p-6 text-sm leading-7 text-slate-500">
-                    Aucune adresse enregistree pour le moment. Vous pouvez en ajouter une
-                    directement dans cette fenetre.
+                  <div className="rounded-lg bg-slate-50 p-6 text-sm leading-7 text-slate-500 border border-slate-100">
+                    Aucune adresse enregistrée pour le moment. Vous pouvez en ajouter une
+                    directement dans cette fenêtre.
                   </div>
                 ) : (
                   userAddresses.map((address) => {
@@ -219,23 +233,23 @@ export default function AddressCheckoutModal({
                         key={address.id}
                         type="button"
                         onClick={() => setSelectedId(address.id ?? null)}
-                        className={`w-full rounded-[1.5rem] border p-5 text-left transition ${
+                        className={`w-full rounded-lg border p-5 text-left transition ${
                           isSelected
-                            ? 'border-[var(--brand-300)] bg-[rgba(191,219,254,0.12)] shadow-[0_10px_24px_rgba(96,165,250,0.08)]'
+                            ? 'border-[#ff6a00] bg-orange-50/20 shadow-sm'
                             : 'border-slate-200 bg-white'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex items-start gap-3">
-                            <div className="mt-0.5 rounded-full bg-[var(--brand-50)] p-2 text-[var(--brand-700)]">
+                            <div className="mt-0.5 rounded-lg bg-orange-50 p-2 text-[#ff6a00]">
                               <MapPin className="h-4 w-4" />
                             </div>
                             <div>
-                              <p className="text-base font-semibold text-slate-950">
+                              <p className="text-sm font-bold text-slate-900">
                                 {address.fullName}
                               </p>
-                              <p className="mt-1 text-sm text-slate-500">{address.phoneNumber}</p>
-                              <p className="mt-2 text-sm leading-7 text-slate-600">
+                              <p className="mt-1 text-xs text-slate-500 font-semibold">{address.phoneNumber}</p>
+                              <p className="mt-2 text-xs leading-5 text-slate-650 font-medium">
                                 {address.area}, {address.city}, {address.state}
                                 {address.country ? `, ${address.country}` : ''}
                               </p>
@@ -243,8 +257,8 @@ export default function AddressCheckoutModal({
                           </div>
 
                           {address.isDefault ? (
-                            <span className="rounded-full bg-[var(--brand-50)] px-3 py-1 text-xs font-medium text-[var(--brand-700)]">
-                              Par defaut
+                            <span className="rounded-md bg-orange-50 px-2.5 py-1 text-[10px] font-bold text-[#ff6a00] uppercase tracking-wide">
+                              Par défaut
                             </span>
                           ) : null}
                         </div>
@@ -260,7 +274,7 @@ export default function AddressCheckoutModal({
                   value={form.fullName}
                   onChange={(event) => setForm((prev) => ({ ...prev, fullName: event.target.value }))}
                   placeholder="Nom complet"
-                  className="rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[var(--brand-300)] md:col-span-2"
+                  className="rounded-lg border border-slate-200 px-4 py-3 text-xs outline-none focus:border-[#ff6a00] md:col-span-2 transition"
                 />
                 <input
                   type="tel"
@@ -268,90 +282,90 @@ export default function AddressCheckoutModal({
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, phoneNumber: event.target.value }))
                   }
-                  placeholder="Telephone"
-                  className="rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[var(--brand-300)]"
+                  placeholder="Téléphone"
+                  className="rounded-lg border border-slate-200 px-4 py-3 text-xs outline-none focus:border-[#ff6a00] transition"
                 />
                 <input
                   type="text"
                   value={form.pincode}
                   onChange={(event) => setForm((prev) => ({ ...prev, pincode: event.target.value }))}
                   placeholder="Code postal"
-                  className="rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[var(--brand-300)]"
+                  className="rounded-lg border border-slate-200 px-4 py-3 text-xs outline-none focus:border-[#ff6a00] transition"
                 />
                 <textarea
                   value={form.area}
                   onChange={(event) => setForm((prev) => ({ ...prev, area: event.target.value }))}
-                  placeholder="Adresse detaillee"
-                  rows={4}
-                  className="rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[var(--brand-300)] md:col-span-2"
+                  placeholder="Adresse détaillée"
+                  rows={3}
+                  className="rounded-lg border border-slate-200 px-4 py-3 text-xs outline-none focus:border-[#ff6a00] md:col-span-2 transition"
                 />
                 <input
                   type="text"
                   value={form.street}
                   onChange={(event) => setForm((prev) => ({ ...prev, street: event.target.value }))}
                   placeholder="Rue"
-                  className="rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[var(--brand-300)] md:col-span-2"
+                  className="rounded-lg border border-slate-200 px-4 py-3 text-xs outline-none focus:border-[#ff6a00] md:col-span-2 transition"
                 />
                 <input
                   type="text"
                   value={form.city}
                   onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
                   placeholder="Ville"
-                  className="rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[var(--brand-300)]"
+                  className="rounded-lg border border-slate-200 px-4 py-3 text-xs outline-none focus:border-[#ff6a00] transition"
                 />
                 <input
                   type="text"
                   value={form.state}
                   onChange={(event) => setForm((prev) => ({ ...prev, state: event.target.value }))}
-                  placeholder="Region"
-                  className="rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[var(--brand-300)]"
+                  placeholder="Région"
+                  className="rounded-lg border border-slate-200 px-4 py-3 text-xs outline-none focus:border-[#ff6a00] transition"
                 />
                 <input
                   type="text"
                   value={form.country}
                   onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))}
                   placeholder="Pays"
-                  className="rounded-[1rem] border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[var(--brand-300)] md:col-span-2"
+                  className="rounded-lg border border-slate-200 px-4 py-3 text-xs outline-none focus:border-[#ff6a00] md:col-span-2 transition"
                 />
               </div>
             )}
           </div>
 
-          <div className="bg-[var(--brand-50)] p-6 lg:p-8">
-            <div className="rounded-[1.6rem] bg-white p-6 shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
-              <p className="text-sm text-slate-500">Etape checkout</p>
-              <h3 className="mt-2 text-[1.35rem] font-semibold text-slate-950">
+          <div className="bg-slate-50 p-6 lg:p-8">
+            <div className="rounded-lg bg-white p-6 shadow-none border border-transparent">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Étape checkout</p>
+              <h3 className="mt-1 text-sm font-extrabold text-slate-900 uppercase tracking-wide">
                 Livraison
               </h3>
-              <p className="mt-3 text-sm leading-7 text-slate-600">
+              <p className="mt-2 text-xs leading-5 text-slate-500 font-medium">
                 Choisissez une adresse existante ou ajoutez-en une nouvelle sans quitter votre
                 panier. C’est plus fluide et plus professionnel pour le parcours d’achat.
               </p>
 
-              <div className="mt-6 rounded-[1.3rem] border border-dashed border-[var(--brand-200)] bg-[rgba(191,219,254,0.10)] p-5">
-                <p className="text-sm font-medium text-slate-700">Adresse selectionnee</p>
+              <div className="mt-5 rounded-lg border border-dashed border-slate-250 bg-slate-50 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-800">Adresse sélectionnée</p>
                 {selectedAddress ? (
-                  <div className="mt-3 text-sm leading-7 text-slate-600">
-                    <p className="font-semibold text-slate-900">{selectedAddress.fullName}</p>
-                    <p>{selectedAddress.phoneNumber}</p>
-                    <p>
+                  <div className="mt-2 text-xs leading-5 text-slate-600">
+                    <p className="font-bold text-slate-900">{selectedAddress.fullName}</p>
+                    <p className="font-semibold">{selectedAddress.phoneNumber}</p>
+                    <p className="font-medium text-slate-500">
                       {selectedAddress.area}, {selectedAddress.city}, {selectedAddress.state}
                     </p>
                   </div>
                 ) : (
-                  <p className="mt-3 text-sm leading-7 text-slate-500">
-                    Aucune adresse encore selectionnee.
+                  <p className="mt-2 text-xs leading-5 text-slate-400 italic font-medium">
+                    Aucune adresse encore sélectionnée.
                   </p>
                 )}
               </div>
 
-              <div className="mt-6 space-y-3">
+              <div className="mt-6 space-y-2.5">
                 {mode === 'select' ? (
                   <button
                     type="button"
                     onClick={useSelectedAddress}
                     disabled={!selectedAddress || isSaving}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--brand-600)] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-700)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#ff6a00] hover:bg-[#e25c00] px-6 py-3.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     {selectActionLabel}
@@ -361,7 +375,7 @@ export default function AddressCheckoutModal({
                     type="button"
                     onClick={saveNewAddress}
                     disabled={isSaving}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--brand-600)] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-700)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#ff6a00] hover:bg-[#e25c00] px-6 py-3.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                     {createActionLabel}
@@ -371,7 +385,7 @@ export default function AddressCheckoutModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="inline-flex w-full items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                 >
                   Fermer
                 </button>
@@ -379,10 +393,10 @@ export default function AddressCheckoutModal({
 
               <button
                 type="button"
-                onClick={() => window.location.assign('/add-address')}
-                className="mt-4 text-sm font-medium text-[var(--brand-700)] underline underline-offset-4"
+                onClick={() => window.location.assign('/addresses')}
+                className="mt-4 text-xs font-bold text-[#ff6a00] hover:text-[#e25c00] transition underline underline-offset-4 block w-full text-center"
               >
-                Ouvrir la page complete de gestion des adresses
+                Ouvrir la page complète de gestion des adresses
               </button>
             </div>
           </div>

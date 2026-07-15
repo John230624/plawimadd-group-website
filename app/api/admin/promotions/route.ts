@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { Prisma } from '@prisma/client';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeAdminRequest(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'promotions.view');
   if (!authResult.authorized) return authResult.response!;
 
   try {
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeAdminRequest(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'promotions.create');
   if (!authResult.authorized) return authResult.response!;
 
   try {

@@ -2,85 +2,158 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  DollarSign,
-  Globe,
+  User,
+  Lock,
+  Trash2,
+  Save,
+  Key,
+  AlertTriangle,
   Mail,
   Phone,
-  Save,
-  Settings,
-  Truck,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { signOut } from 'next-auth/react';
 
 import Loading from '@/components/Loading';
 import SellerButton from '@/components/seller/SellerButton';
 import SellerInput from '@/components/seller/SellerInput';
 import SellerSectionHeader from '@/components/seller/SellerSectionHeader';
-import SellerSelect from '@/components/seller/SellerSelect';
-import SellerTextarea from '@/components/seller/SellerTextarea';
 
-interface ShopSettings {
-  siteName: string;
-  siteDescription: string;
-  contactEmail: string;
-  contactPhone: string;
-  deliveryFee: number;
-  freeShippingMin: number;
-  currency: string;
-  facebook: string;
-  instagram: string;
-  twitter: string;
-  whatsapp: string;
+interface UserProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
 }
 
-const defaultSettings: ShopSettings = {
-  siteName: '',
-  siteDescription: '',
-  contactEmail: '',
-  contactPhone: '',
-  deliveryFee: 0,
-  freeShippingMin: 0,
-  currency: 'XOF',
-  facebook: '',
-  instagram: '',
-  twitter: '',
-  whatsapp: '',
-};
-
 export default function SettingsPage(): React.ReactElement {
-  const [form, setForm] = useState<ShopSettings>(defaultSettings);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [profile, setProfile] = useState<UserProfile>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneNumber: '',
+  });
 
-  const fetchSettings = useCallback(async () => {
+  // Password state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/settings');
+      const res = await fetch('/api/user/profile');
       const data = await res.json();
-      setForm({ ...defaultSettings, ...data });
+      if (data.success && data.user) {
+        setProfile({
+          firstName: data.user.firstName || '',
+          lastName: data.user.lastName || '',
+          email: data.user.email || '',
+          phoneNumber: data.user.phoneNumber || '',
+        });
+      } else {
+        toast.error(data.message || 'Impossible de charger le profil.');
+      }
     } catch {
-      toast.error('Impossible de charger les paramètres.');
+      toast.error('Impossible de charger le profil.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchSettings(); }, [fetchSettings]);
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
-  const handleSave = async () => {
-    setSaving(true);
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaving(true);
     try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          phoneNumber: profile.phoneNumber || null,
+        }),
       });
-      if (!res.ok) throw new Error('Erreur');
-      toast.success('Paramètres enregistrés.');
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success('Profil mis à jour avec succès.');
+      } else {
+        toast.error(data.message || 'Erreur lors de la mise à jour du profil.');
+      }
     } catch {
-      toast.error('Erreur lors de la sauvegarde.');
+      toast.error('Erreur lors de la mise à jour du profil.');
     } finally {
-      setSaving(false);
+      setProfileSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error('Le nouveau mot de passe et sa confirmation ne correspondent pas.');
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success('Mot de passe modifié avec succès.');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        toast.error(data.message || 'Erreur lors du changement de mot de passe.');
+      }
+    } catch {
+      toast.error('Erreur lors du changement de mot de passe.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'SUPPRIMER') {
+      toast.error("Veuillez saisir 'SUPPRIMER' pour confirmer la suppression.");
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || 'Compte supprimé avec succès.');
+        // Sign out user and redirect to home page
+        signOut({ callbackUrl: '/' });
+      } else {
+        toast.error(data.message || 'Erreur lors de la suppression du compte.');
+        setDeleting(false);
+      }
+    } catch {
+      toast.error('Erreur de connexion lors de la suppression du compte.');
+      setDeleting(false);
     }
   };
 
@@ -93,145 +166,161 @@ export default function SettingsPage(): React.ReactElement {
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-8">
-      <SellerSectionHeader title="Paramètres boutique" />
+    <div className="flex min-h-full flex-col gap-8 max-w-4xl mx-auto pb-12">
+      <SellerSectionHeader title="Paramètres personnels" />
 
-      <div className="flex flex-col gap-6">
-        {/* Général */}
-        <div className="rounded-[10px] bg-[var(--bg-outer)] p-6">
-          <div className="mb-4 flex items-center gap-3">
-            <Settings className="h-5 w-5 text-[var(--accent-blue)]" />
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Général</h2>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <SellerInput
-              label="Nom du site"
-              value={form.siteName}
-              onChange={(e) => setForm({ ...form, siteName: e.target.value })}
-              placeholder="Mon e-commerce"
-            />
-          </div>
-          <div className="mt-4">
-            <SellerTextarea
-              label="Description du site"
-              rows={3}
-              value={form.siteDescription}
-              onChange={(e) => setForm({ ...form, siteDescription: e.target.value })}
-              placeholder="Description courte du site..."
-            />
-          </div>
+      {/* Profile Form */}
+      <form onSubmit={handleUpdateProfile} className="rounded-xl bg-[var(--bg-outer)] border border-[var(--border)] p-6 shadow-sm">
+        <div className="mb-6 flex items-center gap-3">
+          <User className="h-5 w-5 text-[var(--accent-blue)]" />
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Informations de profil</h2>
         </div>
-
-        {/* Contact */}
-        <div className="rounded-[10px] bg-[var(--bg-outer)] p-6">
-          <div className="mb-4 flex items-center gap-3">
-            <Mail className="h-5 w-5 text-[var(--accent-green)]" />
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Contact</h2>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <SellerInput
-              label="Email de contact"
-              type="email"
-              value={form.contactEmail}
-              onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
-              placeholder="contact@example.com"
-              icon={Mail}
-            />
-            <SellerInput
-              label="Téléphone"
-              type="tel"
-              value={form.contactPhone}
-              onChange={(e) => setForm({ ...form, contactPhone: e.target.value })}
-              placeholder="+225 00 00 00 00"
-              icon={Phone}
-            />
-          </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          <SellerInput
+            label="Prénom"
+            value={profile.firstName}
+            onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
+            placeholder="Jean"
+            required
+          />
+          <SellerInput
+            label="Nom"
+            value={profile.lastName}
+            onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
+            placeholder="Kintossou"
+            required
+          />
+          <SellerInput
+            label="Adresse Email (non modifiable)"
+            type="email"
+            value={profile.email}
+            disabled
+            icon={Mail}
+            className="opacity-60 cursor-not-allowed"
+          />
+          <SellerInput
+            label="Numéro de Téléphone"
+            type="tel"
+            value={profile.phoneNumber}
+            onChange={(e) => setProfile({ ...profile, phoneNumber: e.target.value })}
+            placeholder="+229 97 91 80 00"
+            icon={Phone}
+          />
         </div>
-
-        {/* Livraison */}
-        <div className="rounded-[10px] bg-[var(--bg-outer)] p-6">
-          <div className="mb-4 flex items-center gap-3">
-            <Truck className="h-5 w-5 text-amber-400" />
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Livraison</h2>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <SellerInput
-              label="Frais de livraison"
-              type="number"
-              value={String(form.deliveryFee)}
-              onChange={(e) => setForm({ ...form, deliveryFee: Number(e.target.value) })}
-              icon={DollarSign}
-            />
-            <SellerInput
-              label="Livraison gratuite à partir de"
-              type="number"
-              value={String(form.freeShippingMin)}
-              onChange={(e) => setForm({ ...form, freeShippingMin: Number(e.target.value) })}
-              icon={Truck}
-            />
-          </div>
+        <div className="mt-6 flex justify-end">
+          <SellerButton type="submit" icon={Save} disabled={profileSaving}>
+            {profileSaving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+          </SellerButton>
         </div>
+      </form>
 
-        {/* Devise */}
-        <div className="rounded-[10px] bg-[var(--bg-outer)] p-6">
-          <div className="mb-4 flex items-center gap-3">
-            <Globe className="h-5 w-5 text-[var(--accent-blue)]" />
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Devise</h2>
-          </div>
-          <div className="max-w-xs">
-            <SellerSelect
-              value={form.currency}
-              onChange={(v) => setForm({ ...form, currency: v })}
-              options={[
-                { value: 'XOF', label: 'XOF (Franc CFA)' },
-                { value: 'EUR', label: 'EUR (Euro)' },
-                { value: 'USD', label: 'USD (Dollar US)' },
-              ]}
-            />
-          </div>
+      {/* Password Change Form */}
+      <form onSubmit={handleChangePassword} className="rounded-xl bg-[var(--bg-outer)] border border-[var(--border)] p-6 shadow-sm">
+        <div className="mb-6 flex items-center gap-3">
+          <Lock className="h-5 w-5 text-amber-500" />
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Modifier le mot de passe</h2>
         </div>
-
-        {/* Réseaux sociaux */}
-        <div className="rounded-[10px] bg-[var(--bg-outer)] p-6">
-          <div className="mb-4 flex items-center gap-3">
-            <Globe className="h-5 w-5 text-[var(--accent-green)]" />
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Réseaux sociaux</h2>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <SellerInput
-              label="Facebook"
-              value={form.facebook}
-              onChange={(e) => setForm({ ...form, facebook: e.target.value })}
-              placeholder="https://facebook.com/..."
-            />
-            <SellerInput
-              label="Instagram"
-              value={form.instagram}
-              onChange={(e) => setForm({ ...form, instagram: e.target.value })}
-              placeholder="https://instagram.com/..."
-            />
-            <SellerInput
-              label="Twitter"
-              value={form.twitter}
-              onChange={(e) => setForm({ ...form, twitter: e.target.value })}
-              placeholder="https://twitter.com/..."
-            />
-            <SellerInput
-              label="WhatsApp"
-              value={form.whatsapp}
-              onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-              placeholder="+225 00 00 00 00"
-            />
-          </div>
+        <div className="grid gap-6 md:grid-cols-3">
+          <SellerInput
+            label="Mot de passe actuel"
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+          />
+          <SellerInput
+            label="Nouveau mot de passe"
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+          />
+          <SellerInput
+            label="Confirmer le nouveau mot de passe"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+          />
         </div>
+        <div className="mt-6 flex justify-end">
+          <SellerButton type="submit" icon={Key} disabled={passwordSaving} variant="outline">
+            {passwordSaving ? 'Modification...' : 'Modifier le mot de passe'}
+          </SellerButton>
+        </div>
+      </form>
 
-        {/* Save */}
-        <div className="flex justify-end">
-          <SellerButton icon={Save} disabled={saving} onClick={handleSave}>
-            {saving ? 'Enregistrement...' : 'Enregistrer les paramètres'}
+      {/* Danger Zone */}
+      <div className="rounded-xl bg-[var(--bg-outer)] border border-red-200 dark:border-red-900/30 p-6 shadow-sm">
+        <div className="mb-6 flex items-center gap-3 text-red-500">
+          <AlertTriangle className="h-5 w-5" />
+          <h2 className="text-lg font-semibold">Zone de danger</h2>
+        </div>
+        <p className="text-sm text-[var(--text-secondary)] mb-6">
+          Une fois que vous supprimez votre compte, cette action est irréversible. Vos données personnelles seront effacées, et toutes vos sessions de vente ou historiques seront anonymisés pour préserver les registres de transactions obligatoires de l'entreprise.
+        </p>
+        <div className="flex justify-start">
+          <SellerButton
+            type="button"
+            variant="danger"
+            icon={Trash2}
+            onClick={() => setShowDeleteModal(true)}
+          >
+            Supprimer mon compte
           </SellerButton>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300">
+          <div className="w-full max-w-md bg-[var(--bg-outer)] border border-[var(--border)] rounded-xl p-6 shadow-xl relative overflow-hidden">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center text-red-600">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Confirmation de suppression</h3>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Voulez-vous vraiment supprimer votre compte ? Cette action est définitive.
+              </p>
+              <div className="w-full mt-2 text-left bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-lg p-3">
+                <p className="text-xs text-red-800 dark:text-red-300">
+                  Pour confirmer la suppression de votre compte, veuillez saisir le mot <strong>SUPPRIMER</strong> dans le champ ci-dessous.
+                </p>
+              </div>
+              <input
+                type="text"
+                placeholder="Saisissez SUPPRIMER"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-inner)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-red-500 mt-2 text-center font-bold tracking-wider"
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <SellerButton
+                variant="outline"
+                disabled={deleting}
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteConfirmText('');
+                }}
+              >
+                Annuler
+              </SellerButton>
+              <SellerButton
+                variant="danger"
+                disabled={deleting || deleteConfirmText !== 'SUPPRIMER'}
+                onClick={handleDeleteAccount}
+              >
+                {deleting ? 'Suppression...' : 'Confirmer la suppression'}
+              </SellerButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

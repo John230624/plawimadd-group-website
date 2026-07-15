@@ -60,11 +60,17 @@ const AddAddress = (): React.ReactElement => {
         } else if (status === 'unauthenticated') {
             setCurrentUser(null);
         }
-        // Préremplir le nom complet si disponible dans la session
-        if (session?.user?.name && !address.fullName) {
-            setAddress(prev => ({ ...prev, fullName: session.user.name || '' }));
+        // Préremplir le nom complet et le téléphone si disponibles
+        if (session?.user) {
+            const userFullName = `${(session.user as any).firstName || ''} ${(session.user as any).lastName || ''}`.trim() || session.user.name || '';
+            const userPhone = (session.user as any).phoneNumber || '';
+            setAddress(prev => ({
+                ...prev,
+                fullName: prev.fullName || userFullName,
+                phoneNumber: prev.phoneNumber || userPhone,
+            }));
         }
-    }, [session, status, setCurrentUser, address.fullName]);
+    }, [session, status, setCurrentUser]);
 
     function onChangeHandler(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
         const { name, value } = e.target;

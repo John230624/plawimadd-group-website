@@ -1,7 +1,7 @@
 // app/api/admin/order-status/[orderId]/route.ts
+// app/api/admin/order-status/[orderId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/authOptions';
+import { authorizeByPermission } from '@/lib/authUtils';
 import prisma from '@/lib/prisma';
 import { logActivity } from '@/lib/logActivity';
 import { OrderStatus } from '@prisma/client';
@@ -14,13 +14,10 @@ interface Context {
 
 // ✅ GET une commande par ID
 export async function GET(request: NextRequest, context: Context) {
-  const session = await getServerSession(authOptions);
+  const authResult = await authorizeByPermission(request, 'orders.view');
+  if (!authResult.authorized) return authResult.response!;
 
-  if (!session || session.user.role !== 'ADMIN') {
-    return NextResponse.json({ message: 'Non autorisé' }, { status: 401 });
-  }
-
-    const { orderId } = await context.params;
+  const { orderId } = await context.params;
 
   try {
     const order = await prisma.order.findUnique({
@@ -40,13 +37,10 @@ export async function GET(request: NextRequest, context: Context) {
 
 // ✅ PUT pour mettre à jour le statut
 export async function PUT(request: NextRequest, context: Context) {
-  const session = await getServerSession(authOptions);
+  const authResult = await authorizeByPermission(request, 'orders.update-status');
+  if (!authResult.authorized) return authResult.response!;
 
-  if (!session || session.user.role !== 'ADMIN') {
-    return NextResponse.json({ message: 'Non autorisé' }, { status: 401 });
-  }
-
-    const { orderId } = await context.params;
+  const { orderId } = await context.params;
 
   let body: { status?: string };
   try {
@@ -70,7 +64,7 @@ export async function PUT(request: NextRequest, context: Context) {
     });
 
     await logActivity({
-      userId: session.user.id,
+      userId: authResult.userId,
       action: 'UPDATE',
       entity: 'ORDER',
       entityId: orderId,
@@ -86,21 +80,24 @@ export async function PUT(request: NextRequest, context: Context) {
 
 // ✅ DELETE une commande (optionnel selon ton business)
 export async function DELETE(request: NextRequest, context: Context) {
-  const session = await getServerSession(authOptions);
+  const authResult = await authorizeByPermission(request, 'orders.delete');
+  if (!authResult.authorized) return authResult.response!;
 
-  if (!session || session.user.role !== 'ADMIN') {
-    return NextResponse.json({ message: 'Non autorisé' }, { status: 401 });
-  }
-
-    const { orderId } = await context.params;
+  const { orderId } = await context.params;
 
   try {
-    await prisma.order.delete({
-      where: { id: orderId },
-    });
+    // Utiliser une transaction pour s'assurer que les articles de commande sont supprimés avant la commande elle-même
+    await prisma.$transaction([
+      prisma.orderItem.deleteMany({
+        where: { orderId: orderId },
+      }),
+      prisma.order.delete({
+        where: { id: orderId },
+      }),
+    ]);
 
     await logActivity({
-      userId: session.user.id,
+      userId: authResult.userId,
       action: 'DELETE',
       entity: 'ORDER',
       entityId: orderId,

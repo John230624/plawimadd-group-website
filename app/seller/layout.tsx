@@ -13,14 +13,20 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps): React.ReactElement {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   useEffect(() => {
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') {
+      router.replace('/login');
+      return;
+    }
+
     if (!session) return;
     if (session.user?.role !== 'ADMIN' && session.user?.role !== 'SELLER') {
       router.replace('/login');
     }
-  }, [session, router]);
+  }, [session, status, router]);
 
   return (
     <div className="dark-theme min-h-screen bg-[var(--bg-outer)]">

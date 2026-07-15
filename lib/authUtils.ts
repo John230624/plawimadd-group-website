@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { User } from '@/lib/types';
+import { hasPermission } from '@/lib/authorize';
 
 // Déclaration de module pour étendre l'interface Request de Next.js si nécessaire
 // Cela permet d'attacher l'objet 'user' à la requête après autorisation.
@@ -27,7 +28,7 @@ export interface AuthResult {
     authorized: boolean;
     response?: NextResponse; // Optionnel : une réponse HTTP à retourner si l'autorisation échoue
     userId?: string;         // L'ID de l'utilisateur autorisé (si autorisé)
-    userRole?: 'USER' | 'ADMIN'; // Le rôle de l'utilisateur (si autorisé)
+    userRole?: 'USER' | 'ADMIN' | 'SELLER'; // Le rôle de l'utilisateur (si autorisé)
 }
 
 /**
@@ -59,7 +60,7 @@ export async function authorizeUser(req: NextRequest, context: Context): Promise
     if (session.user.id === userIdFromParams || session.user.role === 'ADMIN') {
         console.log("Autorisation réussie via la session NextAuth.");
         req.user = session.user as User;
-        return { authorized: true, userId: session.user.id, userRole: session.user.role as 'USER' | 'ADMIN' };
+        return { authorized: true, userId: session.user.id, userRole: session.user.role as 'USER' | 'ADMIN' | 'SELLER' };
     }
 
     console.warn(`Utilisateur ${session.user.id} non autorisé pour la ressource ${userIdFromParams}.`);
@@ -110,9 +111,41 @@ export async function authorizeLoggedInUser(req: NextRequest): Promise<AuthResul
     if (session?.user?.id) {
         console.log("Autorisation réussie via la session NextAuth pour l'utilisateur connecté.");
         req.user = session.user as User;
-        return { authorized: true, userId: session.user.id, userRole: session.user.role === 'ADMIN' ? 'ADMIN' : 'USER' };
+        return {
+            authorized: true,
+            userId: session.user.id,
+            userRole: session.user.role === 'ADMIN' ? 'ADMIN' : session.user.role === 'SELLER' ? 'SELLER' : 'USER',
+        };
     }
 
     console.warn("Accès non authentifié: Aucun utilisateur connecté détecté.");
     return { authorized: false, response: NextResponse.json({ message: 'Non authentifié. Veuillez vous connecter.' }, { status: 401 }) };
+}
+
+/**
+ * Vérifie que l'utilisateur est connecté ET possède une permission spécifique.
+ * Si l'utilisateur a le rôle ADMIN (legacy), il a automatiquement toutes les permissions.
+ *
+ * @param req La requête NextRequest.
+ * @param permissionSlug Le slug de la permission à vérifier (ex: "reports.view").
+ * @returns Un objet AuthResult.
+ */
+export async function authorizeByPermission(req: NextRequest, permissionSlug: string): Promise<AuthResult> {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    return { authorized: false, response: NextResponse.json({ message: 'Non authentifié.' }, { status: 401 }) };
+  }
+
+  const permitted = await hasPermission(session.user.id, permissionSlug);
+  if (!permitted) {
+    return {
+      authorized: false,
+      response: NextResponse.json({ message: 'Accès interdit. Permission requise : ' + permissionSlug }, { status: 403 }),
+    };
+  }
+
+  req.user = session.user as User;
+  const role = session.user.role === 'ADMIN' ? 'ADMIN' : session.user.role === 'SELLER' ? 'SELLER' : 'USER';
+  return { authorized: true, userId: session.user.id, userRole: role };
 }

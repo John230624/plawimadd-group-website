@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { generateOrderInvoicePDF } from '@/lib/invoice-order';
+import { hasPermission } from '@/lib/authorize';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
@@ -17,10 +18,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, message: 'orderId requis.' }, { status: 400 });
     }
 
-    const isAdmin = session.user.role === 'ADMIN';
+    const canViewOrders = await hasPermission(session.user.id, 'orders.view');
 
     const order = await prisma.order.findFirst({
-      where: isAdmin ? { id: orderId } : { id: orderId, userId: session.user.id },
+      where: canViewOrders ? { id: orderId } : { id: orderId, userId: session.user.id },
       include: {
         orderItems: {
           include: { product: { select: { name: true } } },
@@ -64,11 +65,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       invoiceNumber: `FACT-${order.id.slice(0, 8).toUpperCase()}`,
       orderId: order.id,
       orderDate: order.createdAt,
-      customerName: order.user.firstName && order.user.lastName
+      customerName: order.user?.firstName && order.user?.lastName
         ? `${order.user.firstName} ${order.user.lastName}`
         : order.userEmail,
       customerEmail: order.userEmail,
-      customerPhone: order.userPhoneNumber || order.user.phoneNumber,
+      customerPhone: order.userPhoneNumber || order.user?.phoneNumber,
       shippingAddress: shippingParts.length > 0 ? shippingParts.join(', ') : null,
       items: order.orderItems.map((item) => ({
         name: item.product.name,

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authorizeAdminRequest } from '@/lib/authUtils';
+import { authorizeByPermission } from '@/lib/authUtils';
 import prisma from '@/lib/prisma';
 import { logActivity } from '@/lib/logActivity';
 import { orderStatusSchema } from '@/lib/validation';
 import { ZodError } from 'zod';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const auth = await authorizeAdminRequest(request);
+  const auth = await authorizeByPermission(request, 'orders.update-status');
   if (!auth.authorized) {
     return auth.response!;
   }

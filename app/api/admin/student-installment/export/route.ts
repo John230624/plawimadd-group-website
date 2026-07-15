@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest } from '@/lib/authUtils';
+import { authorizeByPermission } from '@/lib/authUtils';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const authResult = await authorizeAdminRequest(req);
+  const authResult = await authorizeByPermission(req, 'students.view');
   if (!authResult.authorized) return authResult.response!;
 
   try {

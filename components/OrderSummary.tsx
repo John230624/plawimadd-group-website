@@ -324,7 +324,7 @@ const OrderSummary = () => {
                 if (typeof window.openKkiapayWidget === 'function') {
                     console.log("[Kkiapay Widget] openKkiapayWidget() est ENFIN disponible. Ouverture du widget !");
                     
-                    // ✅ CONFIGURATION LIVE UNIQUEMENT
+                    const isSandboxMode = process.env.NEXT_PUBLIC_KKIAPAY_SANDBOX === 'true';
                     window.openKkiapayWidget({
                         amount: totalAmountToPay,
                         api_key: KKIAPAY_PUBLIC_API_KEY as string,
@@ -332,10 +332,10 @@ const OrderSummary = () => {
                         email: currentUser?.email ?? '',
                         phone: selectedAddress?.phoneNumber ?? '',
                         position: "center",
-                        sandbox: false, // 🔥 TOUJOURS FALSE EN LIVE
+                        sandbox: isSandboxMode,
                     });
 
-                    console.log(`[Kkiapay Widget] Widget ouvert en mode: LIVE`);
+                    console.log(`[Kkiapay Widget] Widget ouvert en mode: ${isSandboxMode ? 'SANDBOX' : 'LIVE'}`);
 
                     // --- LISTENERS DE SUCCÈS ET D'ÉCHEC DU WIDGET KKIAPAY ---
                     if (typeof window.addSuccessListener === 'function') {

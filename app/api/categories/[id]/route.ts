@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 
 interface Context {
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest, context: Context): Promise<NextRespo
 
 // PUT: Mettre à jour une catégorie par son ID (Requiert le rôle ADMIN)
 export async function PUT(req: NextRequest, context: Context): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req); // MODIFICATION : Passe 'req'
+    const authResult: AuthResult = await authorizeByPermission(req, 'categories.edit');
     if (!authResult.authorized) return authResult.response!;
 
     const { id } = await context.params;
@@ -116,7 +116,7 @@ export async function PUT(req: NextRequest, context: Context): Promise<NextRespo
 
 // DELETE: Supprimer une catégorie par son ID (Requiert le rôle ADMIN)
 export async function DELETE(req: NextRequest, context: Context): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req); // MODIFICATION : Passe 'req'
+    const authResult: AuthResult = await authorizeByPermission(req, 'categories.delete');
     if (!authResult.authorized) return authResult.response!;
 
     const { id } = await context.params;

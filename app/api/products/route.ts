@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { productSchema } from '@/lib/validation';
 import { ZodError } from 'zod';
@@ -193,7 +193,7 @@ function parseImgUrl(imgUrlString: string | null): string[] {
 
 // --- POST (Créer un nouveau produit) ---
 export async function POST(req: NextRequest): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req);
+    const authResult: AuthResult = await authorizeByPermission(req, 'products.create');
     if (!authResult.authorized) {
         return authResult.response!;
     }

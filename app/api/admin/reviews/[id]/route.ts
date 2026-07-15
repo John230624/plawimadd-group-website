@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeAdminRequest(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'reviews.reply');
   if (!authResult.authorized) return authResult.response!;
 
   const { id } = await params;

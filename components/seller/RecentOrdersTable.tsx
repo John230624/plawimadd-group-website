@@ -2,201 +2,44 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ShoppingCart } from 'lucide-react';
+import { useAppContext } from '@/context/AppContext';
 
-interface OrderItem {
-  id: string;
-  productName: string;
-  variants: number;
-  image: string;
-  price: number;
-  category: string;
-  status: 'delivered' | 'pending' | 'canceled';
+export interface RecentOrder {
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  totalAmount: number;
+  orderStatus?: string;
+  paymentStatus: string;
+  orderDate: string;
+  paymentMethod?: string | null;
 }
 
 interface RecentOrdersTableProps {
-  orders?: OrderItem[];
-  period?: 'week' | 'month' | 'year';
+  orders?: RecentOrder[];
 }
 
-const weekOrders: OrderItem[] = [
-  {
-    id: 'w1',
-    productName: 'MacBook Air M3',
-    variants: 1,
-    image: '🖥️',
-    price: 1299.00,
-    category: 'Laptop',
-    status: 'delivered',
-  },
-  {
-    id: 'w2',
-    productName: 'AirPods Pro',
-    variants: 1,
-    image: '🎧',
-    price: 249.00,
-    category: 'Accessories',
-    status: 'pending',
-  },
-  {
-    id: 'w3',
-    productName: 'iPhone 15',
-    variants: 1,
-    image: '📱',
-    price: 999.00,
-    category: 'SmartPhone',
-    status: 'delivered',
-  },
-];
-
-const monthOrders: OrderItem[] = [
-  {
-    id: 'm1',
-    productName: 'MacBook Pro 13"',
-    variants: 2,
-    image: '🖥️',
-    price: 2399.00,
-    category: 'Laptop',
-    status: 'delivered',
-  },
-  {
-    id: 'm2',
-    productName: 'Apple Watch Ultra',
-    variants: 1,
-    image: '⌚',
-    price: 879.00,
-    category: 'Watch',
-    status: 'pending',
-  },
-  {
-    id: 'm3',
-    productName: 'iPhone 15 Pro Max',
-    variants: 2,
-    image: '📱',
-    price: 1869.00,
-    category: 'SmartPhone',
-    status: 'delivered',
-  },
-  {
-    id: 'm4',
-    productName: 'iPad Pro 3rd Gen',
-    variants: 2,
-    image: '📱',
-    price: 1699.00,
-    category: 'Electronics',
-    status: 'canceled',
-  },
-  {
-    id: 'm5',
-    productName: 'AirPods Pro 2nd Gen',
-    variants: 1,
-    image: '🎧',
-    price: 240.00,
-    category: 'Accessories',
-    status: 'delivered',
-  },
-];
-
-const yearOrders: OrderItem[] = [
-  {
-    id: 'y1',
-    productName: 'MacBook Pro 16"',
-    variants: 3,
-    image: '🖥️',
-    price: 3499.00,
-    category: 'Laptop',
-    status: 'delivered',
-  },
-  {
-    id: 'y2',
-    productName: 'Apple Vision Pro',
-    variants: 1,
-    image: '🥽',
-    price: 4299.00,
-    category: 'Accessories',
-    status: 'pending',
-  },
-  {
-    id: 'y3',
-    productName: 'iPhone 15 Pro Max',
-    variants: 3,
-    image: '📱',
-    price: 1869.00,
-    category: 'SmartPhone',
-    status: 'delivered',
-  },
-  {
-    id: 'y4',
-    productName: 'iPad Pro 3rd Gen',
-    variants: 2,
-    image: '📱',
-    price: 1699.00,
-    category: 'Electronics',
-    status: 'delivered',
-  },
-  {
-    id: 'y5',
-    productName: 'Apple Watch Ultra',
-    variants: 2,
-    image: '⌚',
-    price: 879.00,
-    category: 'Watch',
-    status: 'canceled',
-  },
-  {
-    id: 'y6',
-    productName: 'AirPods Pro 2nd Gen',
-    variants: 1,
-    image: '🎧',
-    price: 240.00,
-    category: 'Accessories',
-    status: 'delivered',
-  },
-  {
-    id: 'y7',
-    productName: 'Mac Mini M4',
-    variants: 1,
-    image: '🖥️',
-    price: 1599.00,
-    category: 'Desktop',
-    status: 'pending',
-  },
-  {
-    id: 'y8',
-    productName: 'Studio Display',
-    variants: 1,
-    image: '🖥️',
-    price: 1799.00,
-    category: 'Accessories',
-    status: 'delivered',
-  },
-];
-
-const periodOrderMap: Record<string, OrderItem[]> = {
-  week: weekOrders,
-  month: monthOrders,
-  year: yearOrders,
+const statusConfig: Record<string, { label: string; className: string }> = {
+  DELIVERED: { label: 'Livrée', className: 'bg-[var(--accent-green)]/10 text-[var(--accent-green)]' },
+  PAID_SUCCESS: { label: 'Payée', className: 'bg-[var(--accent-green)]/10 text-[var(--accent-green)]' },
+  PROCESSING: { label: 'En cours', className: 'bg-blue-500/10 text-blue-400' },
+  SHIPPED: { label: 'Expédiée', className: 'bg-blue-500/10 text-blue-400' },
+  PENDING: { label: 'En attente', className: 'bg-amber-500/10 text-amber-400' },
+  ON_HOLD: { label: 'En attente', className: 'bg-amber-500/10 text-amber-400' },
+  CANCELLED: { label: 'Annulée', className: 'bg-[var(--accent-red)]/10 text-[var(--accent-red)]' },
+  PAYMENT_FAILED: { label: 'Échouée', className: 'bg-[var(--accent-red)]/10 text-[var(--accent-red)]' },
 };
 
+function getStatus(order: RecentOrder): { label: string; className: string } {
+  const key = order.orderStatus || order.paymentStatus || 'PENDING';
+  return statusConfig[key] || { label: key, className: 'bg-[var(--bg-hover)] text-[var(--text-secondary)]' };
+}
+
 export default function RecentOrdersTable({
-  orders,
-  period = 'month',
+  orders = [],
 }: RecentOrdersTableProps): React.ReactElement {
-  const displayOrders = orders ?? periodOrderMap[period] ?? monthOrders;
-  const statusConfig = {
-    delivered: {
-      label: 'Livré',
-      className: 'bg-[var(--accent-green)]/10 text-[var(--accent-green)]',
-    },
-    pending: {
-      label: 'En attente',
-      className: 'bg-amber-500/10 text-amber-400',
-    },
-    canceled: {
-      label: 'Annulé',
-      className: 'bg-[var(--accent-red)]/10 text-[var(--accent-red)]',
-    },
-  };
+  const { formatPrice } = useAppContext();
 
   return (
     <div className="rounded-[10px] bg-[var(--bg-outer)] p-6">
@@ -215,49 +58,61 @@ export default function RecentOrdersTable({
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-[var(--border)]">
-              <th className="px-4 py-3 text-left font-600 text-[var(--text-secondary)]">Produits</th>
-              <th className="px-4 py-3 text-left font-600 text-[var(--text-secondary)]">Catégorie</th>
-              <th className="px-4 py-3 text-left font-600 text-[var(--text-secondary)]">Prix</th>
-              <th className="px-4 py-3 text-left font-600 text-[var(--text-secondary)]">Statut</th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayOrders.map((order) => (
-              <tr key={order.id} className="border-b border-[var(--border)] transition-colors duration-300 hover:bg-[var(--bg-hover)]">
-                {/* Product */}
-                <td className="px-4 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-[var(--bg-hover)] flex items-center justify-center text-lg">
-                      {order.image}
-                    </div>
-                    <div>
-                      <p className="font-600 text-[var(--text-primary)]">{order.productName}</p>
-                      <p className="text-xs text-[var(--text-secondary)]">{order.variants} Variant{order.variants > 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                </td>
-
-                {/* Category */}
-                <td className="px-4 py-4 text-[var(--text-secondary)]">{order.category}</td>
-
-                {/* Price */}
-                <td className="px-4 py-4 font-600 text-[var(--text-primary)]">${order.price.toFixed(2)}</td>
-
-                {/* Status */}
-                <td className="px-4 py-4">
-                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-600 ${statusConfig[order.status].className}`}>
-                    {statusConfig[order.status].label}
-                  </span>
-                </td>
+      {orders.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <ShoppingCart className="mb-3 h-10 w-10 text-[var(--text-tertiary)]" />
+          <p className="text-sm font-500 text-[var(--text-secondary)]">Aucune commande récente</p>
+          <p className="mt-1 text-xs text-[var(--text-tertiary)]">Les dernières commandes apparaîtront ici.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)]">
+                <th className="px-4 py-3 text-left font-600 text-[var(--text-secondary)]">Client</th>
+                <th className="px-4 py-3 text-left font-600 text-[var(--text-secondary)]">Date</th>
+                <th className="px-4 py-3 text-left font-600 text-[var(--text-secondary)]">Montant</th>
+                <th className="px-4 py-3 text-left font-600 text-[var(--text-secondary)]">Statut</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {orders.map((order) => {
+                const status = getStatus(order);
+                return (
+                  <tr key={order.orderId} className="border-b border-[var(--border)] transition-colors duration-300 hover:bg-[var(--bg-hover)]">
+                    {/* Client */}
+                    <td className="px-4 py-4">
+                      <p className="font-600 text-[var(--text-primary)]">{order.customerName || 'Client'}</p>
+                      {order.customerEmail && (
+                        <p className="text-xs text-[var(--text-secondary)]">{order.customerEmail}</p>
+                      )}
+                    </td>
+
+                    {/* Date */}
+                    <td className="px-4 py-4 text-[var(--text-secondary)]">
+                      {new Date(order.orderDate).toLocaleDateString('fr-FR', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </td>
+
+                    {/* Montant */}
+                    <td className="px-4 py-4 font-600 text-[var(--text-primary)]">{formatPrice(order.totalAmount)}</td>
+
+                    {/* Statut */}
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-600 ${status.className}`}>
+                        {status.label}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

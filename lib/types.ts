@@ -241,6 +241,8 @@ export interface Order {
     userEmail: string;
     userPhoneNumber: string | null; // Rendu nullable
     totalAmount: number; // Converti en nombre par l'API
+    paidAmount?: number; // Total déjà encaissé (tranches) — fourni par l'API admin
+    remainingBalance?: number; // Reste à payer — fourni par l'API admin
     status: OrderStatus; // Utilise l'enum OrderStatus
     paymentStatus: PaymentStatus; // Utilise l'enum PaymentStatus (du modèle Payment ou de Order)
     orderDate: string; // String ISO pour la date de commande
@@ -255,6 +257,11 @@ export interface Order {
     paymentMethod: string | null; // Méthode de paiement (ex: "Kkiapay")
     transactionId: string | null; // L'ID de transaction Kkiapay réel
     paymentDate: string | null; // AJOUTÉ: Date du paiement (string ISO ou null)
+    isPosOrder?: boolean;
+    posTransactionId?: string | null;
+    posInvoiceNumber?: string | null;
+    posSellerName?: string | null;
+    posSellerEmail?: string | null;
     createdAt: Date | string; // Dates d'horodatage de Prisma
     updatedAt: Date | string; // Dates d'horodatage de Prisma
     shippingAddressId?: number | null; // L'ID d'adresse est un INT dans schema.prisma, peut être optionnel
@@ -346,7 +353,7 @@ export interface AppContextType {
     setSelectedCategory: (category: string) => void;
     filteredProducts: Product[];
     cartItems: Record<string, number>;
-    addToCart: (productId: string, variantId?: string) => Promise<boolean>;
+    addToCart: (productId: string, variantId?: string, quantity?: number) => Promise<boolean>;
     removeFromCart: (productId: string) => Promise<boolean>;
     deleteFromCart: (productId: string) => Promise<boolean>;
     updateCartQuantity: (productId: string, quantity: number) => Promise<boolean>;

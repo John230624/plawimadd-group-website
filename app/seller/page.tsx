@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
   CheckCircle2,
   DollarSign,
   Package,
   ShoppingCart,
-  TrendingUp,
+  Store,
   Users,
+  Wallet,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -22,18 +24,15 @@ interface RecentOrder {
   customerName: string;
   customerEmail: string;
   totalAmount: number;
+  orderStatus?: string;
   paymentStatus: string;
   orderDate: string;
+  paymentMethod?: string | null;
 }
 
-interface OrdersPerMonthItem {
-  month: string;
-  orderCount: number;
-}
-
-interface RevenuePerMonthItem {
-  month: string;
-  totalMonthlyRevenue: number;
+interface RevenuePoint {
+  label: string;
+  value: number;
 }
 
 interface DashboardStats {
@@ -41,6 +40,8 @@ interface DashboardStats {
   totalOrders: number;
   totalRevenue: number;
   averageOrderValue: number;
+  outstandingCredit: number;
+  openCreditCount: number;
   totalUsers: number;
   pendingOrders: number;
   completedOrders: number;
@@ -48,8 +49,9 @@ interface DashboardStats {
   lowStockCount: number;
   outOfStockCount: number;
   pendingStudentRequests: number;
-  ordersPerMonth: OrdersPerMonthItem[];
-  revenuePerMonth: RevenuePerMonthItem[];
+  revenueOverTime: RevenuePoint[];
+  ordersOverTime: { label: string; count: number }[];
+  revenueGranularity: 'day' | 'week' | 'month';
   recentOrders: RecentOrder[];
   alerts: {
     id: string;
@@ -59,8 +61,6 @@ interface DashboardStats {
     href: string;
   }[];
 }
-
-const monthLabels = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function getPeriodDate(period: '7d' | '30d' | '90d'): { startDate: string; endDate: string } {
   const end = new Date();
@@ -78,22 +78,29 @@ export default function SellerDashboard(): React.ReactElement {
   const { formatPrice } = useAppContext();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [timePeriod, setTimePeriod] = useState<'7d' | '30d' | '90d'>('30d');
 
   const fetchStats = useCallback(async () => {
     try {
+      setLoading(true);
+      setLoadError(null);
       const { startDate, endDate } = getPeriodDate(timePeriod);
-      const params = new URLSearchParams({ startDate, endDate });
+      const params = new URLSearchParams({ startDate, endDate, granularity: 'auto' });
       const res = await fetch(`/api/dashboard/stats?${params}`);
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setStats(data);
       } else {
-        toast.error('Erreur lors du chargement des statistiques.');
+        const message = data.message || 'Erreur lors du chargement des statistiques.';
+        setLoadError(message);
+        toast.error(message);
       }
     } catch {
-      toast.error('Erreur lors du chargement des statistiques.');
+      const message = 'Erreur lors du chargement des statistiques.';
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -103,45 +110,40 @@ export default function SellerDashboard(): React.ReactElement {
     fetchStats();
   }, [fetchStats]);
 
-  const revenueData: RevenuePerMonthItem[] = stats?.revenuePerMonth || [];
-  const ordersData: OrdersPerMonthItem[] = stats?.ordersPerMonth || [];
+  const revenueData: RevenuePoint[] = stats?.revenueOverTime || [];
+  const ordersData: { label: string; count: number }[] = stats?.ordersOverTime || [];
 
   const revenueSparkline = useMemo(() => {
-    return revenueData.map((item) => Math.round(item.totalMonthlyRevenue / 100));
+    return revenueData.map((item) => Math.round(item.value / 100));
   }, [revenueData]);
 
   const salesSparkline = useMemo(() => {
-    return ordersData.map((item) => item.orderCount);
+    return ordersData.map((item) => item.count);
   }, [ordersData]);
 
   const clientsSparkline = useMemo(() => [65, 75, 70, 85, 80, 95, 90], []);
-  const pendingSparkline = useMemo(() => [12, 10, 14, 8, 11, 9, 7], []);
+
+  const granularityLabel = stats?.revenueGranularity === 'day' ? 'journalière'
+    : stats?.revenueGranularity === 'week' ? 'hebdomadaire'
+    : 'mensuelle';
 
   const revenuePoints = useMemo(() => {
     const data = revenueData;
     if (!data.length) return [];
-    const values = data.map((item) => item.totalMonthlyRevenue);
+    const values = data.map((item) => item.value);
     const max = Math.max(...values, 1);
 
     return data.map((item, index) => {
-      const [year, month] = item.month.split('-');
       const x = (index / Math.max(data.length - 1, 1)) * 100;
-      const y = 100 - ((item.totalMonthlyRevenue / max) * 80) - 10;
+      const y = 100 - ((item.value / max) * 80) - 10;
       return {
-        label: `${monthLabels[Number(month) - 1]} ${year.slice(2)}`,
-        value: item.totalMonthlyRevenue,
+        label: item.label,
+        value: item.value,
         x,
         y,
       };
     });
   }, [revenueData]);
-
-  const revenuePathData = useMemo(() => {
-    if (revenuePoints.length === 0) return '';
-    return revenuePoints
-      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-      .join(' ');
-  }, [revenuePoints]);
 
   const revenueSmoothPath = useMemo(() => {
     if (revenuePoints.length < 2) return '';
@@ -168,34 +170,8 @@ export default function SellerDashboard(): React.ReactElement {
     return `${revenueSmoothPath} L ${last.x},100 L ${first.x},100 Z`;
   }, [revenueSmoothPath, revenuePoints]);
 
-  const salesPoints = useMemo(() => {
-    const data = ordersData;
-    if (!data.length) return [];
-    const values = data.map((item) => item.orderCount);
-    const max = Math.max(...values, 1);
-
-    return data.map((item, index) => {
-      const [year, month] = item.month.split('-');
-      const x = (index / Math.max(data.length - 1, 1)) * 100;
-      const y = 100 - ((item.orderCount / max) * 80) - 10;
-      return {
-        label: `${monthLabels[Number(month) - 1]} ${year.slice(2)}`,
-        value: item.orderCount,
-        x,
-        y,
-      };
-    });
-  }, [ordersData]);
-
-  const salesPathData = useMemo(() => {
-    if (salesPoints.length === 0) return '';
-    return salesPoints
-      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-      .join(' ');
-  }, [salesPoints]);
-
   const dailySalesData = useMemo(() => {
-    if (!stats?.ordersPerMonth?.length) {
+    if (!stats?.ordersOverTime?.length) {
       return [
         { day: 'Lun', value: 120 },
         { day: 'Mar', value: 95 },
@@ -206,13 +182,8 @@ export default function SellerDashboard(): React.ReactElement {
         { day: 'Dim', value: 85 },
       ];
     }
-    const latestMonth = stats.ordersPerMonth[stats.ordersPerMonth.length - 1];
-    const daysInMonth = new Date(
-      Number(latestMonth.month.split('-')[0]),
-      Number(latestMonth.month.split('-')[1]),
-      0
-    ).getDate();
-    const avgPerDay = Math.round(latestMonth.orderCount / Math.max(daysInMonth, 1));
+    const latest = stats.ordersOverTime[stats.ordersOverTime.length - 1];
+    const avgPerDay = Math.round(latest.count / Math.max(stats.ordersOverTime.length, 1));
     return [
       { day: 'Lun', value: Math.round(avgPerDay * 1.2) },
       { day: 'Mar', value: Math.round(avgPerDay * 0.95) },
@@ -222,7 +193,7 @@ export default function SellerDashboard(): React.ReactElement {
       { day: 'Sam', value: Math.round(avgPerDay * 1.3) },
       { day: 'Dim', value: Math.round(avgPerDay * 0.7) },
     ];
-  }, [stats?.ordersPerMonth]);
+  }, [stats?.ordersOverTime]);
 
   const maxDailySales = Math.max(...dailySalesData.map(d => d.value));
 
@@ -248,7 +219,27 @@ export default function SellerDashboard(): React.ReactElement {
     );
   }
 
-  const s = stats!;
+  if (!stats) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <SellerPanel className="max-w-lg p-6 text-center">
+          <h1 className="text-xl font-700 text-[var(--text-primary)]">Tableau de bord indisponible</h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
+            {loadError || 'Impossible de charger les donnees du dashboard pour le moment.'}
+          </p>
+          <button
+            type="button"
+            onClick={fetchStats}
+            className="mt-5 inline-flex items-center justify-center rounded-lg bg-yellow-400 px-4 py-2 text-xs font-700 text-blue-700 transition hover:bg-yellow-300"
+          >
+            Reessayer
+          </button>
+        </SellerPanel>
+      </div>
+    );
+  }
+
+  const s = stats;
 
   return (
     <div className="flex min-h-full flex-col gap-8">
@@ -258,7 +249,15 @@ export default function SellerDashboard(): React.ReactElement {
           <p className="mt-1 text-sm text-[var(--text-secondary)]">Suivez vos revenus et performances en temps réel</p>
         </div>
         {/* Filtre période */}
-        <div className="flex items-center gap-1 rounded-xl p-0.5" style={{ backgroundColor: '#121212' }}>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/seller/pos/caisse"
+            className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-4 py-2 text-xs font-700 text-blue-700 transition hover:bg-yellow-300"
+          >
+            <Store className="h-4 w-4" />
+            Nouvelle vente
+          </Link>
+          <div className="flex items-center gap-1 rounded-xl p-0.5" style={{ backgroundColor: '#121212' }}>
           {(['7d', '30d', '90d'] as const).map((period) => (
             <button
               key={period}
@@ -271,7 +270,8 @@ export default function SellerDashboard(): React.ReactElement {
             >
               {period === '7d' ? '7 jours' : period === '30d' ? '30 jours' : '90 jours'}
             </button>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
@@ -303,15 +303,16 @@ export default function SellerDashboard(): React.ReactElement {
           changeType="positive"
           sparklineData={clientsSparkline}
         />
-        <StatCard
-          title="Stock faible"
-          value={String(s.lowStockCount + s.outOfStockCount)}
-          icon={TrendingUp}
-          accentColor="red"
-          change={`${s.outOfStockCount} en rupture`}
-          changeType={s.outOfStockCount > 0 ? 'negative' : 'neutral'}
-          sparklineData={pendingSparkline}
-        />
+        {s.openCreditCount > 0 && (
+          <StatCard
+            title="Crédits en cours"
+            value={`${formatPrice(s.outstandingCredit)}`}
+            icon={Wallet}
+            accentColor="amber"
+            change={`${s.openCreditCount} vente(s) à recouvrer`}
+            changeType="negative"
+          />
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -319,7 +320,7 @@ export default function SellerDashboard(): React.ReactElement {
           <div className="flex items-start justify-between mb-6">
             <div>
               <h3 className="text-lg font-700 text-[var(--text-primary)]">Revenus</h3>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">Évolution mensuelle (F CFA)</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">Évolution {granularityLabel} (F CFA)</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-xs font-500">
@@ -452,9 +453,9 @@ export default function SellerDashboard(): React.ReactElement {
                 const barWidth = 2.8;
                 const spacing = 6.5;
                 const startX = 10 + index * spacing;
-                const maxValue = Math.max(...ordersData.map(o => o.orderCount));
+                const maxValue = Math.max(...ordersData.map(o => o.count));
                 const completedPercent = Math.min(Math.random() * 0.8 + 0.4, 1);
-                const ordersPercent = Math.min(item.orderCount / Math.max(maxValue, 1), 1);
+                const ordersPercent = Math.min(item.count / Math.max(maxValue, 1), 1);
                 
                 return (
                   <g key={index}>
@@ -488,7 +489,6 @@ export default function SellerDashboard(): React.ReactElement {
               
               {/* X-axis labels */}
               {ordersData?.map((item, index) => {
-                const [year, month] = item.month.split('-');
                 const spacing = 6.5;
                 const startX = 10 + index * spacing + 2.5;
                 return (
@@ -500,7 +500,7 @@ export default function SellerDashboard(): React.ReactElement {
                     fill="rgb(148, 163, 184)"
                     textAnchor="middle"
                   >
-                    {monthLabels[Number(month) - 1]}
+                    {item.label}
                   </text>
                 );
               })}
@@ -577,7 +577,7 @@ export default function SellerDashboard(): React.ReactElement {
         </SellerPanel>
 
         <div className="lg:col-span-2">
-          <RecentOrdersTable period={timePeriod === '7d' ? 'week' : timePeriod === '30d' ? 'month' : 'year'} />
+          <RecentOrdersTable orders={s.recentOrders} />
         </div>
       </div>
     </div>

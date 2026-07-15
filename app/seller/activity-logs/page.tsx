@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   Activity,
-  AlertTriangle,
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
   Calendar,
@@ -103,22 +104,29 @@ function relativeTime(dateStr: string): string {
 }
 
 export default function ActivityLogsPage(): React.ReactElement {
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState('ALL');
   const [entityFilter, setEntityFilter] = useState('ALL');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'createdAt', dir: 'desc' });
   const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const isAdmin = status === 'authenticated' && session?.user?.role === 'ADMIN';
 
   const fetchLogs = useCallback(async () => {
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -146,9 +154,20 @@ export default function ActivityLogsPage(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [actionFilter, entityFilter, startDate, endDate, searchTerm, page, sort]);
+  }, [actionFilter, entityFilter, startDate, endDate, searchTerm, page, sort, isAdmin]);
 
-  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') {
+      router.replace('/login');
+      return;
+    }
+    if (!isAdmin) {
+      router.replace('/seller');
+      return;
+    }
+    fetchLogs();
+  }, [fetchLogs, isAdmin, router, status]);
   useEffect(() => { setPage(1); }, [actionFilter, entityFilter, startDate, endDate, searchTerm, sort]);
 
   const toggleSort = (field: SortField) => {
@@ -165,11 +184,8 @@ export default function ActivityLogsPage(): React.ReactElement {
   };
 
   const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(new Set(logs.map((l) => l.id)));
-    } else {
-      setSelectedIds(new Set());
-    }
+    if (checked) setSelectedIds(new Set(logs.map((l) => l.id)));
+    else setSelectedIds(new Set());
   };
 
   const handleSelectOne = (id: string, checked: boolean) => {
@@ -281,7 +297,7 @@ export default function ActivityLogsPage(): React.ReactElement {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
     doc.setTextColor(241, 245, 249);
-    doc.text("Journal d'activité", 20, 22);
+    doc.text("Suivi", 20, 22);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(148, 163, 184);
@@ -319,7 +335,7 @@ export default function ActivityLogsPage(): React.ReactElement {
   return (
     <div className="flex min-h-full flex-col gap-8">
       <SellerSectionHeader
-        title="Journal d'activité"
+        title="Suivi"
         action={
           <div className="flex gap-2">
             <SellerButton variant="outline" size="sm" icon={Download} onClick={exportCSV}>CSV</SellerButton>
@@ -415,10 +431,10 @@ export default function ActivityLogsPage(): React.ReactElement {
                     onChange={(e) => handleSelectAll(e.target.checked)}
                   />
                 </SellerTableCell>
+                <SellerTableCell isHeader className="text-center min-w-[180px]">Utilisateur</SellerTableCell>
                 <SellerTableCell isHeader className="text-center cursor-pointer select-none" onClick={() => toggleSort('createdAt')}>
                   <span className="inline-flex items-center">Date <SortIcon field="createdAt" /></span>
                 </SellerTableCell>
-                <SellerTableCell isHeader className="text-center">Utilisateur</SellerTableCell>
                 <SellerTableCell isHeader className="text-center cursor-pointer select-none" onClick={() => toggleSort('action')}>
                   <span className="inline-flex items-center">Action <SortIcon field="action" /></span>
                 </SellerTableCell>
@@ -443,14 +459,21 @@ export default function ActivityLogsPage(): React.ReactElement {
                       onChange={(e) => handleSelectOne(log.id, e.target.checked)}
                     />
                   </SellerTableCell>
-                  <SellerTableCell className="whitespace-nowrap text-[var(--text-secondary)] text-center">
-                    <span title={new Date(log.createdAt).toLocaleString('fr-FR')}>{relativeTime(log.createdAt)}</span>
+                  <SellerTableCell className="text-center">
+                    <div className="inline-flex items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-hover)]">
+                        <Users className="h-3.5 w-3.5 text-yellow-400" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-xs font-semibold text-[var(--text-primary)]">{log.userName}</p>
+                        {log.userName !== 'Système' && log.userEmail && (
+                          <p className="text-[10px] text-[var(--text-tertiary)]">{log.userEmail}</p>
+                        )}
+                      </div>
+                    </div>
                   </SellerTableCell>
-                  <SellerTableCell className="text-[var(--text-secondary)] text-center">
-                    <span title={log.userEmail || log.userId || ''}>{log.userName}</span>
-                    {log.userName !== 'Système' && (
-                      <span className="block text-[10px] text-[var(--text-tertiary)]">{log.userEmail}</span>
-                    )}
+                  <SellerTableCell className="whitespace-nowrap text-[var(--text-secondary)] text-center">
+                    {new Date(log.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                   </SellerTableCell>
                   <SellerTableCell className="text-center">
                     <span className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${actionColors[log.action] || 'text-[var(--text-primary)] bg-[var(--bg-hover)]'}`}>
@@ -511,10 +534,8 @@ export default function ActivityLogsPage(): React.ReactElement {
                   })
                 )}
               </div>
-            </SellerPanel>
 
-            <SellerPanel className="p-5">
-              <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Top utilisateurs</h3>
+              <h3 className="mb-3 mt-5 text-sm font-semibold text-[var(--text-primary)]">Top utilisateurs</h3>
               <div className="space-y-2">
                 {breakdown.topUsers.length === 0 ? (
                   <p className="text-xs text-[var(--text-tertiary)]">Aucune donnée.</p>

@@ -4,12 +4,15 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
-import { sellerMenuItems } from '@/components/seller/Sidebar';
+import { useSellerMenuSections } from '@/components/seller/Sidebar';
 import SellerBrand from '@/components/seller/SellerBrand';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function SellerMobileNav(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const { t } = useLanguage();
+  const menuItems = useSellerMenuSections().flatMap((section) => section.items);
 
   return (
     <>
@@ -34,7 +37,7 @@ export default function SellerMobileNav(): React.ReactElement {
             </div>
 
             <div className="space-y-1">
-              {sellerMenuItems.map(({ name, path, icon: Icon }) => {
+              {menuItems.map(({ name, path, icon: Icon }) => {
                 const isActive = pathname === path;
 
                 return (
@@ -49,7 +52,7 @@ export default function SellerMobileNav(): React.ReactElement {
                     }`}
                   >
                     <Icon className="h-4 w-4" />
-                    <p className="text-sm font-500">{name}</p>
+                    <p className="text-sm font-500">{t(name)}</p>
                   </Link>
                 );
               })}

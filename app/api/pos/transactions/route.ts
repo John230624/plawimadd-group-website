@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeLoggedInUser, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeLoggedInUser(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'pos.view-transactions');
   if (!authResult.authorized) return authResult.response!;
   const userId = authResult.userId!;
 
   try {
     const transactions = await prisma.posTransaction.findMany({
       where: { userId },
-      include: { items: true },
+      include: { items: { include: { product: { select: { name: true } } } } },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(_req: NextRequest): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeLoggedInUser(_req);
+  const authResult: AuthResult = await authorizeByPermission(_req, 'pos.access');
   if (!authResult.authorized) return authResult.response!;
 
   // This endpoint creates a new session if none exists

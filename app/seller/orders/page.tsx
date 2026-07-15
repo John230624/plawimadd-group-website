@@ -102,15 +102,20 @@ export default function OrdersPage(): React.ReactElement {
   const [recording, setRecording] = useState(false);
   const [orderPayments, setOrderPayments] = useState<Record<string, any[]>>({});
 
-  const downloadInvoice = async (orderId: string) => {
+  const downloadInvoice = async (order: Order) => {
     try {
-      const res = await fetch(`/api/orders/invoice?orderId=${orderId}`);
+      const invoiceUrl = order.isPosOrder && order.posTransactionId
+        ? `/api/pos/invoice?transactionId=${order.posTransactionId}`
+        : `/api/orders/invoice?orderId=${order.id}`;
+      const res = await fetch(invoiceUrl);
       if (!res.ok) { toast.error('Erreur generation facture'); return; }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `facture-${orderId.slice(0, 8)}.pdf`;
+      a.download = order.isPosOrder && order.posInvoiceNumber
+        ? `facture-${order.posInvoiceNumber}.pdf`
+        : `facture-${order.id.slice(0, 8)}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch { toast.error('Erreur'); }
@@ -118,16 +123,16 @@ export default function OrdersPage(): React.ReactElement {
 
   const openPaymentModal = async (order: Order) => {
     setPaymentOrderId(order.id);
-    setPaymentAmount('');
+    // Pré-remplit avec le reste à payer pour une commande à crédit
+    setPaymentAmount((order.remainingBalance ?? 0) > 0 ? String(Math.round(order.remainingBalance ?? 0)) : '');
     setPaymentMethod('CASH');
     setPaymentRef('');
     setPaymentNotes('');
     setShowPaymentModal(true);
     try {
       const res = await axios.get(`/api/orders/${order.id}/payments`);
-      if (Array.isArray(res.data)) {
-        setOrderPayments((prev) => ({ ...prev, [order.id]: res.data }));
-      }
+      const list = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+      setOrderPayments((prev) => ({ ...prev, [order.id]: list }));
     } catch {}
   };
 
@@ -216,7 +221,15 @@ export default function OrdersPage(): React.ReactElement {
       const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
       const matchesPayment = paymentFilter === 'ALL' || order.paymentStatus === paymentFilter;
       const matchesPeriod = isInPeriod(order.orderDate);
-      const haystack = [order.id, order.userName, order.userEmail, order.shippingCity, order.shippingCountry]
+      const haystack = [
+        order.id,
+        order.userName,
+        order.userEmail,
+        order.shippingCity,
+        order.shippingCountry,
+        order.posInvoiceNumber,
+        order.posSellerName,
+      ]
         .join(' ').toLowerCase();
       const matchesSearch = haystack.includes(searchTerm.toLowerCase());
       return matchesStatus && matchesPayment && matchesPeriod && matchesSearch;
@@ -619,14 +632,30 @@ export default function OrdersPage(): React.ReactElement {
                       </button>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <p className="font-500 text-[var(--text-primary)]">#{order.id.slice(0, 8)}</p>
+                      <p className="font-500 text-[var(--text-primary)]">#{order.isPosOrder && order.posInvoiceNumber ? order.posInvoiceNumber : order.id.slice(0, 8)}</p>
+                      {order.isPosOrder && (
+                        <p className="mt-1 inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-600 text-emerald-400">
+                          Vente physique
+                        </p>
+                      )}
                       <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{order.orderItems.length} article(s)</p>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <p className="font-500 text-[var(--text-primary)]">{order.userName}</p>
                       <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{order.userEmail}</p>
+                      {order.isPosOrder && order.posSellerName && (
+                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">Vendeur: {order.posSellerName}</p>
+                      )}
                     </td>
-                    <td className="px-6 py-4 text-center font-500 text-[var(--text-primary)]">{formatPrice(order.totalAmount)}</td>
+                    <td className="px-6 py-4 text-center font-500 text-[var(--text-primary)]">
+                      {formatPrice(order.totalAmount)}
+                      {(order.remainingBalance ?? 0) > 0 && (order.paidAmount ?? 0) > 0 && (
+                        <div className="mt-1 space-y-0.5 text-[10px] font-500 leading-tight">
+                          <div className="text-emerald-400">Payé {formatPrice(order.paidAmount ?? 0)}</div>
+                          <div className="text-amber-400">Reste {formatPrice(order.remainingBalance ?? 0)}</div>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-500 ${getStatusColor(order.paymentStatus)}`}>
                         {order.paymentStatus}
@@ -662,7 +691,7 @@ export default function OrdersPage(): React.ReactElement {
                           <Eye className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => downloadInvoice(order.id)}
+                          onClick={() => downloadInvoice(order)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-transparent bg-gradient-to-r from-emerald-500/20 to-teal-600/20 px-2.5 py-1.5 text-xs font-500 text-emerald-400 transition-all duration-300 hover:from-emerald-500/30 hover:to-teal-600/30 hover:shadow-lg"
                           title="Facture"
                         >
@@ -756,6 +785,12 @@ export default function OrdersPage(): React.ReactElement {
             <div className="rounded-lg bg-[var(--bg-outer)] p-4">
               <p className="text-xs font-600 uppercase text-[var(--text-tertiary)]">Montant</p>
               <p className="mt-3 text-2xl font-700 text-[var(--text-primary)]">{formatPrice(selectedOrder.totalAmount)}</p>
+              {(selectedOrder.remainingBalance ?? 0) > 0 && (selectedOrder.paidAmount ?? 0) > 0 && (
+                <div className="mt-2 flex gap-4 text-sm">
+                  <span className="text-emerald-400">Payé : {formatPrice(selectedOrder.paidAmount ?? 0)}</span>
+                  <span className="text-amber-400">Reste : {formatPrice(selectedOrder.remainingBalance ?? 0)}</span>
+                </div>
+              )}
             </div>
 
             {/* Timeline */}
@@ -847,6 +882,26 @@ export default function OrdersPage(): React.ReactElement {
         }
       >
         <div className="space-y-4">
+          {(() => {
+            const payOrder = orders.find((o) => o.id === paymentOrderId);
+            if (!payOrder || (payOrder.remainingBalance ?? 0) <= 0) return null;
+            return (
+              <div className="grid grid-cols-3 gap-2 rounded-lg bg-[var(--bg-outer)] p-3 text-center">
+                <div>
+                  <p className="text-[10px] uppercase text-[var(--text-tertiary)]">Total</p>
+                  <p className="text-sm font-700 text-[var(--text-primary)]">{formatPrice(payOrder.totalAmount)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase text-[var(--text-tertiary)]">Payé</p>
+                  <p className="text-sm font-700 text-emerald-400">{formatPrice(payOrder.paidAmount ?? 0)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase text-[var(--text-tertiary)]">Reste</p>
+                  <p className="text-sm font-700 text-amber-400">{formatPrice(payOrder.remainingBalance ?? 0)}</p>
+                </div>
+              </div>
+            );
+          })()}
           <div>
             <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Montant *</label>
             <input

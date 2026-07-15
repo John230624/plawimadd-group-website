@@ -112,59 +112,68 @@ export default function StudentInstallmentRequestModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-[860px] flex-col overflow-hidden rounded-[2rem] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.18)]">
-        <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5 md:px-8">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-[1px]">
+      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-[620px] flex-col overflow-hidden rounded-[2px] bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)] border-0">
+        <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5 md:px-7 text-left">
           <div>
-            <p className="text-sm text-slate-500">Paiement par tranche</p>
-            <h2 className="mt-1 text-[1.8rem] font-semibold tracking-[-0.04em] text-slate-950">
-              Demande etudiante
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-blue-600">Paiement par tranche</p>
+            <h2 className="mt-1.5 text-base font-extrabold text-slate-900">
+              Demande Étudiante
             </h2>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+            className="flex h-8 w-8 items-center justify-center rounded-[2px] border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
+            aria-label="Fermer la modal"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="grid gap-5 p-6 md:grid-cols-2 md:p-8">
-            <Field name="fullName" value={form.fullName} onChange={updateField} placeholder="Nom complet" />
-            <Field name="phoneNumber" value={form.phoneNumber} onChange={updateField} placeholder="Telephone" />
-            <Field name="schoolName" value={form.schoolName} onChange={updateField} placeholder="Etablissement" />
-            <Field
-              name="studentEmail"
-              value={form.studentEmail}
-              onChange={updateField}
-              placeholder="Email etudiant"
-              type="email"
-            />
-            <Field
-              name="studentIdNumber"
-              value={form.studentIdNumber}
-              onChange={updateField}
-              placeholder="Numero de carte etudiante"
-            />
-
-            <div className="rounded-[1.15rem] border border-[var(--brand-200)] bg-[rgba(237,244,253,0.45)] px-4 py-3.5">
-              <span className="block text-sm font-medium text-slate-700">Plan applique</span>
-              <p className="mt-2 text-sm leading-7 text-slate-600">
-                3 tranches obligatoires : 50% au depart, puis 25% au 2e mois et 25% au 3e mois.
-              </p>
+          <div className="grid gap-5 p-6 md:p-7">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field name="fullName" value={form.fullName} onChange={updateField} placeholder="Nom complet" />
+              <Field name="phoneNumber" value={form.phoneNumber} onChange={updateField} placeholder="Téléphone" />
             </div>
 
-            <label className="block md:col-span-2">
-              <span className="mb-2 block text-sm font-medium text-slate-700">
-                Justificatif etudiant
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field name="schoolName" value={form.schoolName} onChange={updateField} placeholder="Établissement scolaire" />
+              <Field
+                name="studentEmail"
+                value={form.studentEmail}
+                onChange={updateField}
+                placeholder="Email étudiant"
+                type="email"
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field
+                name="studentIdNumber"
+                value={form.studentIdNumber}
+                onChange={updateField}
+                placeholder="Numéro de carte étudiante"
+              />
+
+              <div className="rounded-[2px] border border-slate-150 bg-slate-50/50 p-4 flex flex-col justify-center text-left">
+                <span className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-800">Plan de paiement</span>
+                <p className="mt-1 text-[11px] leading-4 text-slate-500 font-medium">
+                  3 échéances fixes : 50% au départ, puis 25% le 2e mois, et 25% le 3e mois.
+                </p>
+              </div>
+            </div>
+
+            <label className="block text-left">
+              <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-700">
+                Justificatif d&apos;inscription
               </span>
-              <label className="flex cursor-pointer items-center gap-3 rounded-[1.2rem] border border-dashed border-[var(--brand-300)] bg-[rgba(237,244,253,0.55)] px-4 py-4 text-sm text-slate-600">
-                <Upload className="h-4 w-4 text-[var(--brand-700)]" />
-                <span className="truncate">
-                  {selectedFile ? selectedFile.name : 'Ajouter une carte etudiante ou un justificatif'}
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-[2px] border border-dashed border-slate-350 bg-slate-50/50 px-4 py-3 text-xs text-slate-650 hover:border-slate-400 transition">
+                <Upload className="h-4 w-4 text-slate-500" />
+                <span className="truncate font-medium">
+                  {selectedFile ? selectedFile.name : 'Sélectionner un certificat ou une carte d\'étudiant'}
                 </span>
                 <input
                   type="file"
@@ -175,25 +184,25 @@ export default function StudentInstallmentRequestModal({
               </label>
             </label>
 
-            <label className="block md:col-span-2">
-              <span className="mb-2 block text-sm font-medium text-slate-700">Notes</span>
+            <label className="block text-left">
+              <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-700">Notes et matériel visé</span>
               <textarea
                 name="notes"
                 value={form.notes}
                 onChange={updateField}
-                rows={4}
-                placeholder="Expliquez votre besoin, votre filiere ou le materiel vise."
-                className="w-full rounded-[1.15rem] border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-700 outline-none"
+                rows={3}
+                placeholder="Précisez votre filière d'études ou le matériel dont vous avez besoin."
+                className="w-full rounded-[2px] border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-slate-900 transition"
               />
             </label>
           </div>
         </div>
 
-        <div className="flex flex-col-reverse gap-3 border-t border-slate-200 px-6 py-5 md:flex-row md:justify-end md:px-8">
+        <div className="flex flex-col-reverse gap-2 border-t border-slate-100 px-6 py-4 md:flex-row md:justify-end md:px-7">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-[2px] px-5 py-2.5 text-xs font-bold transition"
           >
             Annuler
           </button>
@@ -201,9 +210,9 @@ export default function StudentInstallmentRequestModal({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--brand-700)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--brand-800)] disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-[2px] px-5 py-2.5 text-xs font-bold transition disabled:opacity-60"
           >
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
             Envoyer la demande
           </button>
         </div>
@@ -228,15 +237,15 @@ function Field({
   type?: string;
 }): React.ReactElement {
   return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-medium text-slate-700">{placeholder}</span>
+    <label className="block text-left">
+      <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-700">{placeholder}</span>
       <input
         type={type}
         name={name}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full rounded-[1.15rem] border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-700 outline-none"
+        className="w-full rounded-[2px] border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-slate-900 transition"
       />
     </label>
   );

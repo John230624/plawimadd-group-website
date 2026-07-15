@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
@@ -110,6 +112,8 @@ function roleColor(name: string) {
 }
 
 export default function RolesPage(): React.ReactElement {
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,8 +138,13 @@ export default function RolesPage(): React.ReactElement {
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   const [permSearch, setPermSearch] = useState('');
+  const isAdmin = status === 'authenticated' && session?.user?.role === 'ADMIN';
 
   const fetchRoles = useCallback(async () => {
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -148,6 +157,9 @@ export default function RolesPage(): React.ReactElement {
         fetch(`/api/admin/roles?${params}`),
         fetch('/api/admin/permissions'),
       ]);
+      if (!rolesRes.ok || !permsRes.ok) {
+        throw new Error('Acces admin requis.');
+      }
       const rolesData: RolesResponse = await rolesRes.json();
       if (rolesData.success) {
         setRoles(rolesData.data ?? []);
@@ -155,15 +167,28 @@ export default function RolesPage(): React.ReactElement {
         setTotalPages(rolesData.totalPages ?? 1);
         setStats(rolesData.stats);
       }
-      setPermissions(await permsRes.json());
-    } catch {
-      toast.error('Erreur de chargement.');
+      const permsData = await permsRes.json();
+      setPermissions(Array.isArray(permsData) ? permsData : []);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erreur de chargement.');
+      setPermissions([]);
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, page, sort]);
+  }, [searchTerm, page, sort, isAdmin]);
 
-  useEffect(() => { fetchRoles(); }, [fetchRoles]);
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') {
+      router.replace('/login');
+      return;
+    }
+    if (!isAdmin) {
+      router.replace('/seller');
+      return;
+    }
+    fetchRoles();
+  }, [fetchRoles, isAdmin, router, status]);
 
   useEffect(() => { setPage(1); }, [searchTerm, sort]);
 
@@ -214,7 +239,7 @@ export default function RolesPage(): React.ReactElement {
     setEditing(role);
     setNameInput(role.name);
     setDescInput(role.description || '');
-    setSelectedPerms(new Set(role.permissions.map((rp) => rp.permission.id)));
+    setSelectedPerms(new Set((role.permissions || []).map((rp) => rp.permission?.id).filter(Boolean)));
     setPermSearch('');
     setShowModal(true);
   };
@@ -223,7 +248,7 @@ export default function RolesPage(): React.ReactElement {
     setEditing(null);
     setNameInput(`${role.name} (copie)`);
     setDescInput(role.description || '');
-    setSelectedPerms(new Set(role.permissions.map((rp) => rp.permission.id)));
+    setSelectedPerms(new Set((role.permissions || []).map((rp) => rp.permission?.id).filter(Boolean)));
     setPermSearch('');
     setShowModal(true);
   };
@@ -301,7 +326,7 @@ export default function RolesPage(): React.ReactElement {
   };
 
   const toggleModule = (module: string, checked: boolean) => {
-    const modulePermIds = groupedPermissions[module].map((p) => p.id);
+    const modulePermIds = (groupedPermissions[module] || []).map((p) => p.id);
     setSelectedPerms((prev) => {
       const next = new Set(prev);
       for (const id of modulePermIds) {
@@ -313,7 +338,8 @@ export default function RolesPage(): React.ReactElement {
   };
 
   const allPermsInModule = (module: string) => {
-    return groupedPermissions[module].every((p) => selectedPerms.has(p.id));
+    const modulePerms = groupedPermissions[module] || [];
+    return modulePerms.length > 0 && modulePerms.every((p) => selectedPerms.has(p.id));
   };
 
   function exportCSV() {
@@ -484,7 +510,7 @@ export default function RolesPage(): React.ReactElement {
                       <SellerButton variant="ghost" size="icon" icon={Copy} onClick={() => duplicateRole(role)}>
                         Dupliquer
                       </SellerButton>
-                      {!role.isSystem && (
+                      {role.name !== 'Administrateur' && (
                         <SellerButton variant="ghost" size="icon" icon={Trash2} className="text-[var(--accent-red)] hover:bg-[var(--accent-red)]/10" onClick={() => setDeleteTarget(role)}>
                           Supprimer
                         </SellerButton>
@@ -518,7 +544,7 @@ export default function RolesPage(): React.ReactElement {
           </div>
         }
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex min-h-0 flex-col gap-4">
           <SellerInput
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
@@ -543,7 +569,7 @@ export default function RolesPage(): React.ReactElement {
             />
           </div>
 
-          <div className="max-h-[400px] overflow-y-auto space-y-4">
+          <div className="max-h-[400px] space-y-4 overflow-y-auto overscroll-contain">
             {Object.entries(filteredGroupedPermissions).length === 0 ? (
               <p className="text-sm text-[var(--text-tertiary)] text-center py-4">Aucune permission trouvée.</p>
             ) : (
@@ -562,33 +588,38 @@ export default function RolesPage(): React.ReactElement {
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      {perms.map((perm) => (
-                        <label
+                      {perms.map((perm) => {
+                        const selected = selectedPerms.has(perm.id);
+                        return (
+                        <button
                           key={perm.id}
-                          className={`group flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs transition ${
-                            selectedPerms.has(perm.id)
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => togglePerm(perm.id)}
+                          className={`group flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition ${
+                            selected
                               ? 'border-[var(--accent-blue)] bg-[var(--accent-blue)]/10'
                               : 'border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)]'
                           }`}
                         >
-                          <input type="checkbox" checked={selectedPerms.has(perm.id)} onChange={() => togglePerm(perm.id)} className="sr-only" />
                           <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[9px] font-bold transition ${
-                            selectedPerms.has(perm.id)
+                            selected
                               ? 'border-[var(--accent-blue)] bg-[var(--accent-blue)] text-white'
                               : 'border-[var(--border)] text-transparent group-hover:border-[var(--text-tertiary)]'
                           }`}>
                             {selectedPerms.has(perm.id) ? '✓' : ''}
                           </div>
                           <div className="flex flex-col">
-                            <span className={`font-medium ${selectedPerms.has(perm.id) ? 'text-[var(--accent-blue)]' : 'text-[var(--text-primary)]'}`}>
+                            <span className={`font-medium ${selected ? 'text-[var(--accent-blue)]' : 'text-[var(--text-primary)]'}`}>
                               {perm.name}
                             </span>
                             {perm.description && (
                               <span className="text-[10px] text-[var(--text-tertiary)]">{perm.description}</span>
                             )}
                           </div>
-                        </label>
-                      ))}
+                        </button>
+                      );
+                      })}
                     </div>
                   </div>
                 );
@@ -717,6 +748,13 @@ export default function RolesPage(): React.ReactElement {
             <div className="rounded-lg border border-[var(--accent-red)]/30 bg-[var(--accent-red)]/5 p-3">
               <p className="text-xs font-medium text-[var(--accent-red)]">
                 ⚠ {deleteTarget._count.users} utilisateur(s) possèdent ce rôle et perdront leurs permissions associées.
+              </p>
+            </div>
+          )}
+          {deleteTarget?.isSystem && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+              <p className="text-xs font-medium text-amber-400">
+                Ce rôle système pourra être recréé si vous relancez la synchronisation des permissions.
               </p>
             </div>
           )}

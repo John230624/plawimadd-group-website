@@ -1,24 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeLoggedInUser, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { Prisma } from '@prisma/client';
 
+interface CheckoutItemInput {
+  productId: string;
+  quantity: number;
+}
+
+class PosCheckoutError extends Error {
+  status: number;
+
+  constructor(message: string, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function normalizeItems(items: unknown): CheckoutItemInput[] {
+  if (!Array.isArray(items)) return [];
+
+  const merged = new Map<string, number>();
+  for (const raw of items) {
+    const item = raw as { productId?: unknown; quantity?: unknown };
+    const productId = typeof item.productId === 'string' ? item.productId : '';
+    const quantity = Number(item.quantity || 0);
+    if (!productId || !Number.isFinite(quantity) || quantity <= 0) continue;
+    merged.set(productId, (merged.get(productId) || 0) + Math.floor(quantity));
+  }
+
+  return Array.from(merged.entries()).map(([productId, quantity]) => ({ productId, quantity }));
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeLoggedInUser(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'pos.sell');
   if (!authResult.authorized) return authResult.response!;
   const userId = authResult.userId!;
 
   try {
-    const { items, customerName, customerPhone, discount, discountReason, paymentMethod } = await req.json();
+    const body = await req.json();
+    const items = normalizeItems(body.items);
+    const customerName = typeof body.customerName === 'string' ? body.customerName.trim() : '';
+    const customerPhone = typeof body.customerPhone === 'string' ? body.customerPhone.trim() : '';
+    const customerEmail = typeof body.customerEmail === 'string' ? body.customerEmail.trim() : '';
+    const customerIFU = typeof body.customerIFU === 'string' ? body.customerIFU.trim() : '';
+    const customerAddress = typeof body.customerAddress === 'string' ? body.customerAddress.trim() : '';
+    const discount = Number(body.discount || 0);
+    const discountReason = typeof body.discountReason === 'string' ? body.discountReason.trim() : '';
+    const paymentType = typeof body.paymentType === 'string' ? body.paymentType : 'CASH';
+    const paidAmount = Number(body.paidAmount || 0);
+    const dueDate = body.dueDate ? new Date(body.dueDate) : null;
 
-    if (!items?.length) return NextResponse.json({ message: 'Panier vide' }, { status: 400 });
+    const validPaymentTypes = ['CASH', 'TRANSFER', 'INSTALLMENT'];
+    if (!validPaymentTypes.includes(paymentType)) {
+      return NextResponse.json({ message: 'Type de paiement invalide. Utilisez CASH, TRANSFER ou INSTALLMENT.' }, { status: 400 });
+    }
 
-    const totalAmount = items.reduce((sum: number, item: { unitPrice: number; quantity: number }) => sum + item.unitPrice * item.quantity, 0);
-    const discountNum = Math.min(Math.max(0, Number(discount || 0)), totalAmount);
-    const finalAmount = Math.max(0, totalAmount - discountNum);
+    if (items.length === 0) {
+      return NextResponse.json({ message: 'Panier vide' }, { status: 400 });
+    }
+    if (!customerName) {
+      return NextResponse.json({ message: 'Le nom du client est requis pour une vente physique.' }, { status: 400 });
+    }
 
-    // Generate invoice number
     const date = new Date();
     const prefix = `FACT-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}-`;
     const count = await prisma.posTransaction.count({
@@ -26,7 +71,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
     const invoiceNumber = `${prefix}${String(count + 1).padStart(4, '0')}`;
 
-    // Get or create session (outside transaction - idempotent)
     let session = await prisma.posSession.findFirst({
       where: { userId, status: 'OPEN' },
     });
@@ -36,58 +80,123 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    const seller = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
 
-    // Wrap all writes in a transaction
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const products = await tx.product.findMany({
+        where: { id: { in: items.map((item) => item.productId) }, visible: true },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          offerPrice: true,
+          stock: true,
+        },
+      });
+
+      const productMap = new Map(products.map((product) => [product.id, product]));
+      const saleItems = items.map((item) => {
+        const product = productMap.get(item.productId);
+        if (!product) {
+          throw new PosCheckoutError('Produit introuvable ou indisponible.');
+        }
+        if (product.stock < item.quantity) {
+          throw new PosCheckoutError(`Stock insuffisant pour ${product.name}.`);
+        }
+
+        const unitPrice = Number(product.offerPrice ?? product.price);
+        return {
+          productId: item.productId,
+          name: product.name,
+          quantity: item.quantity,
+          unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        };
+      });
+
+      const totalAmount = saleItems.reduce((sum, item) => sum + item.totalPrice, 0);
+      const discountNum = Math.min(Math.max(0, Number.isFinite(discount) ? discount : 0), totalAmount);
+      const finalAmount = Math.max(0, totalAmount - discountNum);
+
+      let actualPaid = 0;
+      let remaining = finalAmount;
+
+      if (paymentType === 'INSTALLMENT') {
+        const validPaid = Math.max(0, Math.min(Number.isFinite(paidAmount) ? paidAmount : 0, finalAmount));
+        actualPaid = validPaid;
+        remaining = finalAmount - validPaid;
+      } else {
+        actualPaid = finalAmount;
+        remaining = 0;
+      }
+
       const transaction = await tx.posTransaction.create({
         data: {
           sessionId: session.id,
           userId,
           customerName,
-          customerPhone,
+          customerPhone: customerPhone || null,
+          customerEmail: customerEmail || null,
+          customerIFU: customerIFU || null,
+          customerAddress: customerAddress || null,
           totalAmount,
           discount: discountNum,
-          discountReason,
+          discountReason: discountNum > 0 ? (discountReason || 'Remise manuelle') : null,
           finalAmount,
-          paymentMethod: paymentMethod || 'CASH',
+          paidAmount: actualPaid,
+          remainingBalance: remaining,
+          dueDate: dueDate,
+          paymentMethod: paymentType,
           invoiceNumber,
           items: {
-            create: items.map((item: { productId: string; quantity: number; unitPrice: number }) => ({
+            create: saleItems.map((item) => ({
               productId: item.productId,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
-              totalPrice: item.unitPrice * item.quantity,
+              totalPrice: item.totalPrice,
             })),
           },
         },
         include: { items: true },
       });
 
-      for (const item of items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } },
+      for (const item of saleItems) {
+        const updateResult = await tx.product.updateMany({
+          where: { id: item.productId, stock: { gte: item.quantity } },
+          data: {
+            stock: { decrement: item.quantity },
+            soldCount: { increment: item.quantity },
+          },
         });
+        if (updateResult.count !== 1) {
+          throw new PosCheckoutError(`Stock insuffisant pour ${item.name}.`);
+        }
       }
 
       const orderId = `POS-${transaction.id}`;
+      const orderStatus = paymentType === 'INSTALLMENT' && remaining > 0 ? 'PROCESSING' : 'PAID_SUCCESS';
+      const orderPaymentStatus = paymentType === 'INSTALLMENT' && remaining > 0 ? 'PENDING' : 'COMPLETED';
+
       await tx.order.create({
         data: {
           id: orderId,
           userId,
           totalAmount: finalAmount,
-          status: 'PAID_SUCCESS',
-          paymentStatus: 'COMPLETED',
+          status: orderStatus,
+          paymentStatus: orderPaymentStatus,
           currency: 'XOF',
-          shippingAddressLine1: 'Vente en magasin',
+          shippingAddressLine1: `Vente physique - ${customerName}`,
           shippingCity: 'Magasin',
           shippingState: 'POS',
           shippingCountry: 'CI',
-          userEmail: user?.email || 'pos@plawimadd.com',
+          userEmail: customerEmail || seller?.email || 'pos@plawimadd.com',
+          userPhoneNumber: customerPhone || null,
           orderDate: new Date(),
           orderItems: {
-            create: items.map((item: { productId: string; quantity: number; unitPrice: number }) => ({
+            create: saleItems.map((item) => ({
               productId: item.productId,
               quantity: item.quantity,
               priceAtOrder: item.unitPrice,
@@ -99,15 +208,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await tx.orderPayment.create({
         data: {
           orderId,
-          amount: finalAmount,
-          paymentMethod: paymentMethod || 'CASH',
+          amount: actualPaid,
+          paymentMethod: paymentType,
           reference: invoiceNumber,
-          notes: discountNum > 0 ? `Remise: ${discountNum} XOF - ${discountReason || ''}`.trim() : null,
+          recordedById: userId,
+          notes: discountNum > 0
+            ? `Remise: ${discountNum} XOF - ${discountReason || 'Remise manuelle'}${remaining > 0 ? `. Reste: ${remaining} XOF` : ''}`
+            : (remaining > 0 ? `Acompte: ${actualPaid} XOF, Reste: ${remaining} XOF` : null),
           paidAt: new Date(),
         },
       });
 
-      return { transaction, orderId };
+      return { transaction, orderId, finalAmount, discountNum, itemsCount: saleItems.length, paymentType, paidAmount: actualPaid, remainingBalance: remaining };
     });
 
     await logActivity({
@@ -115,7 +227,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       action: 'POS_SALE',
       entity: 'POS_TRANSACTION',
       entityId: result.transaction.id,
-      details: `Vente POS #${invoiceNumber}: ${items.length} article(s), total ${finalAmount} XOF, remise ${discountNum} XOF`,
+      details: `Vente POS #${invoiceNumber}: ${result.itemsCount} article(s), total ${result.finalAmount} XOF, paiement ${result.paymentType}${result.remainingBalance > 0 ? `, acompte ${result.paidAmount} XOF, reste ${result.remainingBalance} XOF` : ''}`,
     });
 
     return NextResponse.json({
@@ -123,12 +235,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       invoiceNumber,
       transactionId: result.transaction.id,
       orderId: result.orderId,
-      totalAmount: finalAmount,
-      itemsCount: items.length,
+      totalAmount: result.finalAmount,
+      itemsCount: result.itemsCount,
+      paymentType: result.paymentType,
+      paidAmount: result.paidAmount,
+      remainingBalance: result.remainingBalance,
     }, { status: 201 });
-
   } catch (error) {
     console.error('POS Checkout Error:', error);
+    if (error instanceof PosCheckoutError) {
+      return NextResponse.json({ message: error.message }, { status: error.status });
+    }
     return NextResponse.json({ message: 'Erreur lors de la vente' }, { status: 500 });
   }
 }

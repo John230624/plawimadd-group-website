@@ -7,15 +7,14 @@ const KKIAPAY_PUBLIC_API_KEY = process.env.KKIAPAY_PUBLIC_API_KEY!;
 // ✅ CONFIGURATION LIVE UNIQUEMENT
 function getKkiapayConfig() {
   if (!KKIAPAY_PRIVATE_API_KEY || !KKIAPAY_PUBLIC_API_KEY || !KKIAPAY_SECRET) {
-    console.error('❌ Kkiapay configuration error: Missing LIVE environment variables');
-    throw new Error('Kkiapay LIVE environment variables are not properly configured');
+    console.error('❌ Kkiapay configuration error: Missing environment variables');
+    throw new Error('Kkiapay environment variables are not properly configured');
   }
 
-  // 🔥 TOUJOURS EN MODE LIVE
-  const isSandbox = false;
-  const baseUrl = 'https://api.kkiapay.me';
+  const isSandbox = KKIAPAY_PRIVATE_API_KEY.startsWith('tpk') || KKIAPAY_SECRET.startsWith('tsk') || process.env.NEXT_PUBLIC_KKIAPAY_SANDBOX === 'true';
+  const baseUrl = isSandbox ? 'https://api-sandbox.kkiapay.me' : 'https://api.kkiapay.me';
   
-  console.log(`🔧 Kkiapay Config - MODE LIVE`);
+  console.log(`🔧 Kkiapay Config - MODE ${isSandbox ? 'SANDBOX' : 'LIVE'}`);
   console.log(`🔧 URL: ${baseUrl}`);
   
   return {

@@ -20,12 +20,12 @@ export default function SellerBrand({
       className="flex h-full w-full items-center justify-center overflow-hidden"
     >
       <Image
-        src="/images/seller-logo.svg"
+        src="/images/seller-logo-dark.svg"
         alt="Plawimadd Group"
         width={248}
         height={40}
         priority
-        className={`max-w-full object-contain brightness-0 invert ${
+        className={`max-w-full object-contain ${
           compact ? 'w-[166px]' : 'w-[190px] md:w-[205px]'
         }`}
       />

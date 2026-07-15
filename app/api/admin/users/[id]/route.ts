@@ -21,6 +21,16 @@ export async function GET(
         email: true,
         phoneNumber: true,
         role: true,
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
         banned: true,
         bannedAt: true,
         createdAt: true,

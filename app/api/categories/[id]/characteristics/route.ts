@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 
 interface RouteContext {
@@ -8,7 +8,7 @@ interface RouteContext {
 }
 
 export async function POST(req: NextRequest, context: RouteContext): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeAdminRequest(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'categories.edit');
   if (!authResult.authorized) return authResult.response!;
 
   const { id } = await context.params;

@@ -1,7 +1,7 @@
 // app/api/products/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { Decimal, PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 // Importez les types générés par Prisma directement pour une meilleure compatibilité
@@ -184,7 +184,7 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
 
 // --- PUT (Mettre à jour un produit) ---
 export async function PUT(req: NextRequest, context: RouteContext): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req);
+    const authResult: AuthResult = await authorizeByPermission(req, 'products.edit');
     if (!authResult.authorized) {
         return authResult.response!;
     }
@@ -327,7 +327,7 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
 
 // --- PATCH (Mise à jour partielle inline: stock, price, visible) ---
 export async function PATCH(req: NextRequest, context: RouteContext): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req);
+    const authResult: AuthResult = await authorizeByPermission(req, 'products.edit');
     if (!authResult.authorized) {
         return authResult.response!;
     }
@@ -434,7 +434,7 @@ export async function PATCH(req: NextRequest, context: RouteContext): Promise<Ne
 
 // --- DELETE (Supprimer un produit) ---
 export async function DELETE(req: NextRequest, context: RouteContext): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req);
+    const authResult: AuthResult = await authorizeByPermission(req, 'products.delete');
     if (!authResult.authorized) {
         return authResult.response!;
     }

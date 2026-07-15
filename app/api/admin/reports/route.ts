@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 
 function monthKey(date: Date): string {
   return date.toISOString().substring(0, 7);
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeAdminRequest(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'reports.view');
   if (!authResult.authorized) return authResult.response!;
 
   try {
@@ -37,6 +37,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       dateTo.setHours(23, 59, 59, 999);
     }
 
+    const orderWhere = { orderDate: { gte: dateFrom, lte: dateTo } };
+    const nonPosOrderWhere = { ...orderWhere, id: { not: { startsWith: 'POS-' } } };
+
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
     const [
       totalRevenueResult,
       totalOrders,
@@ -45,12 +51,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       topProducts,
       recentOrders,
       revenueByMonthResult,
+      posRevenueByMonthResult,
+      posTotalRevenueResult,
+      stockAggregation,
+      costAggregation,
+      productsAddedThisPeriod,
+      productsAddedToday,
+      todayOrderRevenue,
+      todayPosRevenue,
+      completedOrderItems,
+      posTransactionItems,
     ] = await Promise.all([
       prisma.order.aggregate({
         _sum: { totalAmount: true },
-        where: { paymentStatus: 'COMPLETED', orderDate: { gte: dateFrom, lte: dateTo } },
+        where: { paymentStatus: 'COMPLETED', ...nonPosOrderWhere },
       }),
-      prisma.order.count({ where: { orderDate: { gte: dateFrom, lte: dateTo } } }),
+      prisma.order.count({ where: orderWhere }),
       prisma.product.count(),
       prisma.user.count(),
       prisma.orderItem.groupBy({
@@ -60,7 +76,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         take: 10,
       }),
       prisma.order.findMany({
-        where: { orderDate: { gte: dateFrom, lte: dateTo } },
+        where: nonPosOrderWhere,
         orderBy: sortBy === 'date' ? { orderDate: sortOrder as 'asc' | 'desc' } :
                  sortBy === 'total' ? { totalAmount: sortOrder as 'asc' | 'desc' } :
                  { orderDate: 'desc' },
@@ -73,13 +89,129 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       prisma.order.groupBy({
         by: ['orderDate'],
         _sum: { totalAmount: true },
-        where: {
-          paymentStatus: 'COMPLETED',
-          orderDate: { gte: dateFrom, lte: dateTo },
-        },
+        where: { paymentStatus: 'COMPLETED', ...nonPosOrderWhere },
         orderBy: { orderDate: 'asc' },
       }),
+      prisma.posTransaction.groupBy({
+        by: ['createdAt'],
+        _sum: { finalAmount: true },
+        where: {
+          paymentMethod: { in: ['CASH', 'TRANSFER'] },
+          createdAt: { gte: dateFrom, lte: dateTo },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.posTransaction.aggregate({
+        _sum: { finalAmount: true },
+        where: {
+          paymentMethod: { in: ['CASH', 'TRANSFER'] },
+          createdAt: { gte: dateFrom, lte: dateTo },
+        },
+      }),
+      // Valeur totale du stock au prix de vente
+      prisma.product.aggregate({
+        _sum: { price: true, costPrice: true, stock: true },
+        where: { visible: true, deletedAt: null },
+      }),
+      // Valeur totale du stock au prix de revient
+      prisma.product.aggregate({
+        _sum: { costPrice: true },
+        where: { visible: true, deletedAt: null, costPrice: { not: null } },
+      }),
+      prisma.product.count({
+        where: { createdAt: { gte: dateFrom, lte: dateTo } },
+      }),
+      prisma.product.count({
+        where: { createdAt: { gte: todayStart, lte: todayEnd } },
+      }),
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { paymentStatus: 'COMPLETED', orderDate: { gte: todayStart, lte: todayEnd }, id: { not: { startsWith: 'POS-' } } },
+      }),
+      prisma.posTransaction.aggregate({
+        _sum: { finalAmount: true },
+        where: { paymentMethod: { in: ['CASH', 'TRANSFER'] }, createdAt: { gte: todayStart, lte: todayEnd } },
+      }),
+      // OrderItems avec produits pour calculer le coût des ventes
+      prisma.orderItem.findMany({
+        where: {
+          order: { paymentStatus: 'COMPLETED', orderDate: { gte: dateFrom, lte: dateTo } },
+        },
+        select: {
+          quantity: true,
+          priceAtOrder: true,
+          product: { select: { costPrice: true } },
+        },
+      }),
+      // POS transaction items avec produits pour calculer le coût des ventes POS
+      prisma.posTransactionItem.findMany({
+        where: {
+          transaction: {
+            paymentMethod: { in: ['CASH', 'TRANSFER'] },
+            createdAt: { gte: dateFrom, lte: dateTo },
+          },
+        },
+        select: {
+          quantity: true,
+          unitPrice: true,
+          product: { select: { costPrice: true } },
+        },
+      }),
     ]);
+
+    // Calcul du coût total des ventes réalisées
+    let totalCostOfGoodsSold = 0;
+    let fullyCostedOrders = 0;
+    for (const item of completedOrderItems) {
+      if (item.product.costPrice) {
+        totalCostOfGoodsSold += Number(item.product.costPrice) * item.quantity;
+        fullyCostedOrders++;
+      }
+    }
+    for (const item of posTransactionItems) {
+      if (item.product.costPrice) {
+        totalCostOfGoodsSold += Number(item.product.costPrice) * item.quantity;
+        fullyCostedOrders++;
+      }
+    }
+
+    // Valeur du stock
+    const totalSellingPrice = stockAggregation._sum.price
+      ? Number(stockAggregation._sum.price) * (stockAggregation._sum.stock || 0)
+      : 0;
+    const totalCostPrice = costAggregation._sum.costPrice
+      ? Number(costAggregation._sum.costPrice) * (stockAggregation._sum.stock || 0)
+      : 0;
+    const productCount = stockAggregation._sum.stock || 0;
+
+    // Calcul plus précis : somme de (price * stock) et (costPrice * stock) par produit
+    const allProducts = await prisma.product.findMany({
+      where: { visible: true, deletedAt: null },
+      select: { price: true, costPrice: true, stock: true },
+    });
+    let preciseStockValueAtSelling = 0;
+    let preciseStockValueAtCost = 0;
+    for (const p of allProducts) {
+      preciseStockValueAtSelling += Number(p.price) * p.stock;
+      if (p.costPrice) {
+        preciseStockValueAtCost += Number(p.costPrice) * p.stock;
+      }
+    }
+    const stockProfitPotential = preciseStockValueAtSelling - preciseStockValueAtCost;
+
+    // Bénéfice réalisé
+    const totalRevenue = (totalRevenueResult._sum.totalAmount?.toNumber() || 0) + (posTotalRevenueResult._sum.finalAmount?.toNumber() || 0);
+    const realizedProfit = totalRevenue - totalCostOfGoodsSold;
+    const profitMargin = totalRevenue > 0 ? (realizedProfit / totalRevenue) * 100 : 0;
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    const todayRevenue = (todayOrderRevenue._sum.totalAmount?.toNumber() || 0) + (todayPosRevenue._sum.finalAmount?.toNumber() || 0);
+    const todayOrders = await prisma.order.count({
+      where: { orderDate: { gte: todayStart, lte: todayEnd } },
+    });
+    const pendingOrders = await prisma.order.count({
+      where: { status: 'PENDING', orderDate: { gte: dateFrom, lte: dateTo } },
+    });
 
     const productIds = topProducts.map((p) => p.productId);
     const productsMap = new Map<string, string>();
@@ -91,7 +223,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       for (const p of products) productsMap.set(p.id, p.name);
     }
 
-    // Revenu réel par produit : SUM(priceAtOrder * quantity) pour les commandes complétées
     const productRevenueMap = new Map<string, number>();
     if (productIds.length > 0) {
       const orderItemsWithRevenue = await prisma.orderItem.findMany({
@@ -99,11 +230,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           productId: { in: productIds },
           order: { paymentStatus: 'COMPLETED', orderDate: { gte: dateFrom, lte: dateTo } },
         },
-        select: {
-          productId: true,
-          quantity: true,
-          priceAtOrder: true,
-        },
+        select: { productId: true, quantity: true, priceAtOrder: true },
       });
       for (const item of orderItemsWithRevenue) {
         const rev = Number(item.priceAtOrder) * item.quantity;
@@ -133,10 +260,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const monthlyRevenueMap = new Map<string, number>();
     revenueByMonthResult.forEach((item) => {
       const key = monthKey(item.orderDate);
-      monthlyRevenueMap.set(
-        key,
-        (monthlyRevenueMap.get(key) || 0) + (item._sum.totalAmount?.toNumber() || 0)
-      );
+      monthlyRevenueMap.set(key, (monthlyRevenueMap.get(key) || 0) + (item._sum.totalAmount?.toNumber() || 0));
+    });
+    posRevenueByMonthResult.forEach((item) => {
+      const key = monthKey(item.createdAt);
+      monthlyRevenueMap.set(key, (monthlyRevenueMap.get(key) || 0) + (item._sum.finalAmount?.toNumber() || 0));
     });
 
     const twelveMonthsAgo = new Date(dateFrom.getFullYear(), dateFrom.getMonth(), 1);
@@ -149,35 +277,34 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       revenueByMonth.push({ month: key, revenue: monthlyRevenueMap.get(key) || 0 });
     }
 
-    const totalRevenue = totalRevenueResult._sum.totalAmount?.toNumber() || 0;
-
-    // Agrégations pour les StatCards supplémentaires
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
-    const todayRevenue = await prisma.order.aggregate({
-      _sum: { totalAmount: true },
-      where: { paymentStatus: 'COMPLETED', orderDate: { gte: todayStart, lte: todayEnd } },
-    });
-    const todayOrders = await prisma.order.count({
-      where: { orderDate: { gte: todayStart, lte: todayEnd } },
-    });
-    const pendingOrders = await prisma.order.count({
-      where: { status: 'PENDING', orderDate: { gte: dateFrom, lte: dateTo } },
-    });
-
     return NextResponse.json(
       {
         success: true,
+        // Revenus & commandes
         totalRevenue,
         totalOrders,
         totalProducts,
         totalCustomers: totalUsers,
+        todayRevenue,
+        todayOrders,
+        pendingOrders,
+        averageOrderValue: Math.round(averageOrderValue),
+        // Produits
+        totalStockUnits: productCount,
+        stockValueAtSellingPrice: preciseStockValueAtSelling,
+        stockValueAtCostPrice: preciseStockValueAtCost,
+        stockProfitPotential: Math.round(stockProfitPotential),
+        productsAddedThisPeriod,
+        productsAddedToday,
+        // Bénéfices
+        totalCostOfGoodsSold,
+        realizedProfit,
+        profitMargin: Math.round(profitMargin * 100) / 100,
+        fullyCostedOrders,
+        // Données existantes
         topProducts: formattedTopProducts,
         recentOrders: formattedRecentOrders,
         monthlyRevenues: revenueByMonth,
-        todayRevenue: todayRevenue._sum.totalAmount?.toNumber() || 0,
-        todayOrders,
-        pendingOrders,
       },
       { status: 200 }
     );

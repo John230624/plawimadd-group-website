@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeAdminRequest(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'colors.view');
   if (!authResult.authorized) return authResult.response!;
   try {
     const colors = await prisma.color.findMany({ orderBy: { name: 'asc' } });
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeAdminRequest(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'colors.create');
   if (!authResult.authorized) return authResult.response!;
   try {
     const { name, hex } = await req.json();
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function PUT(req: NextRequest): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeAdminRequest(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'colors.edit');
   if (!authResult.authorized) return authResult.response!;
   try {
     const { id, name, hex } = await req.json();
@@ -45,7 +45,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
-  const authResult: AuthResult = await authorizeAdminRequest(req);
+  const authResult: AuthResult = await authorizeByPermission(req, 'colors.delete');
   if (!authResult.authorized) return authResult.response!;
   try {
     const body = await req.json();

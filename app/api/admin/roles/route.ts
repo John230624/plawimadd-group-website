@@ -123,7 +123,9 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
       include: { _count: { select: { users: true } } },
     });
     if (!role) return NextResponse.json({ success: false, message: 'Rôle introuvable' }, { status: 404 });
-    if (role.isSystem) return NextResponse.json({ success: false, message: 'Impossible de supprimer un rôle système' }, { status: 400 });
+    if (role.name === 'Administrateur') {
+      return NextResponse.json({ success: false, message: 'Impossible de supprimer le rôle Administrateur principal.' }, { status: 400 });
+    }
     await prisma.role.delete({ where: { id } });
     await logActivity({ userId: req.user?.id || null, action: 'DELETE', entity: 'ROLE', entityId: id, details: `Rôle "${role.name}" supprimé (${role._count.users} utilisateur(s) impacté(s))` });
     return NextResponse.json({ success: true, message: `Rôle "${role.name}" supprimé. ${role._count.users} utilisateur(s) impacté(s).` });

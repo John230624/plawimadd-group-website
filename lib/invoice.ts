@@ -1,5 +1,7 @@
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { LOGO_BASE64 } from './logo-base64';
+
 
 interface InvoiceItem {
   name: string;
@@ -8,125 +10,417 @@ interface InvoiceItem {
   totalPrice: number;
 }
 
+interface InvoicePayment {
+  amount: number;
+  method: string;
+  paidAt: Date | string;
+  reference?: string | null;
+}
+
 interface InvoiceData {
   invoiceNumber: string;
   date: Date;
   customerName?: string | null;
   customerPhone?: string | null;
+  customerEmail?: string | null;
+  customerIFU?: string | null;
+  customerAddress?: string | null;
   items: InvoiceItem[];
   subtotal: number;
   discount: number;
   discountReason?: string | null;
   total: number;
+  paidAmount?: number;
+  remainingBalance?: number;
+  dueDate?: Date | null;
   paymentMethod: string;
   sellerName?: string;
   sellerPhone?: string;
+  payments?: InvoicePayment[];
+  isFullyPaid?: boolean;
+}
+
+function formatAmount(amount: number): string {
+  return Math.round(amount)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+function formatDate(d: Date): string {
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+export function numberToFrenchWords(n: number): string {
+  if (n === 0) return 'zéro';
+
+  const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
+  const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
+  const tens = ['', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix'];
+
+  function convertUnder100(val: number): string {
+    if (val < 10) return units[val];
+    if (val < 20) return teens[val - 10];
+    const ten = Math.floor(val / 10);
+    const unit = val % 10;
+
+    if (ten === 7) {
+      return 'soixante-' + (unit === 1 ? 'et-onze' : teens[unit]);
+    }
+    if (ten === 9) {
+      return 'quatre-vingt-' + teens[unit];
+    }
+    if (unit === 0) {
+      return ten === 8 ? 'quatre-vingts' : tens[ten];
+    }
+    if (unit === 1) {
+      return tens[ten] + '-et-un';
+    }
+    return tens[ten] + '-' + units[unit];
+  }
+
+  function convertUnder1000(val: number): string {
+    if (val < 100) return convertUnder100(val);
+    const hundred = Math.floor(val / 100);
+    const remainder = val % 100;
+    let result = '';
+    if (hundred === 1) {
+      result = 'cent';
+    } else {
+      result = units[hundred] + ' cent';
+      if (remainder === 0) result += 's';
+    }
+    if (remainder > 0) {
+      result += ' ' + convertUnder100(remainder);
+    }
+    return result;
+  }
+
+  function convert(val: number): string {
+    if (val === 0) return '';
+    if (val < 1000) return convertUnder1000(val);
+    if (val < 1000000) {
+      const thousands = Math.floor(val / 1000);
+      const remainder = val % 1000;
+      let result = '';
+      if (thousands === 1) {
+        result = 'mille';
+      } else {
+        result = convertUnder1000(thousands) + ' mille';
+      }
+      if (remainder > 0) {
+        result += ' ' + convertUnder1000(remainder);
+      }
+      return result;
+    }
+    if (val < 1000000000) {
+      const millions = Math.floor(val / 1000000);
+      const remainder = val % 1000000;
+      let result = convertUnder1000(millions) + ' million';
+      if (millions > 1) result += 's';
+      if (remainder > 0) {
+        result += ' ' + convert(remainder);
+      }
+      return result;
+    }
+    return val.toString();
+  }
+
+  return convert(n).trim().replace(/\s+/g, ' ');
 }
 
 export function generateInvoicePDF(data: InvoiceData): jsPDF {
   const doc = new jsPDF({ format: 'a4', unit: 'mm' });
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
-  const primary = [37, 99, 235] as const;
-  const gray = [107, 114, 128] as const;
-  const dark = [17, 24, 39] as const;
-  const lightGray = [243, 244, 246] as const;
+  // White background
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-  doc.setFillColor(...primary);
-  doc.rect(0, 0, pageWidth, 40, 'F');
+  // Header Left - Company Logo and Information
+  doc.addImage(LOGO_BASE64, 'PNG', 15, 8, 30, 20);
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.text('PLAWIMADD GROUP', 20, 20);
-  doc.setFontSize(10);
-  doc.text('Facture Normalisee', 20, 30);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text('IFU : 3202226549581', 50, 18);
+  doc.text('RCCM : RB/ABC/22 B 6030', 50, 23);
 
+  // Header Right - Invoice Meta Information
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
-  doc.text(`N° ${data.invoiceNumber}`, pageWidth - 20, 20, { align: 'right' });
+  doc.text('FACTURE DE VENTE', pageWidth - 15, 15, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(`Date: ${data.date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, pageWidth - 20, 28, { align: 'right' });
+  doc.text(`Facture # ${data.invoiceNumber}`, pageWidth - 15, 20, { align: 'right' });
+  doc.text(`Date : ${formatDate(data.date)}`, pageWidth - 15, 25, { align: 'right' });
+  doc.text(`Vendeur : ${data.sellerName || 'SFE en ligne'}`, pageWidth - 15, 30, { align: 'right' });
 
-  doc.setDrawColor(...primary);
-  doc.setLineWidth(0.5);
-  doc.line(20, 44, pageWidth - 20, 44);
+  // Divider line
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.3);
+  doc.line(15, 33, pageWidth - 15, 33);
 
-  let yPos = 52;
-  doc.setFontSize(9);
-  doc.setTextColor(...gray);
-  doc.text('Vendeur:', 20, yPos);
-  doc.setTextColor(...dark);
-  doc.setFontSize(10);
-  doc.text(data.sellerName || 'Plawimadd Group', 20, yPos + 5);
-  if (data.sellerPhone) {
-    doc.setFontSize(8);
-    doc.setTextColor(...gray);
-    doc.text(`Tel: ${data.sellerPhone}`, 20, yPos + 11);
-  }
+  // Seller Details Table
+  autoTable(doc, {
+    startY: 36,
+    margin: { left: 15 },
+    tableWidth: 120,
+    body: [
+      [
+        'Adresse',
+        "GODOMEY\nA COTE DE L'IMMEUBLE PEACE AND LOVE EN FACE DU TRAFIC LOCAL DE L'ECHANGEUR DE GODOMEY\nABOMEY CALAVI",
+      ],
+      [
+        'Contact',
+        `97918000 / 97747178\nplawimaddgroupbeninbranch1@gmail.com`,
+      ],
+    ],
+    theme: 'plain',
+    styles: {
+      fontSize: 8,
+      cellPadding: 1,
+      textColor: [0, 0, 0] as any,
+    },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 18 },
+      1: { cellWidth: 102 },
+    },
+  });
 
-  if (data.customerName) {
-    doc.setFontSize(9);
-    doc.setTextColor(...gray);
-    doc.text('Client:', pageWidth - 80, yPos);
-    doc.setTextColor(...dark);
-    doc.setFontSize(10);
-    doc.text(data.customerName, pageWidth - 80, yPos + 5);
-    if (data.customerPhone) {
-      doc.setFontSize(8);
-      doc.setTextColor(...gray);
-      doc.text(`Tel: ${data.customerPhone}`, pageWidth - 80, yPos + 11);
-    }
-  }
+  const sellerEndY = (doc as any).lastAutoTable.finalY || 55;
+  const clientStartY = Math.max(sellerEndY + 4, 45);
 
-  yPos = 75;
-  (doc as any).autoTable({
-    startY: yPos,
-    head: [['#', 'Produit', 'Qté', 'Prix unit.', 'Total']],
+  // Client Details Box
+  autoTable(doc, {
+    startY: clientStartY,
+    margin: { left: 15, right: 15 },
+    head: [['CLIENT']],
+    body: [
+      ['Nom', data.customerName || 'Client comptoir'],
+      ['IFU', data.customerIFU || ''],
+      ['Adresse', data.customerAddress || ''],
+      ['Contact', [data.customerPhone, data.customerEmail].filter(Boolean).join(' / ') || ''],
+    ],
+    theme: 'grid',
+    headStyles: {
+      fillColor: [240, 240, 240] as any,
+      textColor: [0, 0, 0] as any,
+      fontStyle: 'bold',
+      fontSize: 8.5,
+      cellPadding: 2,
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2,
+      textColor: [0, 0, 0] as any,
+    },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 20 },
+      1: { cellWidth: 160 },
+    },
+    styles: {
+      lineColor: [200, 200, 200] as any,
+      lineWidth: 0.1,
+    },
+  });
+
+  const clientEndY = (doc as any).lastAutoTable.finalY || 80;
+  const itemsStartY = clientEndY + 6;
+
+  // Main Items Table
+  autoTable(doc, {
+    startY: itemsStartY,
+    margin: { left: 15, right: 15 },
+    head: [['#', 'Désignation', 'Prix unitaire (T.T.C.)', 'Quantité', 'Montant (T.T.C.)']],
     body: data.items.map((item, index) => [
       index + 1,
       item.name,
+      formatAmount(item.unitPrice),
       item.quantity,
-      `${item.unitPrice.toLocaleString('fr-FR')} FCFA`,
-      `${item.totalPrice.toLocaleString('fr-FR')} FCFA`,
+      formatAmount(item.totalPrice),
     ]),
-    foot: [
-      ['', '', '', 'Sous-total', `${data.subtotal.toLocaleString('fr-FR')} FCFA`],
-      ...(data.discount > 0 ? [['', '', '', 'Remise', `-${data.discount.toLocaleString('fr-FR')} FCFA`]] : []),
-      ['', '', '', 'TOTAL', `${data.total.toLocaleString('fr-FR')} FCFA`],
-    ],
     theme: 'grid',
-    headStyles: { fillColor: primary as any, textColor: 255, fontStyle: 'bold', fontSize: 9 },
-    footStyles: { fillColor: lightGray as any, textColor: dark as any, fontStyle: 'bold', fontSize: 10 },
-    bodyStyles: { fontSize: 9, textColor: dark as any },
-    alternateRowStyles: { fillColor: lightGray as any },
+    headStyles: {
+      fillColor: [240, 240, 240] as any,
+      textColor: [0, 0, 0] as any,
+      fontStyle: 'bold',
+      fontSize: 8.5,
+      cellPadding: 2.5,
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2.5,
+      textColor: [0, 0, 0] as any,
+    },
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' },
-      2: { halign: 'center' },
-      3: { halign: 'right' },
-      4: { halign: 'right' },
+      1: { halign: 'left' },
+      2: { halign: 'right', cellWidth: 40 },
+      3: { halign: 'center', cellWidth: 20 },
+      4: { halign: 'right', cellWidth: 40 },
     },
-    margin: { left: 20, right: 20 },
+    styles: {
+      lineColor: [200, 200, 200] as any,
+      lineWidth: 0.1,
+    },
   });
 
-  if (data.discount > 0 && data.discountReason) {
-    const finalY = (doc as any).lastAutoTable.finalY + 5;
-    doc.setFontSize(8);
-    doc.setTextColor(...gray);
-    doc.text(`Motif de la remise: ${data.discountReason}`, 20, finalY);
+  const itemsEndY = (doc as any).lastAutoTable.finalY || 130;
+  const taxSectionStartY = itemsEndY + 8;
+
+  // Header Ventilation
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text('--- VENTILATION DES IMPOTS ---', 15, taxSectionStartY);
+
+  // Tax Table
+  autoTable(doc, {
+    startY: taxSectionStartY + 2,
+    margin: { left: 15 },
+    tableWidth: 110,
+    head: [['Groupe', 'Total', 'Imposable', 'Impôt']],
+    body: [
+      ['E - TPS', '', formatAmount(data.total), ''],
+    ],
+    theme: 'grid',
+    headStyles: {
+      fillColor: [240, 240, 240] as any,
+      textColor: [0, 0, 0] as any,
+      fontStyle: 'bold',
+      fontSize: 8,
+      cellPadding: 2,
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2.5,
+      textColor: [0, 0, 0] as any,
+    },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 25 },
+      1: { halign: 'right', cellWidth: 25 },
+      2: { halign: 'right', cellWidth: 35 },
+      3: { halign: 'right', cellWidth: 25 },
+    },
+    styles: {
+      lineColor: [200, 200, 200] as any,
+      lineWidth: 0.1,
+    },
+  });
+
+  const taxEndY = (doc as any).lastAutoTable.finalY || 160;
+
+  // Total Box on the right (aligned with the ventilation table)
+  const totalBoxX = 140;
+  const totalBoxY = taxSectionStartY + 2;
+  const totalBoxW = 55;
+  const totalBoxH = 13;
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.4);
+  doc.rect(totalBoxX, totalBoxY, totalBoxW, totalBoxH);
+  // Double-line border effect
+  doc.rect(totalBoxX + 0.6, totalBoxY + 0.6, totalBoxW - 1.2, totalBoxH - 1.2);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Total : ${formatAmount(data.total)}`, totalBoxX + totalBoxW / 2, totalBoxY + totalBoxH / 2 + 3.5, { align: 'center' });
+
+  // Payment Breakdown Section
+  const paymentSectionStartY = Math.max(taxEndY, totalBoxY + totalBoxH) + 8;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text('--- REPARTITION DES PAIEMENTS ---', 15, paymentSectionStartY);
+
+  const methodLabels: Record<string, string> = {
+    CASH: 'ESPECES',
+    TRANSFER: 'VIREMENT BANCAIRE',
+    BANK_TRANSFER: 'VIREMENT BANCAIRE',
+    INSTALLMENT: 'TRANCHE / ESPECES',
+    MOBILE_MONEY: 'MOBILE MONEY',
+    CARD: 'CARTE BANCAIRE',
+  };
+
+  // Statut de règlement pour les ventes à crédit (SOLDEE / PARTIELLE)
+  const soldee = data.isFullyPaid || (data.remainingBalance ?? 0) <= 0.5;
+  if (data.paymentMethod === 'INSTALLMENT') {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    if (soldee) doc.setTextColor(16, 150, 80);
+    else doc.setTextColor(200, 130, 20);
+    doc.text(soldee ? '[ SOLDEE ]' : '[ PARTIELLE ]', pageWidth - 15, paymentSectionStartY, { align: 'right' });
   }
 
-  const tableEnd = (doc as any).lastAutoTable.finalY + 15;
-  doc.setFontSize(9);
-  doc.setTextColor(...gray);
-  doc.text('Mode de paiement:', 20, tableEnd);
-  doc.setFontSize(10);
-  doc.setTextColor(...dark);
-  const methodLabels: Record<string, string> = { CASH: 'Especes', MOBILE_MONEY: 'Mobile Money', CARD: 'Carte bancaire' };
-  doc.text(methodLabels[data.paymentMethod] || data.paymentMethod, 20, tableEnd + 5);
+  // Détail des tranches encaissées si disponible, sinon ligne agrégée
+  let paymentRows: string[][];
+  if (data.paymentMethod === 'INSTALLMENT' && data.payments && data.payments.length > 0) {
+    paymentRows = data.payments.map((p, i) => [
+      `Tranche #${i + 1} - ${formatDate(new Date(p.paidAt))} (${methodLabels[p.method] || p.method})`,
+      formatAmount(p.amount),
+    ]);
+    paymentRows.push(['TOTAL VERSE', formatAmount(data.paidAmount ?? 0)]);
+  } else {
+    paymentRows = [
+      [methodLabels[data.paymentMethod] || data.paymentMethod, formatAmount(data.paidAmount ?? data.total)],
+    ];
+  }
+  if (data.remainingBalance && data.remainingBalance > 0) {
+    paymentRows.push(['RESTE A PAYER', formatAmount(data.remainingBalance)]);
+  }
 
+  autoTable(doc, {
+    startY: paymentSectionStartY + 2,
+    margin: { left: 15 },
+    tableWidth: 110,
+    head: [['Type de paiement', 'Payé']],
+    body: paymentRows,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [240, 240, 240] as any,
+      textColor: [0, 0, 0] as any,
+      fontStyle: 'bold',
+      fontSize: 8,
+      cellPadding: 2,
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2.5,
+      textColor: [0, 0, 0] as any,
+    },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 75 },
+      1: { halign: 'right', cellWidth: 35 },
+    },
+    styles: {
+      lineColor: [200, 200, 200] as any,
+      lineWidth: 0.1,
+    },
+  });
+
+  const paymentEndY = (doc as any).lastAutoTable.finalY || 190;
+  const sentenceStartY = paymentEndY + 8;
+
+  // Final amount in letters
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.setTextColor(...gray);
-  doc.text('Merci de votre confiance !', pageWidth / 2, 275, { align: 'center' });
-  doc.text('Plawimadd Group - Votre partenaire technologique', pageWidth / 2, 280, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
+  const phrase = `Arrêté la présente facture à la somme de ${numberToFrenchWords(data.total)} francs CFA TTC`;
+  const splitPhrase = doc.splitTextToSize(phrase, pageWidth - 30);
+  doc.text(splitPhrase, 15, sentenceStartY);
+
+  // Footer note
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(120, 120, 120);
+  doc.text('Merci de votre confiance.', pageWidth / 2, pageHeight - 12, { align: 'center' });
+  doc.text('Plawimadd Group - Recu interne de vente physique', pageWidth / 2, pageHeight - 8, { align: 'center' });
 
   return doc;
 }

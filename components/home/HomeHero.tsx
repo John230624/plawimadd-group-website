@@ -1,86 +1,396 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
-import { ArrowRight, MapPin, ShieldCheck, Truck } from 'lucide-react';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { ArrowRight, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface HomeHeroProps {
-  onBrowseCatalog: () => void;
+  onBrowseCatalog: (category?: string) => void;
   onContact: () => void;
 }
+
+const defaultSlides = [
+  {
+    id: '1',
+    title: 'Téléviseurs intelligents',
+    tagline: 'IMMERSION TOTALE',
+    description: 'Expérimentez des détails ultra-précis, des couleurs éclatantes et une luminosité extraordinaire pour votre salon.',
+    image: '/images/header_tv_image.png',
+    category: 'Televiseurs',
+    bgColor: '#e2e7f3',
+    accentColor: '#3b82f6',
+    layout: 'left',
+  },
+  {
+    id: '2',
+    title: 'Ordinateurs de pointe',
+    tagline: 'PRODUCTIVITÉ MAXIMALE',
+    description: 'Des performances exceptionnelles pour vos études, votre travail et vos projets créatifs avec une autonomie record.',
+    image: '/images/header_ordi_hp_probook_image.png',
+    category: 'Ordinateurs',
+    bgColor: '#e8edf5',
+    accentColor: '#10b981',
+    layout: 'right',
+  },
+  {
+    id: '3',
+    title: 'Galaxy S23 Series',
+    tagline: 'GALAXY AI ✦',
+    description: "Entrez dans une nouvelle ère technologique. L'intelligence artificielle repensée pour simplifier chacun de vos gestes.",
+    image: '/images/samsung_s23phone_image.png',
+    category: 'Smartphones',
+    bgColor: '#ebdffd',
+    accentColor: '#8b5cf6',
+    layout: 'center',
+  },
+  {
+    id: '4',
+    title: 'Écouteurs Premium',
+    tagline: 'STYLE & PERFORMANCE',
+    description: "Profitez d'un son immersif haute fidélité et d'une réduction de bruit active tout au long de la journée.",
+    image: '/images/apple_earphone_image.png',
+    category: 'Audio',
+    bgColor: '#f7ebd9',
+    accentColor: '#f97316',
+    layout: 'right',
+  },
+];
 
 export default function HomeHero({
   onBrowseCatalog,
   onContact,
 }: HomeHeroProps): React.ReactElement {
+  const [slides, setSlides] = useState<typeof defaultSlides>(defaultSlides);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+  const [direction, setDirection] = useState(1);
+
+  // Charger les slides depuis l'API de manière dynamique
+  useEffect(() => {
+    let active = true;
+    fetch('/api/hero-slides')
+      .then((res) => res.json())
+      .then((data) => {
+        if (active && data.success && Array.isArray(data.slides) && data.slides.length > 0) {
+          setSlides(data.slides);
+        }
+      })
+      .catch((err) => console.error('Erreur chargement slides:', err));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Rotation automatique toutes les 6 secondes avec pause au survol
+  useEffect(() => {
+    if (isHovered) return;
+
+    const timer = setTimeout(() => {
+      setDirection(1);
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 6000);
+
+    return () => clearTimeout(timer);
+  }, [currentSlide, isHovered, slides.length]);
+
+  const handleNext = () => {
+    setDirection(1);
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
+
+  const handlePrev = () => {
+    setDirection(-1);
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
+
+  const handleDotClick = (index: number) => {
+    setDirection(index > currentSlide ? 1 : -1);
+    setCurrentSlide(index);
+  };
+
+  const slide = slides[currentSlide] || defaultSlides[0];
+
+  const slideVariants: Variants = {
+    enter: (dir: number) => ({
+      x: dir > 0 ? '100%' : '-100%',
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+      transition: {
+        x: { type: 'spring', stiffness: 300, damping: 30 },
+        opacity: { duration: 0.4 },
+      },
+    },
+    exit: (dir: number) => ({
+      x: dir > 0 ? '-100%' : '100%',
+      opacity: 0,
+      transition: {
+        x: { type: 'spring', stiffness: 300, damping: 30 },
+        opacity: { duration: 0.4 },
+      },
+    }),
+  };
+
+  const contentVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5, delay: 0.1 } },
+  };
+
+  const imageVariants = {
+    hidden: { opacity: 0, scale: 0.95, x: 20 },
+    visible: { opacity: 1, scale: 1, x: 0, transition: { duration: 0.6, delay: 0.2 } },
+  };
+
   return (
     <motion.section
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.75, ease: 'easeOut' }}
-      className="relative overflow-hidden rounded-[2.3rem] bg-[oklch(97%_0.014_254.604)] shadow-[0_35px_90px_rgba(15,23,42,0.12)]"
-    >
-      <Image
-        src="/images/hero-bg.jpg"
-        alt="Plawimadd Group hero background"
-        fill
-        priority
-        className="object-cover"
-      />
+        animate={{ backgroundColor: slide.bgColor }}
+        transition={{ duration: 0.6 }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className="group relative overflow-hidden rounded-none shadow-none min-h-[500px] md:min-h-[550px]"
+      >
+        <div className="absolute inset-0 bg-gradient-to-tr from-black/[0.01] via-transparent to-white/15 pointer-events-none" />
 
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,15,32,0.68)_0%,rgba(8,15,32,0.42)_34%,rgba(8,15,32,0.12)_100%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.02)_100%)]" />
-
-      <div className="relative z-10 flex min-h-[390px] items-end px-6 py-7 sm:px-8 md:min-h-[430px] md:px-10 md:py-9 lg:px-12 lg:py-10">
-        <div className="max-w-[760px] text-white">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-200)] backdrop-blur">
-            <MapPin className="h-4 w-4" />
-            Plawimadd Group - Abomey-Calavi, Benin
-          </div>
-
-          <h1 className="max-w-[22ch] text-[2rem] font-semibold leading-[1] tracking-[-0.035em] sm:text-[2.4rem] lg:max-w-[22ch] lg:text-[3.25rem]">
-            <span className="block">Votre boutique en ligne</span>
-            <span className="block">d&apos;electronique et</span>
-            <span className="block">d&apos;equipements du quotidien.</span>
-          </h1>
-
-          <p className="mt-4 max-w-[62ch] text-sm leading-7 text-slate-200 sm:text-[15px] lg:max-w-[58ch]">
-            Plawimadd Group vous accompagne avec une selection claire, un service humain et des
-            produits penses pour la maison, les etudes, le travail et les usages modernes.
-          </p>
-
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={onBrowseCatalog}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--brand-600)] px-7 py-3 text-sm font-semibold text-white transition hover:bg-[oklch(51.5%_0.244_263.7)]"
+        <div className="relative w-full h-full flex flex-col md:flex-row min-h-[500px] md:min-h-[550px]">
+          <AnimatePresence initial={false} custom={direction} mode="wait">
+            <motion.div
+              key={currentSlide}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="absolute inset-0"
             >
-              Voir le catalogue
-              <ArrowRight className="h-4 w-4" />
-            </button>
+              {slide.layout === 'center' ? (
+                <div className="flex flex-col items-center justify-between w-full h-full text-center px-6 pt-10 pb-6 md:px-16 select-none z-10">
+                  <div className="flex flex-col items-center justify-center max-w-[650px] mt-4">
+                    <motion.div
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-zinc-900/8 bg-zinc-900/5 px-3 py-1 text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-zinc-650 backdrop-blur w-fit"
+                    >
+                      <MapPin className="h-3 w-3" />
+                      Plawimadd Group - Abomey-Calavi, Benin
+                    </motion.div>
 
-            <button
-              type="button"
-              onClick={onContact}
-              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-white/15"
-            >
-              Nous contacter
-            </button>
-          </div>
+                    <motion.span
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="text-xs font-medium tracking-[0.18em] text-zinc-700 uppercase block mb-2"
+                    >
+                      {slide.tagline}
+                    </motion.span>
 
-          <div className="mt-6 flex flex-col gap-3 text-sm text-slate-200 sm:flex-row sm:items-center sm:gap-6">
-            <div className="flex items-center gap-2">
-              <Truck className="h-4 w-4 text-[var(--brand-300)]" />
-              Livraison et suivi soignes
-            </div>
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-[var(--brand-300)]" />
-              Assistance rapide et fiable
-            </div>
-          </div>
+                    <motion.h1
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-zinc-900 leading-[1.15] max-w-[20ch]"
+                    >
+                      {slide.title}
+                    </motion.h1>
+
+                    <motion.p
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="mt-4 text-xs sm:text-sm md:text-base font-light text-zinc-600 max-w-[50ch] leading-relaxed mx-auto"
+                    >
+                      {slide.description}
+                    </motion.p>
+
+                    <motion.div
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="mt-6 flex items-center justify-center gap-6"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onBrowseCatalog(slide.category)}
+                        className="rounded-full bg-zinc-900 px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-zinc-800 transition duration-300 shadow-sm border border-transparent"
+                      >
+                        Acheter
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={onContact}
+                        className="group/link relative py-1 text-xs sm:text-sm font-bold text-zinc-900 flex items-center gap-1 hover:text-zinc-700 transition duration-200"
+                      >
+                        En savoir plus
+                        <ArrowRight className="h-3.5 w-3.5 group-hover/link:translate-x-1 transition-transform" />
+                        <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-zinc-900 transform scale-x-0 origin-left transition-transform duration-300 group-hover/link:scale-x-100" />
+                      </button>
+                    </motion.div>
+                  </div>
+
+                  <div className="relative w-full h-[180px] sm:h-[220px] md:h-[240px] flex items-center justify-center pb-4">
+                    <motion.div
+                      variants={imageVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="relative w-full h-full max-w-[260px] sm:max-w-[320px] md:max-w-[450px]"
+                    >
+                      <Image
+                        src={slide.image}
+                        alt={slide.title}
+                        fill
+                        priority
+                        className="object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.03)]"
+                        sizes="(max-width: 768px) 100vw, 40vw"
+                      />
+                    </motion.div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-12 items-center h-full w-full">
+                  <div
+                    className={`col-span-1 md:col-span-7 flex flex-col justify-center h-full px-6 pt-12 pb-6 md:py-12 select-none z-10 ${
+                      slide.layout === 'right'
+                        ? 'md:pl-8 md:pr-16 order-1 md:order-2'
+                        : 'md:pl-16 md:pr-4 order-1 md:order-1'
+                    }`}
+                  >
+                    <motion.div
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-zinc-900/8 bg-zinc-900/5 px-3 py-1 text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-zinc-600 backdrop-blur w-fit"
+                    >
+                      <MapPin className="h-3 w-3" />
+                      Plawimadd Group - Abomey-Calavi, Benin
+                    </motion.div>
+
+                    <motion.span
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="text-xs font-medium tracking-[0.18em] text-zinc-700 uppercase block mb-2"
+                    >
+                      {slide.tagline}
+                    </motion.span>
+
+                    <motion.h1
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-zinc-900 leading-[1.15] max-w-[18ch]"
+                    >
+                      {slide.title}
+                    </motion.h1>
+
+                    <motion.p
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="mt-4 text-xs sm:text-sm md:text-base font-light text-zinc-600 max-w-[45ch] leading-relaxed"
+                    >
+                      {slide.description}
+                    </motion.p>
+
+                    <motion.div
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="mt-8 flex items-center gap-6"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onBrowseCatalog(slide.category)}
+                        className="rounded-full bg-zinc-900 px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-zinc-800 transition duration-300 shadow-sm border border-transparent"
+                      >
+                        Acheter
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={onContact}
+                        className="group/link relative py-1 text-xs sm:text-sm font-bold text-zinc-900 flex items-center gap-1 hover:text-zinc-700 transition duration-200"
+                      >
+                        En savoir plus
+                        <ArrowRight className="h-3.5 w-3.5 group-hover/link:translate-x-1 transition-transform" />
+                        <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-zinc-900 transform scale-x-0 origin-left transition-transform duration-300 group-hover/link:scale-x-100" />
+                      </button>
+                    </motion.div>
+                  </div>
+
+                  <div
+                    className={`col-span-1 md:col-span-5 relative flex items-center justify-center h-[240px] sm:h-[280px] md:h-full w-full px-6 pb-8 md:py-6 select-none ${
+                      slide.layout === 'right'
+                        ? 'md:pl-16 md:pr-8 order-2 md:order-1'
+                        : 'md:pl-8 md:pr-16 order-2 md:order-2'
+                    }`}
+                  >
+                    <motion.div
+                      variants={imageVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="relative w-full h-full max-w-[300px] md:max-w-none flex items-center justify-center"
+                    >
+                      <div className="relative w-full h-full aspect-video md:aspect-square lg:aspect-video">
+                        <Image
+                          src={slide.image}
+                          alt={slide.title}
+                          fill
+                          priority
+                          className="object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.04)] md:scale-105 lg:scale-110 transition-transform duration-500"
+                          sizes="(max-width: 768px) 100vw, 40vw"
+                        />
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
-      </div>
-    </motion.section>
+
+        <button
+          type="button"
+          onClick={handlePrev}
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white/40 hover:bg-white/70 text-zinc-900 flex items-center justify-center backdrop-blur-sm transition duration-200 cursor-pointer shadow-sm opacity-0 group-hover:opacity-100"
+          aria-label="Diapositive précédente"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleNext}
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white/40 hover:bg-white/70 text-zinc-900 flex items-center justify-center backdrop-blur-sm transition duration-200 cursor-pointer shadow-sm opacity-0 group-hover:opacity-100"
+          aria-label="Diapositive suivante"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => handleDotClick(index)}
+              className="h-1.5 rounded-full bg-zinc-950/15 overflow-hidden transition-all duration-300 relative cursor-pointer"
+              style={{ width: currentSlide === index ? '48px' : '8px' }}
+              aria-label={`Aller à la diapositive ${index + 1}`}
+            >
+              {currentSlide === index && (
+                <motion.div
+                  key={index}
+                  initial={{ width: '0%' }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: 6, ease: 'linear' }}
+                  className="h-full bg-zinc-900"
+                />
+              )}
+            </button>
+          ))}
+        </div>
+      </motion.section>
   );
 }

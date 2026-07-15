@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 // Renommer OrderStatus de lib/types pour éviter le conflit avec Prisma.OrderStatus
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -55,12 +55,13 @@ type OrderWithAllRelations = Prisma.OrderGetPayload<{
             };
         };
         payment: true;
+        orderPayments: true;
     };
 }>;
 
 // GET: Récupérer toutes les commandes (avec filtre de statut optionnel)
 export async function GET(req: NextRequest): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req);
+    const authResult: AuthResult = await authorizeByPermission(req, 'orders.view');
     if (!authResult.authorized) return authResult.response!;
 
     try {
@@ -103,12 +104,44 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                     },
                 },
                 payment: true,
+                orderPayments: true,
             },
             orderBy: { orderDate: 'desc' },
         });
 
+        const posTransactionIds = orders
+            .filter((order) => order.id.startsWith('POS-'))
+            .map((order) => order.id.replace(/^POS-/, ''));
+
+        const posTransactions = posTransactionIds.length > 0
+            ? await prisma.posTransaction.findMany({
+                where: { id: { in: posTransactionIds } },
+                include: {
+                    user: {
+                        select: {
+                            firstName: true,
+                            lastName: true,
+                            email: true,
+                        },
+                    },
+                },
+            })
+            : [];
+
+        const posTransactionMap = new Map(posTransactions.map((transaction) => [transaction.id, transaction]));
+
         const formattedOrders = orders.map((order: OrderWithAllRelations) => {
             const userName = `${order.user?.firstName || ''} ${order.user?.lastName || ''}`.trim();
+            const posTransaction = order.id.startsWith('POS-')
+                ? posTransactionMap.get(order.id.replace(/^POS-/, ''))
+                : null;
+            const sellerName = posTransaction
+                ? `${posTransaction.user.firstName || ''} ${posTransaction.user.lastName || ''}`.trim() || posTransaction.user.email || 'Vendeur'
+                : null;
+            const primaryOrderPayment = order.orderPayments[0];
+            const totalAmountNumber = order.totalAmount.toNumber();
+            const paidAmount = order.orderPayments.reduce((sum, p) => sum + p.amount.toNumber(), 0);
+            const remainingBalance = Math.max(0, totalAmountNumber - paidAmount);
 
             const formattedOrderItems = order.orderItems.map((item) => ({
                 productId: item.productId,
@@ -127,9 +160,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             return {
                 id: order.id,
                 userId: order.userId,
-                userName: userName || order.user?.email || 'Utilisateur Inconnu',
-                userEmail: order.user?.email || '',
-                totalAmount: order.totalAmount.toNumber(),
+                userName: posTransaction?.customerName || userName || order.user?.email || 'Utilisateur Inconnu',
+                userEmail: posTransaction?.customerPhone || order.user?.email || '',
+                totalAmount: totalAmountNumber,
+                paidAmount,
+                remainingBalance,
                 status: order.status,
                 paymentStatus: order.payment?.status || order.paymentStatus,
                 orderDate: order.orderDate.toISOString(), // Ensure it's a string
@@ -142,9 +177,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                 userPhoneNumber: order.userPhoneNumber,
                 currency: order.currency,
                 orderItems: formattedOrderItems,
-                paymentMethod: order.payment?.paymentMethod || null,
-                transactionId: order.payment?.transactionId || null,
-                paymentDate: order.payment?.paymentDate?.toISOString() || null,
+                paymentMethod: order.payment?.paymentMethod || primaryOrderPayment?.paymentMethod || null,
+                transactionId: order.payment?.transactionId || primaryOrderPayment?.reference || null,
+                paymentDate: order.payment?.paymentDate?.toISOString() || primaryOrderPayment?.paidAt?.toISOString() || null,
+                isPosOrder: Boolean(posTransaction),
+                posTransactionId: posTransaction?.id || null,
+                posInvoiceNumber: posTransaction?.invoiceNumber || null,
+                posSellerName: sellerName,
+                posSellerEmail: posTransaction?.user.email || null,
                 createdAt: order.createdAt,
                 updatedAt: order.updatedAt,
             };
@@ -160,7 +200,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 // PUT: Mettre à jour le statut d'une commande
 export async function PUT(req: NextRequest): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req);
+    const authResult: AuthResult = await authorizeByPermission(req, 'orders.update-status');
     if (!authResult.authorized) return authResult.response!;
 
     try {
@@ -203,7 +243,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
 
 // DELETE: Supprimer une commande
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req);
+    const authResult: AuthResult = await authorizeByPermission(req, 'orders.delete');
     if (!authResult.authorized) return authResult.response!;
 
     try {

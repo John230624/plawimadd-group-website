@@ -82,12 +82,33 @@ interface StudentRequestInfo {
   createdAt: string;
 }
 
+interface PermissionInfo {
+  id: string;
+  name: string;
+  slug: string;
+  module: string;
+}
+
+interface RoleInfo {
+  id: string;
+  name: string;
+  permissions?: { permission: PermissionInfo }[];
+}
+
+interface UserPermissionOverride {
+  id: string;
+  granted: boolean;
+  permission: PermissionInfo;
+}
+
 interface UserDetail extends AdminUser {
   addresses: AddressInfo[];
   cartItems: CartItemInfo[];
   orders: OrderInfo[];
   reviews: ReviewInfo[];
   studentInstallmentRequests: StudentRequestInfo[];
+  roles?: { role: RoleInfo }[];
+  permissions?: UserPermissionOverride[];
   totalOrders: number;
   totalReviews: number;
   totalAddresses: number;
@@ -96,13 +117,15 @@ interface UserDetail extends AdminUser {
 
 type StatusFilter = 'ALL' | 'ACTIVE' | 'BANNED';
 type ModalMode = 'create' | 'edit' | 'view' | 'confirm' | null;
+type RoleValue = 'USER' | 'SELLER' | 'ADMIN';
+type PermissionOverrideValue = 'default' | 'grant' | 'deny';
 
 interface FormData {
   firstName: string;
   lastName: string;
   email: string;
   phoneNumber: string;
-  role: 'USER' | 'ADMIN';
+  role: RoleValue;
   password: string;
 }
 
@@ -126,7 +149,7 @@ export default function UserManagementPage(): React.ReactElement {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'ALL' | 'USER' | 'ADMIN'>('USER');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'USER' | 'SELLER' | 'ADMIN'>('USER');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [page, setPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
@@ -137,6 +160,10 @@ export default function UserManagementPage(): React.ReactElement {
   const [userDetail, setUserDetail] = useState<UserDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [availableRoles, setAvailableRoles] = useState<RoleInfo[]>([]);
+  const [availablePermissions, setAvailablePermissions] = useState<PermissionInfo[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
+  const [permissionOverrides, setPermissionOverrides] = useState<Record<string, 'default' | 'grant' | 'deny'>>({});
 
   const fetchUsers = useCallback(async () => {
     if (status !== 'authenticated' || session?.user?.role !== UserRole.ADMIN) {
@@ -195,11 +222,39 @@ export default function UserManagementPage(): React.ReactElement {
     () => users.filter((u) => (u.role || '').toUpperCase() === 'ADMIN').length,
     [users]
   );
+  const sellerCount = useMemo(
+    () => users.filter((u) => (u.role || '').toUpperCase() === 'SELLER').length,
+    [users]
+  );
 
   function openCreate() {
     setFormData(emptyForm);
     setSelectedUser(null);
+    setSelectedRoleIds(new Set());
+    setPermissionOverrides({});
     setModalMode('create');
+  }
+
+  async function loadAccessSettings(userId?: string) {
+    try {
+      const [rolesRes, permsRes, userAccessRes] = await Promise.all([
+        axios.get<{ success: boolean; data: RoleInfo[] }>('/api/admin/roles?limit=100'),
+        axios.get<PermissionInfo[]>('/api/admin/permissions'),
+        userId ? axios.get<{ roles: RoleInfo[]; permissions: UserPermissionOverride[] }>(`/api/admin/users/roles?userId=${userId}`) : Promise.resolve(null),
+      ]);
+
+      setAvailableRoles(rolesRes.data.data || []);
+      setAvailablePermissions(Array.isArray(permsRes.data) ? permsRes.data : []);
+
+      if (userAccessRes) {
+        setSelectedRoleIds(new Set(userAccessRes.data.roles.map((role) => role.id)));
+        setPermissionOverrides(Object.fromEntries(
+          userAccessRes.data.permissions.map((item) => [item.permission.id, item.granted ? 'grant' : 'deny'])
+        ));
+      }
+    } catch {
+      toast.error('Erreur lors du chargement des rôles et permissions.');
+    }
   }
 
   function openEdit(user: AdminUser) {
@@ -209,9 +264,12 @@ export default function UserManagementPage(): React.ReactElement {
       lastName: user.lastName || '',
       email: user.email,
       phoneNumber: user.phoneNumber || '',
-      role: (user.role as 'USER' | 'ADMIN') || 'USER',
+      role: (user.role as 'USER' | 'SELLER' | 'ADMIN') || 'USER',
       password: '',
     });
+    setSelectedRoleIds(new Set());
+    setPermissionOverrides({});
+    loadAccessSettings(user.id);
     setModalMode('edit');
   }
 
@@ -235,6 +293,8 @@ export default function UserManagementPage(): React.ReactElement {
     setUserDetail(null);
     setLoadingDetail(false);
     setExpandedSection(null);
+    setSelectedRoleIds(new Set());
+    setPermissionOverrides({});
   }
 
   async function handleCreate() {
@@ -272,6 +332,13 @@ export default function UserManagementPage(): React.ReactElement {
         role: formData.role,
       };
       await axios.patch('/api/admin/users', payload);
+      await axios.put('/api/admin/users/roles', {
+        userId: selectedUser.id,
+        roleIds: Array.from(selectedRoleIds),
+        permissionOverrides: Object.entries(permissionOverrides)
+          .filter(([, value]) => value !== 'default')
+          .map(([permissionId, value]) => ({ permissionId, granted: value === 'grant' })),
+      });
       toast.success('Utilisateur modifié avec succès.');
       closeModal();
       fetchUsers();
@@ -362,7 +429,7 @@ export default function UserManagementPage(): React.ReactElement {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <StatCard
           title="Comptes affichés"
           value={String(users.length)}
@@ -374,6 +441,12 @@ export default function UserManagementPage(): React.ReactElement {
           value={String(customerCount)}
           description="Profils standards pour l'achat"
           icon={UserRound}
+        />
+        <StatCard
+          title="Vendeurs"
+          value={String(sellerCount)}
+          description="Comptes avec accès vente"
+          icon={ShoppingCart}
         />
         <StatCard
           title="Admins"
@@ -420,7 +493,7 @@ export default function UserManagementPage(): React.ReactElement {
           </div>
           {/* Role filter */}
           <div className="flex items-center gap-1 rounded-xl p-0.5" style={{ backgroundColor: '#121212' }}>
-            {(['USER', 'ADMIN', 'ALL'] as const).map((role) => (
+            {(['USER', 'SELLER', 'ADMIN', 'ALL'] as const).map((role) => (
               <button
                 key={role}
                 onClick={() => setRoleFilter(role)}
@@ -428,13 +501,15 @@ export default function UserManagementPage(): React.ReactElement {
                   roleFilter === role
                     ? role === 'ADMIN'
                       ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg'
+                      : role === 'SELLER'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md hover:shadow-lg'
                       : role === 'USER'
                       ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md hover:shadow-lg'
                       : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md hover:shadow-lg'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]/50'
                 }`}
               >
-                {role === 'USER' ? 'Clients' : role === 'ADMIN' ? 'Admins' : 'Tous les rôles'}
+                {role === 'USER' ? 'Clients' : role === 'SELLER' ? 'Vendeurs' : role === 'ADMIN' ? 'Admins' : 'Tous les rôles'}
               </button>
             ))}
           </div>
@@ -497,6 +572,8 @@ export default function UserManagementPage(): React.ReactElement {
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-500 ${
                           role === 'ADMIN'
                             ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-400'
+                            : role === 'SELLER'
+                            ? 'bg-gradient-to-r from-amber-500/20 to-orange-600/20 text-amber-400'
                             : 'bg-gradient-to-r from-green-500/20 to-emerald-600/20 text-green-400'
                         }`}>
                           {role}
@@ -898,10 +975,11 @@ export default function UserManagementPage(): React.ReactElement {
             <label className="mb-1 block text-xs font-500 text-[var(--text-secondary)]">Rôle</label>
             <select
               value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value as 'USER' | 'ADMIN' })}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value as RoleValue })}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"
             >
               <option value="USER">Utilisateur</option>
+              <option value="SELLER">Vendeur</option>
               <option value="ADMIN">Administrateur</option>
             </select>
           </div>
@@ -918,6 +996,60 @@ export default function UserManagementPage(): React.ReactElement {
             </div>
           )}
         </div>
+        {modalMode === 'edit' && (
+          <div className="mt-6 space-y-4 rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] p-4">
+            <div>
+              <p className="text-sm font-600 text-[var(--text-primary)]">Rôles réels</p>
+              <p className="mt-1 text-xs text-[var(--text-tertiary)]">Ces rôles alimentent directement le système de permissions.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {availableRoles.map((role) => (
+                  <label key={role.id} className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+                    <input
+                      type="checkbox"
+                      checked={selectedRoleIds.has(role.id)}
+                      onChange={(event) => {
+                        setSelectedRoleIds((prev) => {
+                          const next = new Set(prev);
+                          if (event.target.checked) next.add(role.id);
+                          else next.delete(role.id);
+                          return next;
+                        });
+                      }}
+                    />
+                    <span>{role.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-600 text-[var(--text-primary)]">Permissions directes</p>
+              <p className="mt-1 text-xs text-[var(--text-tertiary)]">Laissez sur Défaut pour hériter des rôles, ou forcez une autorisation/refus pour ce compte.</p>
+              <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+                {availablePermissions.map((permission) => (
+                  <div key={permission.id} className="grid gap-2 rounded-lg border border-[var(--border)] p-2 text-xs sm:grid-cols-[1fr_auto] sm:items-center">
+                    <div>
+                      <p className="font-500 text-[var(--text-primary)]">{permission.name}</p>
+                      <p className="text-[var(--text-tertiary)]">{permission.slug}</p>
+                    </div>
+                    <select
+                      value={permissionOverrides[permission.id] || 'default'}
+                      onChange={(event) => setPermissionOverrides((prev) => ({
+                        ...prev,
+                        [permission.id]: event.target.value as PermissionOverrideValue,
+                      }))}
+                      className="rounded-md border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none"
+                    >
+                      <option value="default">Défaut</option>
+                      <option value="grant">Autoriser</option>
+                      <option value="deny">Refuser</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={closeModal}

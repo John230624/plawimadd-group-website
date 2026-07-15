@@ -12,6 +12,7 @@ import ProductCarouselSection from '@/components/home/ProductCarouselSection';
 import { useAppContext } from '@/context/AppContext';
 import type { Address, Product, StudentInstallmentRequest } from '@/lib/types';
 import type { KkiapayErrorResponse, KkiapaySuccessResponse } from '@/types/kkiapay';
+import MiniCustomOfferWidget from '@/components/MiniCustomOfferWidget';
 
 function getColorDisplay(color: string | null | undefined, colorMap: Record<string, string>): string {
   if (!color) return 'Standard';
@@ -133,10 +134,8 @@ export default function CartPage(): React.ReactElement {
   }, [cartItems, products]);
 
   const hasMoqWarning = useMemo(() => {
-    return cartProducts.some(({ product, quantity }) =>
-      (product.moqMin ?? 1) > 1 && quantity < (product.moqMin ?? 1)
-    );
-  }, [cartProducts]);
+    return false;
+  }, []);
 
   const earliestLeadTime = useMemo(() => {
     const times = cartProducts
@@ -410,6 +409,8 @@ export default function CartPage(): React.ReactElement {
 
     window.addSuccessListener?.(successListener);
     window.addFailedListener?.(failedListener);
+    const isSandboxMode = process.env.NEXT_PUBLIC_KKIAPAY_SANDBOX === 'true';
+
     window.openKkiapayWidget({
       amount: subtotal,
       api_key: KKIAPAY_PUBLIC_API_KEY,
@@ -417,7 +418,7 @@ export default function CartPage(): React.ReactElement {
       email: currentUser.email,
       phone: selectedAddress.phoneNumber || '',
       position: 'center',
-      sandbox: false,
+      sandbox: isSandboxMode,
     });
 
     return () => {
@@ -447,7 +448,7 @@ export default function CartPage(): React.ReactElement {
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-sm text-slate-500">Accueil / Panier</p>
-                <h1 className="mt-4 text-[2.2rem] font-semibold tracking-[-0.04em] text-slate-950 md:text-[3rem]">
+                <h1 className="mt-2 text-2.5xl font-extrabold tracking-tight text-slate-900">
                   Panier
                 </h1>
               </div>
@@ -459,7 +460,7 @@ export default function CartPage(): React.ReactElement {
                     clearCart();
                     toast.success('Panier vide');
                   }}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2.5 text-xs font-bold text-red-650 transition hover:border-red-300 hover:bg-red-50/50"
                 >
                   <Trash2 className="h-4 w-4" />
                   Vider le panier
@@ -469,44 +470,44 @@ export default function CartPage(): React.ReactElement {
           </div>
         </section>
 
-        <section className="px-2 pb-2 pt-8 md:px-0">
-          <div className="grid gap-6 px-3 py-4 md:px-0 md:py-0 xl:grid-cols-[1fr_340px]">
+        <section className="px-2 pb-2 pt-6 md:px-0">
+          <div className="grid gap-6 px-3 py-4 md:px-0 md:py-0 xl:grid-cols-[1fr_360px]">
             <div className="space-y-5">
               {cartProducts.length === 0 ? (
-                <div className="rounded-[1.9rem] bg-white p-10 text-center shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand-50)] text-[var(--brand-700)]">
-                    <ShoppingBag className="h-7 w-7" />
+                <div className="bg-white p-10 text-center rounded-lg border border-transparent shadow-none">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 text-slate-855 border border-transparent">
+                    <ShoppingBag className="h-6 w-6" />
                   </div>
-                  <h2 className="mt-5 text-[1.6rem] font-semibold text-slate-950">
+                  <h2 className="mt-5 text-lg font-extrabold text-slate-900">
                     Votre panier est vide
                   </h2>
-                  <p className="mt-3 text-sm leading-7 text-slate-500">
+                  <p className="mt-2 text-xs leading-5 text-slate-500 font-medium">
                     Ajoutez quelques produits pour continuer votre commande.
                   </p>
                   <button
                     type="button"
                     onClick={() => router.push('/all-products')}
-                    className="mt-6 inline-flex items-center gap-2 rounded-full border border-[var(--brand-300)] px-6 py-3 text-sm font-medium text-slate-700 transition hover:bg-[rgba(191,219,254,0.22)] hover:text-[var(--brand-700)]"
+                    className="mt-6 inline-flex items-center gap-1.5 rounded-lg border border-slate-350 bg-white px-5 py-2.5 text-xs font-extrabold text-slate-850 hover:bg-slate-50 transition hover:border-slate-500 hover:text-slate-950"
                   >
                     Continuer mes achats
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ) : (
                 cartProducts.map(({ product, quantity }) => {
                   const imageSrc = product.imgUrl?.[0] || '/images/default_product_image.png';
                   const displayPrice = getDisplayPrice(product);
-                  const moq = product.moqMin ?? 1;
-                  const belowMoq = moq > 1 && quantity < moq;
+                  const moq = 1;
+                  const belowMoq = false;
 
                   return (
                     <article
                       key={product.id}
-                      className={`grid gap-5 rounded-[1.75rem] bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.05)] md:grid-cols-[120px_1fr_auto] ${
-                        belowMoq ? 'ring-2 ring-amber-200' : ''
+                      className={`grid gap-5 bg-white p-5 border border-transparent rounded-lg shadow-none md:grid-cols-[120px_1fr_auto] ${
+                        belowMoq ? 'ring-1 ring-amber-400' : ''
                       }`}
                     >
-                      <div className="relative flex h-[120px] items-center justify-center overflow-hidden rounded-[1.25rem] bg-slate-100">
+                      <div className="relative flex h-[120px] items-center justify-center overflow-hidden rounded-md bg-[#f7f7f7]">
                         <Image
                           src={imageSrc}
                           alt={product.name}
@@ -516,27 +517,27 @@ export default function CartPage(): React.ReactElement {
                         />
                       </div>
 
-                      <div className="flex flex-col justify-between gap-4">
+                      <div className="flex flex-col justify-between gap-4 text-left">
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <h2 className="max-w-[34ch] text-[1.15rem] font-semibold leading-7 text-slate-950">
+                            <h2 className="max-w-[34ch] text-sm font-bold leading-5 text-slate-900">
                               {product.name}
                             </h2>
-                            <div className="mt-3 space-y-1 text-sm text-slate-500">
-                              <p>Marque: {product.brand || 'Plawimadd'}</p>
-                              <p>Couleur: {getColorDisplay(product.color, colorMap)}</p>
-                              <p>Stock: {product.stock}</p>
+                            <div className="mt-2 space-y-1 text-xs text-slate-500 font-medium">
+                              <p>Marque : {product.brand || 'Plawimadd'}</p>
+                              <p>Couleur : {getColorDisplay(product.color, colorMap)}</p>
+                              <p>Stock : {product.stock}</p>
                             </div>
                             {belowMoq && (
-                              <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                              <div className="mt-2 flex items-center gap-1.5 rounded-md bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 border border-transparent">
                                 <AlertTriangle className="h-3.5 w-3.5" />
-                                MOQ: minimum {moq} unite(s) requises
+                                MOQ: minimum {moq} unité(s) requises
                               </div>
                             )}
                             {product.leadTimeRange && (
-                              <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
+                              <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-400">
                                 <Clock className="h-3 w-3" />
-                                Expedie sous {product.leadTimeRange}
+                                Expédié sous {product.leadTimeRange}
                               </div>
                             )}
                           </div>
@@ -545,29 +546,29 @@ export default function CartPage(): React.ReactElement {
                             <button
                               type="button"
                               onClick={() => toggleSaved(product.id)}
-                              className="text-slate-300 transition hover:text-[var(--brand-600)]"
+                              className="text-slate-300 transition hover:text-slate-700 p-1"
                               title="Sauvegarder pour plus tard"
                             >
-                              <Bookmark className={`h-4 w-4 ${savedItems.includes(product.id) ? 'fill-[var(--brand-600)] text-[var(--brand-600)]' : ''}`} />
+                              <Bookmark className={`h-4 w-4 ${savedItems.includes(product.id) ? 'fill-slate-800 text-slate-800' : ''}`} />
                             </button>
                             <button
                               type="button"
                               onClick={() => deleteFromCart(product.id)}
-                              className="text-slate-300 transition hover:text-slate-500"
+                              className="text-slate-300 transition hover:text-slate-700 p-1"
                             >
-                              <X className="h-5 w-5" />
+                              <X className="h-4.5 w-4.5" />
                             </button>
                           </div>
                         </div>
 
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                          <div className="inline-flex w-fit items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-3 py-2">
+                          <div className="inline-flex w-fit items-center gap-2 border border-transparent bg-slate-100 p-1 rounded-md">
                             <button
                               type="button"
                               onClick={() => removeFromCart(product.id)}
-                              className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600"
+                              className="flex h-7 w-7 items-center justify-center border border-transparent bg-white text-slate-700 font-bold rounded-md hover:bg-slate-50 transition"
                             >
-                              <Minus className="h-4 w-4" />
+                              <Minus className="h-3.5 w-3.5" />
                             </button>
                             <input
                               type="number"
@@ -576,14 +577,14 @@ export default function CartPage(): React.ReactElement {
                               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                                 updateCartQuantity(product.id, Math.max(moq, Number(event.target.value) || moq))
                               }
-                              className="w-10 bg-transparent text-center text-sm font-medium text-slate-800 outline-none"
+                              className="w-10 bg-transparent text-center text-xs font-bold text-slate-800 outline-none"
                             />
                             <button
                               type="button"
                               onClick={() => addToCart(product.id)}
-                              className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600"
+                              className="flex h-7 w-7 items-center justify-center border border-transparent bg-white text-slate-700 font-bold rounded-md hover:bg-slate-50 transition"
                             >
-                              <Plus className="h-4 w-4" />
+                              <Plus className="h-3.5 w-3.5" />
                             </button>
                           </div>
 
@@ -592,8 +593,8 @@ export default function CartPage(): React.ReactElement {
                               <span className="text-[10px] text-slate-400">MOQ: {moq}</span>
                             )}
                             <div>
-                              <p className="text-sm text-slate-500">Prix</p>
-                              <p className="mt-1 text-[1.2rem] font-semibold text-slate-950">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Prix</p>
+                              <p className="mt-0.5 text-sm font-extrabold text-slate-900">
                                 {formatPrice(displayPrice * quantity)}
                               </p>
                             </div>
@@ -609,27 +610,27 @@ export default function CartPage(): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => router.push('/all-products')}
-                  className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-300)] bg-white px-6 py-3 text-sm font-medium text-slate-700 transition hover:bg-[rgba(191,219,254,0.22)] hover:text-[var(--brand-700)]"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-350 bg-white px-5 py-2.5 text-xs font-extrabold text-slate-850 hover:bg-slate-50 transition hover:border-slate-500 hover:text-slate-950 text-left"
                 >
                   Continuer mes achats
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               ) : null}
 
               {/* Saved items */}
               {savedProducts.length > 0 && (
-                <div>
-                  <h3 className="mb-4 text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <Bookmark className="h-4 w-4" />
-                    Articles sauvegardes ({savedProducts.length})
+                <div className="text-left">
+                  <h3 className="mb-4 text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Bookmark className="h-4 w-4 text-slate-500" />
+                    Articles sauvegardés ({savedProducts.length})
                   </h3>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                     {savedProducts.map((product) => (
                       <div
                         key={product.id}
-                        className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm"
+                        className="overflow-hidden rounded-lg border border-transparent bg-white shadow-none"
                       >
-                        <div className="flex h-28 items-center justify-center bg-slate-50 p-3">
+                        <div className="flex h-28 items-center justify-center bg-[#f7f7f7] p-3">
                           <Image
                             src={product.imgUrl?.[0] || '/images/default_product_image.png'}
                             alt={product.name}
@@ -639,26 +640,26 @@ export default function CartPage(): React.ReactElement {
                           />
                         </div>
                         <div className="p-3">
-                          <p className="text-xs font-medium text-slate-900 truncate">{product.name}</p>
-                          <p className="mt-1 text-xs text-slate-500">{formatPrice(getDisplayPrice(product))}</p>
-                          <div className="mt-2 flex gap-1.5">
+                          <p className="text-xs font-bold text-slate-900 truncate">{product.name}</p>
+                          <p className="mt-1 text-xs text-slate-500 font-semibold">{formatPrice(getDisplayPrice(product))}</p>
+                          <div className="mt-2.5 flex gap-1.5">
                             <button
                               type="button"
                               onClick={async () => {
-                                await addToCart(product.id);
-                                toggleSaved(product.id);
-                                toast.success('Deplace vers le panier');
+                                  await addToCart(product.id);
+                                  toggleSaved(product.id);
+                                  toast.success('Déplacé vers le panier');
                               }}
-                              className="flex-1 rounded-full bg-[var(--brand-600)] px-2 py-1.5 text-[10px] font-medium text-white"
+                              className="flex-1 bg-[#ff6a00] hover:bg-[#e25c00] px-2 py-1.5 text-[10px] font-bold text-white rounded-md transition"
                             >
                               Au panier
                             </button>
                             <button
                               type="button"
                               onClick={() => toggleSaved(product.id)}
-                              className="rounded-full border border-slate-200 px-2 py-1.5 text-[10px] font-medium text-slate-500"
+                              className="border border-transparent bg-slate-100 hover:bg-slate-200 px-2 py-1.5 text-[10px] font-medium text-slate-500 rounded-md transition"
                             >
-                              <X className="h-3 w-3" />
+                              <X className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </div>
@@ -670,17 +671,17 @@ export default function CartPage(): React.ReactElement {
 
             </div>
 
-            <aside className="h-fit rounded-[1.75rem] bg-white p-6 shadow-[0_14px_36px_rgba(15,23,42,0.05)] xl:sticky xl:top-6">
-              <h2 className="text-[1.2rem] font-semibold text-slate-950">Votre commande</h2>
+            <aside className="h-fit bg-white p-6 border border-transparent rounded-lg shadow-none xl:sticky xl:top-6 text-left">
+              <h2 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Votre commande</h2>
 
-              <div className="mt-6 space-y-4 text-sm text-slate-500">
+              <div className="mt-6 space-y-4 text-xs text-slate-500 font-medium">
                 <div className="flex items-center justify-between">
                   <span>{getCartCount()} produit(s)</span>
-                  <span>{formatPrice(oldSubtotal)}</span>
+                  <span className="font-bold text-slate-850">{formatPrice(oldSubtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Reduction</span>
-                  <span className="text-emerald-600">-{formatPrice(savings)}</span>
+                  <span>Réduction</span>
+                  <span className="text-emerald-600 font-bold">-{formatPrice(savings)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
@@ -690,7 +691,7 @@ export default function CartPage(): React.ReactElement {
                   <span className="flex items-center gap-1.5">
                     {cartProducts.length > 0 ? (
                       <>
-                        <span className="text-emerald-600">Offerte</span>
+                        <span className="text-emerald-600 font-bold">Offerte</span>
                         {earliestLeadTime && (
                           <span className="text-[10px] text-slate-400">({earliestLeadTime})</span>
                         )}
@@ -700,66 +701,68 @@ export default function CartPage(): React.ReactElement {
                 </div>
               </div>
 
-              <div className="mt-6 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-3">
-                <label className="text-sm text-slate-500">Code promo</label>
-                <div className="mt-3 flex items-center gap-2">
+              <div className="mt-5 border border-transparent bg-slate-50 p-4 rounded-lg">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-800">Code promo</label>
+                <div className="mt-2.5 flex items-center gap-2">
                   <input
                     type="text"
                     value={promoCode}
                     onChange={(event) => setPromoCode(event.target.value)}
                     placeholder="Entrez votre code"
-                    className="w-full rounded-full border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none"
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#ff6a00] transition"
                   />
                   <button
                     type="button"
-                    className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--brand-600)] text-white"
+                    className="flex h-8 w-8 items-center justify-center rounded-md bg-[#ff6a00] hover:bg-[#e25c00] text-white transition shrink-0"
                   >
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
 
-              <div className="mt-6 border-t border-slate-200 pt-5">
-                <div className="mb-4 rounded-[1.2rem] bg-slate-50 p-4">
-                  <p className="text-sm font-medium text-slate-700">Adresse de livraison</p>
+              <div className="mt-5 border-t border-slate-100 pt-5">
+                <div className="group relative mb-4 bg-slate-50 p-4 rounded-lg border border-transparent transition-all duration-300">
+                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-850 flex items-center justify-between">
+                    <span>Adresse de livraison</span>
+                    {selectedAddress && (
+                      <span className="text-[9px] text-[#ff6a00] font-bold uppercase tracking-normal animate-pulse group-hover:hidden">
+                        (Survolez pour afficher)
+                      </span>
+                    )}
+                  </p>
                   {selectedAddress ? (
-                    <div className="mt-2 text-sm leading-7 text-slate-600">
-                      <p className="font-semibold text-slate-900">{selectedAddress.fullName}</p>
-                      <p>{selectedAddress.phoneNumber}</p>
-                      <p>
+                    <div className="mt-0 max-h-0 opacity-0 overflow-hidden transition-all duration-500 ease-in-out group-hover:mt-2.5 group-hover:max-h-32 group-hover:opacity-100 text-xs leading-5 text-slate-600">
+                      <p className="font-bold text-slate-900">{selectedAddress.fullName}</p>
+                      <p className="font-medium">{selectedAddress.phoneNumber}</p>
+                      <p className="font-medium text-slate-550">
                         {selectedAddress.area}, {selectedAddress.city}, {selectedAddress.state}
                       </p>
                     </div>
                   ) : (
-                    <p className="mt-2 text-sm leading-7 text-slate-500">
-                      Aucune adresse selectionnee pour le moment.
-                    </p>
+                    <div className="mt-2.5">
+                      <p className="text-[11px] leading-4 text-slate-500 font-medium">
+                        Aucune adresse de livraison enregistrée.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => router.push('/add-address')}
+                        className="mt-2.5 inline-flex w-full items-center justify-center bg-[#ff6a00] hover:bg-[#e25c00] text-white px-4 py-2 text-xs font-bold transition rounded-lg shadow-none"
+                      >
+                        Ajouter votre adresse
+                      </button>
+                    </div>
                   )}
                 </div>
-
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-500">Total</span>
-                  <span className="text-[1.35rem] font-semibold text-slate-950">
+                  <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">Total</span>
+                  <span className="text-[1.25rem] font-extrabold text-slate-900">
                     {formatPrice(subtotal)}
                   </span>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-[1.2rem] border border-[rgba(148,163,184,0.14)] bg-[rgba(237,244,253,0.55)] p-4">
-                <p className="text-sm font-semibold text-slate-900">Paiement par tranche etudiant</p>
-                <p className="mt-2 text-sm leading-7 text-slate-500">
-                  {studentRequest?.status === 'APPROVED'
-                    ? `Votre dossier est approuve. Plan applique: 50% maintenant (${formatPrice(
-                        subtotal / 2
-                      )}), puis 25% le 2e mois (${formatPrice(subtotal / 4)}) et 25% le 3e mois (${formatPrice(
-                        subtotal - subtotal / 2 - subtotal / 4
-                      )}).`
-                    : studentRequest?.status === 'PENDING'
-                      ? 'Votre dossier est en cours de verification. Le plan etudiant reste bloque tant que la validation admin n est pas faite.'
-                      : studentRequest?.status === 'REJECTED'
-                        ? 'Votre precedent dossier a ete refuse. Vous pouvez en soumettre un nouveau depuis la page Offres.'
-                        : 'Soumettez d abord votre dossier etudiant depuis la page Offres. Le plan est fixe a 3 tranches: 50%, puis 25%, puis 25%.'}
-                </p>
+              <div className="mt-4">
+                <MiniCustomOfferWidget />
               </div>
 
               <button
@@ -771,45 +774,24 @@ export default function CartPage(): React.ReactElement {
                     return;
                   }
 
-                  setIsAddressModalOpen(true);
-                  setCheckoutMode('standard');
+                  if (!selectedAddress) {
+                    toast.warn("Veuillez d'abord ajouter votre adresse de livraison dans la section 'Adresse de livraison' ci-dessus.");
+                    return;
+                  }
+
+                  handleProceedToCheckout(selectedAddress);
                 }}
                 disabled={cartProducts.length === 0 || isPaymentLoading}
-                className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[var(--brand-600)] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-700)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-5 inline-flex w-full items-center justify-center bg-[#ff6a00] hover:bg-[#e25c00] text-white px-5 py-3 text-sm font-bold tracking-wider transition rounded-lg shadow-none disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPaymentLoading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                     Ouverture du paiement...
                   </>
                 ) : (
                   'Finaliser la commande'
                 )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!currentUser?.id) {
-                    toast.info('Connectez-vous pour continuer.');
-                    router.push('/login');
-                    return;
-                  }
-
-                  if (!studentRequest || studentRequest.status !== 'APPROVED') {
-                    router.push('/offer');
-                    return;
-                  }
-
-                  setCheckoutMode('student');
-                  setIsAddressModalOpen(true);
-                }}
-                disabled={cartProducts.length === 0 || isPaymentLoading}
-                className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-[var(--brand-300)] bg-white px-6 py-4 text-sm font-semibold text-[var(--brand-700)] transition hover:bg-[rgba(191,219,254,0.18)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {studentRequest?.status === 'APPROVED'
-                  ? 'Commander en paiement par tranche'
-                  : 'Activer mon dossier etudiant'}
               </button>
             </aside>
           </div>

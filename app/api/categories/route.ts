@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { categorySchema } from '@/lib/validation';
 import { ZodError } from 'zod';
@@ -28,7 +28,7 @@ export async function GET(): Promise<NextResponse> { // Pas de 'req' nécessaire
 
 // POST: Créer une nouvelle catégorie (Requiert le rôle ADMIN)
 export async function POST(req: NextRequest): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeAdminRequest(req); // MODIFICATION : Passe 'req'
+    const authResult: AuthResult = await authorizeByPermission(req, 'categories.create');
     if (!authResult.authorized) return authResult.response!;
 
     try {
