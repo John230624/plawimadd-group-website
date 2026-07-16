@@ -126,6 +126,7 @@ export default function Navbar(): React.ReactElement {
   const router = useRouter();
   const { data: session, status } = useSession();
 
+  const [mounted, setMounted] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -161,8 +162,8 @@ export default function Navbar(): React.ReactElement {
   const canAccessDashboard = Boolean(
     isLoggedIn && (session?.user?.role === 'ADMIN' || session?.user?.role === 'SELLER')
   );
-  const cartCount = getCartCount();
-  const wishlistCount = getWishlistCount();
+  const cartCount = mounted ? getCartCount() : 0;
+  const wishlistCount = mounted ? getWishlistCount() : 0;
 
   const defaultAddress = isLoggedIn
     ? userAddresses.find((address) => address.isDefault) || userAddresses[0] || null
@@ -176,6 +177,10 @@ export default function Navbar(): React.ReactElement {
     session?.user?.name ||
     session?.user?.email?.split('@')[0] ||
     'Mon compte';
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     fetch('/api/categories')

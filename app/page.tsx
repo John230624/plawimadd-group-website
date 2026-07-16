@@ -6,10 +6,6 @@ import HomeFooter from '@/components/home/HomeFooter';
 import HomeHero from '@/components/home/HomeHero';
 import ProductCarouselSection from '@/components/home/ProductCarouselSection';
 import StudentOfferPopup from '@/components/home/StudentOfferPopup';
-import {
-  bestSellerShowcaseProducts,
-  studentOfferShowcaseProducts,
-} from '@/components/home/data';
 import { useAppContext } from '@/context/AppContext';
 import type { Product } from '@/lib/types';
 
@@ -86,7 +82,6 @@ export default function HomePage(): React.ReactElement {
         title="Hits de ventes"
         actionLabel="Voir plus"
         products={bestSellers}
-        showcaseItems={bestSellerShowcaseProducts}
         onAction={() => router.push('/all-products')}
       />
 
@@ -94,7 +89,6 @@ export default function HomePage(): React.ReactElement {
         title="Offres etudiantes"
         actionLabel="Voir plus"
         products={studentOffers}
-        showcaseItems={studentOfferShowcaseProducts}
         mode="student-offers"
         subtitle="Des offres pensees pour les etudiants, avec une selection utile pour les cours, les projets et le quotidien, et des possibilites de paiement par tranche selon les modalites."
         onAction={() => router.push('/offer')}

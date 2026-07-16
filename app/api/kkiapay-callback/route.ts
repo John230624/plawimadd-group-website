@@ -33,14 +33,30 @@ export async function GET(request: NextRequest) {
 
     // 🔥 VÉRIFICATION RÉELLE OBLIGATOIRE EN LIVE
     const verification = await verifyKkiapayTransaction(kkiapayTransactionId);
-    const isSuccess = verification.status === 'SUCCESS';
 
-    console.log(`✅ Vérification LIVE:`, {
-      transactionId: kkiapayTransactionId,
-      status: verification.status,
-      amount: verification.amount,
-      success: isSuccess
+    // Récupération de la commande pour valider que le montant payé correspond bien
+    // au total attendu (protection contre les sous-paiements).
+    const order = await prisma.order.findUnique({
+      where: { id: transactionId },
+      select: { totalAmount: true },
     });
+
+    if (!order) {
+      return NextResponse.redirect(
+        `${request.nextUrl.origin}/order-status?orderId=${transactionId}&status=failed&message=${encodeURIComponent('Commande introuvable')}`
+      );
+    }
+
+    const expectedAmount = Number(order.totalAmount);
+    // Tolérance d'1 unité pour absorber d'éventuels arrondis de la passerelle.
+    const amountIsValid = verification.amount + 1 >= expectedAmount;
+    const isSuccess = verification.status === 'SUCCESS' && amountIsValid;
+
+    if (verification.status === 'SUCCESS' && !amountIsValid) {
+      console.error(
+        `❌ Montant insuffisant pour la commande ${transactionId}: payé ${verification.amount}, attendu ${expectedAmount}`
+      );
+    }
 
     // Mise à jour de la base de données
     await prisma.$transaction(async (prismaTx) => {
