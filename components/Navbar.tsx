@@ -461,6 +461,7 @@ export default function Navbar(): React.ReactElement {
                             src={offerImage}
                             alt={offerTitle}
                             fill
+                            sizes="175px"
                             className="object-cover object-center"
                             priority
                           />

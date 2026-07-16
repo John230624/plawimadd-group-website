@@ -238,6 +238,7 @@ export default function OfferPage(): React.ReactElement {
                   src="/images/background_etudiant2.jpg"
                   alt="Étudiant équipé"
                   fill
+                  sizes="(max-width: 768px) 100vw, 400px"
                   className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 to-transparent" />
