@@ -190,6 +190,7 @@ model Order {
   payment             Payment? // Relation optionnelle vers un enregistrement de paiement
   orderPayments       OrderPayment[] // Paiements enregistres (plateforme + physique)
   studentInstallments StudentInstallment[]
+  normalizedInvoice   NormalizedInvoice? // Facture normalisée e-MECeF (optionnelle, à la demande)
 
   @@map("orders") // Nom de la table dans la base de données
 }
@@ -255,6 +256,7 @@ model Product {
   description     String?  @db.Text // Description du produit (optionnel)
   price           Decimal  @db.Decimal(10, 2) // Prix du produit (base)
   stock           Int // Quantité en stock total
+  lowStockThreshold Int?   @default(5) // Seuil d'alerte de stock bas (par produit)
   imgUrl          String?  @map("imgUrl") @db.Text // URL(s) de l'image (JSON array d'URLs)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -273,13 +275,13 @@ model Product {
   tags            String?  @db.Text // JSON array ["tag1","tag2"]
 
   // --- NOUVEAUX CHAMPS (Attributs Dynamiques Alibaba) ---
-  attributesJson  String?  @map("attributesJson") @db.Text // Attributs non-variants en JSON
-  moqMin          Int?     @default(1) @map("moqMin")
-  moqMax          Int?     @map("moqMax")
-  leadTimeRange   String?  @map("leadTimeRange") @db.VarChar(20) // "3-5 days"
-  certifications  String?  @db.Text // JSON array of certification slugs
-  soldCount       Int?     @default(0) @map("soldCount")
-  reviewCount     Int?     @default(0) @map("reviewCount")
+  attributesJson String? @map("attributesJson") @db.Text // Attributs non-variants en JSON
+  moqMin         Int?    @default(1) @map("moqMin")
+  moqMax         Int?    @map("moqMax")
+  leadTimeRange  String? @map("leadTimeRange") @db.VarChar(20) // "3-5 days"
+  certifications String? @db.Text // JSON array of certification slugs
+  soldCount      Int?    @default(0) @map("soldCount")
+  reviewCount    Int?    @default(0) @map("reviewCount")
 
   deletedAt DateTime? @db.DateTime(0)
 
@@ -293,28 +295,29 @@ model Product {
   characteristics     ProductCharacteristic[]
   posTransactionItems PosTransactionItem[]
   variants            ProductVariant[]
+  stockMovements      StockMovement[]
 
   @@map("products")
 }
 
 // Modèle pour les variantes de produit (SKU, prix, stock par combinaison)
 model ProductVariant {
-  id              String   @id @default(uuid()) @db.VarChar(255)
-  productId       String   @db.VarChar(255)
-  sku             String   @unique @db.VarChar(100)
-  variantName     String?  @db.VarChar(255)
-  price           Decimal  @db.Decimal(10, 2)
-  stock           Int      @default(0)
-  leadTimeDays    Int?     @map("leadTimeDays")
-  moq             Int?     @default(1)
-  weight          Float?
-  dimensions      String?  @db.VarChar(50)
-  isActive        Boolean  @default(true)
-  attributesJson  String?  @map("attributesJson") @db.Text
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid()) @db.VarChar(255)
+  productId      String   @db.VarChar(255)
+  sku            String   @unique @db.VarChar(100)
+  variantName    String?  @db.VarChar(255)
+  price          Decimal  @db.Decimal(10, 2)
+  stock          Int      @default(0)
+  leadTimeDays   Int?     @map("leadTimeDays")
+  moq            Int?     @default(1)
+  weight         Float?
+  dimensions     String?  @db.VarChar(50)
+  isActive       Boolean  @default(true)
+  attributesJson String?  @map("attributesJson") @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  product    Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product    Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
   attributes VariantAttribute[]
   images     VariantImage[]
 
@@ -332,8 +335,8 @@ model VariantAttribute {
   stockAdjustment  Int?
   weightModifier   Float?
 
-  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  attribute Characteristic @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  variant   ProductVariant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  attribute Characteristic  @relation(fields: [attributeId], references: [id], onDelete: Cascade)
   value     AttributeValue? @relation(fields: [attributeValueId], references: [id], onDelete: SetNull)
 
   @@unique([variantId, attributeId])
@@ -414,8 +417,8 @@ model StudentInstallment {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
-  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  paidBy  User? @relation(fields: [paidById], references: [id])
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paidBy User? @relation(fields: [paidById], references: [id])
 
   @@map("student_installments")
 }
@@ -432,8 +435,8 @@ model Review {
   updatedAt DateTime @updatedAt // Date de la dernière mise à jour de l'enregistrement
 
   // Relations
-  product Product @relation(fields: [productId], references: [id])
-  user    User    @relation(fields: [userId], references: [id])
+  product Product       @relation(fields: [productId], references: [id])
+  user    User          @relation(fields: [userId], references: [id])
   replies ReviewReply[]
 
   @@map("reviews") // Nom de la table dans la base de données
@@ -530,26 +533,26 @@ model Characteristic {
   displayOrder  Int           @default(0)
   createdAt     DateTime      @default(now())
 
-  categories     CategoryCharacteristic[]
-  products       ProductCharacteristic[]
-  values         AttributeValue[]
-  variantLinks   VariantAttribute[]
+  categories   CategoryCharacteristic[]
+  products     ProductCharacteristic[]
+  values       AttributeValue[]
+  variantLinks VariantAttribute[]
 
   @@map("characteristics")
 }
 
 model AttributeValue {
-  id               String        @id @default(uuid()) @db.VarChar(255)
-  characteristicId String        @db.VarChar(255)
-  value            String        @db.VarChar(255)
-  valueSlug        String?       @db.VarChar(255)
-  colorCode        String?       @db.VarChar(7)
-  imageUrl         String?       @db.VarChar(255)
-  sortOrder        Int           @default(0)
-  isActive         Boolean       @default(true)
-  createdAt        DateTime      @default(now())
+  id               String   @id @default(uuid()) @db.VarChar(255)
+  characteristicId String   @db.VarChar(255)
+  value            String   @db.VarChar(255)
+  valueSlug        String?  @db.VarChar(255)
+  colorCode        String?  @db.VarChar(7)
+  imageUrl         String?  @db.VarChar(255)
+  sortOrder        Int      @default(0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
 
-  characteristic Characteristic  @relation(fields: [characteristicId], references: [id], onDelete: Cascade)
+  characteristic Characteristic     @relation(fields: [characteristicId], references: [id], onDelete: Cascade)
   variantLinks   VariantAttribute[]
 
   @@unique([characteristicId, value])
@@ -662,29 +665,30 @@ model PosSession {
 }
 
 model PosTransaction {
-  id               String   @id @default(uuid()) @db.VarChar(255)
-  sessionId        String   @db.VarChar(255)
-  userId           String   @db.VarChar(255)
-  customerName     String?  @db.VarChar(255)
-  customerPhone    String?  @db.VarChar(20)
-  customerEmail    String?  @db.VarChar(255)
-  customerIFU      String?  @map("customerIFU") @db.VarChar(100)
-  customerAddress  String?  @map("customerAddress") @db.Text
-  totalAmount      Decimal  @db.Decimal(10, 2)
-  discount         Decimal  @default(0) @db.Decimal(10, 2)
-  discountReason   String?  @db.Text
-  finalAmount      Decimal  @db.Decimal(10, 2)
-  paidAmount       Decimal  @default(0) @db.Decimal(10, 2)
-  remainingBalance Decimal  @default(0) @db.Decimal(10, 2)
+  id               String    @id @default(uuid()) @db.VarChar(255)
+  sessionId        String    @db.VarChar(255)
+  userId           String    @db.VarChar(255)
+  customerName     String?   @db.VarChar(255)
+  customerPhone    String?   @db.VarChar(20)
+  customerEmail    String?   @db.VarChar(255)
+  customerIFU      String?   @map("customerIFU") @db.VarChar(100)
+  customerAddress  String?   @map("customerAddress") @db.Text
+  totalAmount      Decimal   @db.Decimal(10, 2)
+  discount         Decimal   @default(0) @db.Decimal(10, 2)
+  discountReason   String?   @db.Text
+  finalAmount      Decimal   @db.Decimal(10, 2)
+  paidAmount       Decimal   @default(0) @db.Decimal(10, 2)
+  remainingBalance Decimal   @default(0) @db.Decimal(10, 2)
   dueDate          DateTime?
-  tip              Decimal  @default(0) @db.Decimal(10, 2)
-  paymentMethod    String   @default("CASH") // CASH, TRANSFER, INSTALLMENT
-  invoiceNumber    String   @unique @db.VarChar(50)
-  createdAt        DateTime @default(now())
+  tip              Decimal   @default(0) @db.Decimal(10, 2)
+  paymentMethod    String    @default("CASH") // CASH, TRANSFER, INSTALLMENT
+  invoiceNumber    String    @unique @db.VarChar(50)
+  createdAt        DateTime  @default(now())
 
-  session PosSession           @relation(fields: [sessionId], references: [id])
-  user    User                 @relation(fields: [userId], references: [id])
-  items   PosTransactionItem[]
+  session           PosSession           @relation(fields: [sessionId], references: [id])
+  user              User                 @relation(fields: [userId], references: [id])
+  items             PosTransactionItem[]
+  normalizedInvoice NormalizedInvoice? // Facture normalisée e-MECeF (optionnelle, activable en caisse)
 
   @@map("pos_transactions")
 }
@@ -739,3 +743,105 @@ model CustomOffer {
   @@map("custom_offers")
 }
 
+// --- e-MECeF / DGF : Facture normalisée (SFE-MCF) ---
+
+enum NormalizedInvoiceSource {
+  ORDER // Commande e-commerce (paiement en ligne)
+  POS // Vente au comptoir (caisse)
+}
+
+enum NormalizedInvoiceType {
+  FV // Facture de vente (taxable)
+  FA // Facture d'avoir de vente (annulation/remboursement)
+  EV // Facture de vente exonérée
+  EA // Facture d'avoir exonérée
+}
+
+enum NormalizedInvoiceStatus {
+  DRAFT // Brouillon créé côté e-MECeF (uid obtenu), pas encore confirmé
+  CONFIRMED // Confirmée : NIM + QR + compteurs obtenus (facture normalisée valide)
+  CANCELLED // Annulée via un avoir (FA/EA)
+  ERROR // Échec de création/confirmation
+}
+
+model NormalizedInvoice {
+  id     String                  @id @default(uuid()) @db.VarChar(255)
+  source NormalizedInvoiceSource
+  type   NormalizedInvoiceType   @default(FV)
+  status NormalizedInvoiceStatus @default(DRAFT)
+
+  // Liens optionnels vers le document source (l'un ou l'autre)
+  orderId          String? @unique @db.VarChar(255)
+  posTransactionId String? @unique @db.VarChar(255)
+
+  // Identité fiscale émetteur au moment de l'émission (snapshot)
+  ifu         String  @db.VarChar(50)
+  aib         String? @db.VarChar(5) // Groupe AIB (A/B) ou null
+  environment String  @default("TEST") @db.VarChar(10) // TEST | PROD
+
+  // Éléments retournés par e-MECeF à la confirmation
+  emecefUid  String?   @db.VarChar(100) // uid du brouillon e-MECeF
+  nim        String?   @db.VarChar(50) // Numéro d'Identification de la Machine
+  counters   String?   @db.VarChar(100) // Compteurs (ex: "1/5 FV")
+  ni         String?   @db.VarChar(100) // Numéro d'identification de la facture normalisée
+  codeMecef  String?   @db.Text // Code de contrôle / signature MECeF
+  qrCode     String?   @db.Text // Contenu/URL du QR code de vérification
+  emecefDate DateTime? // Horodatage officiel e-MECeF
+
+  // Montants (snapshot)
+  totalTaxable Decimal @default(0) @db.Decimal(12, 2)
+  totalTax     Decimal @default(0) @db.Decimal(12, 2)
+  totalTTC     Decimal @default(0) @db.Decimal(12, 2)
+  currency     String  @default("XOF") @db.VarChar(10)
+
+  // Traçabilité / débogage
+  referenceUid String? @db.VarChar(100) // uid de la facture d'origine (pour FA/EA)
+  rawRequest   String? @db.Text // Payload envoyé (JSON)
+  rawResponse  String? @db.Text // Réponse complète (JSON)
+  errorCode    String? @db.VarChar(100)
+  errorDesc    String? @db.Text
+
+  createdById String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  order          Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  posTransaction PosTransaction? @relation(fields: [posTransactionId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([nim])
+  @@map("normalized_invoices")
+}
+
+// --- Mouvements de stock (traçabilité des entrées/sorties/ajustements) ---
+
+enum StockMovementType {
+  IN // Entrée (achat, réapprovisionnement, retour client)
+  OUT // Sortie (vente, perte, casse)
+  ADJUSTMENT // Ajustement manuel (+/-)
+  INVENTORY // Comptage d'inventaire (mise à niveau du stock réel)
+}
+
+model StockMovement {
+  id          String            @id @default(uuid()) @db.VarChar(255)
+  productId   String            @db.VarChar(255)
+  variantId   String?           @db.VarChar(255) // variante concernée (optionnel)
+  type        StockMovementType
+  quantity    Int // Valeur signée : positive (entrée) / négative (sortie)
+  stockBefore Int // Stock avant le mouvement
+  stockAfter  Int // Stock après le mouvement
+  reason      String?           @db.VarChar(255) // Motif libre
+  reference   String?           @db.VarChar(255) // Réf. source : POS-xxx, ORDER-xxx, PURCHASE-xxx
+  unitCost    Decimal?          @db.Decimal(10, 2) // Coût unitaire (pour les entrées)
+  userId      String?           @db.VarChar(255) // Auteur du mouvement
+  createdAt   DateTime          @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("stock_movements")
+}

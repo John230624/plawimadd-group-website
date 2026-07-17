@@ -5,6 +5,7 @@ import { OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth'; // Pour l'authentification de l'utilisateur
 import { authOptions } from '@/lib/authOptions';
 import { logActivity } from '@/lib/logActivity';
+import { recordOrderStockOut } from '@/lib/stock';
 
 // Interface pour le corps de la requête POST de ce endpoint
 interface CreateOrderAfterPaymentPayload {
@@ -134,6 +135,16 @@ export async function POST(req: NextRequest) {
                 },
             });
             console.log(`[Create Order After Payment] Enregistrement de paiement initial créé pour commande ${newOrder.id}.`);
+
+            // Inventaire : sortie de stock si le paiement est déjà confirmé
+            // (sinon le callback Kkiapay s'en chargera à la confirmation).
+            if (initialPaymentStatusForOrder === PaymentStatus.COMPLETED) {
+                await recordOrderStockOut(prismaTx, {
+                    orderId: newOrder.id,
+                    items: items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+                    userId: user.id,
+                });
+            }
 
             // Vider le panier de l'utilisateur
             await prismaTx.cartItem.deleteMany({

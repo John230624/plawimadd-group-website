@@ -11,6 +11,7 @@ import {
   Boxes,
   Download,
   ExternalLink,
+  History as HistoryIcon,
   Minus,
   Plus,
   Search,
@@ -170,17 +171,38 @@ export default function StocksPage(): React.ReactElement {
   };
 
   const adjustStock = async (product: Product, delta: number) => {
-    const newStock = Math.max(0, Number(product.stock) + delta);
+    // Empêche de descendre sous zéro sur les boutons rapides
+    const applied = Math.max(delta, -Number(product.stock));
+    if (applied === 0) return;
+    try {
+      // Passe par le service de mouvements pour la traçabilité (StockMovement)
+      const res = await fetch('/api/admin/stock/movements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id, mode: 'ADJUSTMENT', quantity: applied, reason: 'Ajustement rapide' }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || 'Erreur');
+      await fetchProducts();
+      toast.success(`${product.name}: ${product.stock} → ${data.movement.stockAfter}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur');
+    }
+  };
+
+  const saveThreshold = async (product: Product, value: number) => {
+    const clean = Math.max(0, Math.round(value));
+    if (clean === (product.lowStockThreshold ?? 5)) return;
     try {
       const res = await fetch(`/api/products/${product.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stock: newStock }),
+        body: JSON.stringify({ lowStockThreshold: clean }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Erreur');
       await fetchProducts();
-      toast.success(`${product.name}: ${product.stock} → ${newStock}`);
+      toast.success(`Seuil d'alerte de "${product.name}" fixé à ${clean}.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur');
     }
@@ -312,6 +334,9 @@ export default function StocksPage(): React.ReactElement {
         title="Suivi du stock"
         action={
           <div className="flex gap-2">
+            <Link href="/seller/stocks/movements">
+              <SellerButton variant="outline" size="sm" icon={HistoryIcon}>Mouvements</SellerButton>
+            </Link>
             <SellerButton variant="outline" size="sm" icon={Download} onClick={exportCSV}>CSV</SellerButton>
             <SellerButton variant="outline" size="sm" icon={Download} onClick={exportPDF}>PDF</SellerButton>
           </div>
@@ -431,7 +456,8 @@ export default function StocksPage(): React.ReactElement {
                 const imageSrc = product.imgUrl?.[0] || '/images/default_product_image.png';
                 const stock = product.stock;
                 const pct = Math.min((stock / maxStock) * 100, 100);
-                const stockStatus = stock <= 0 ? 'rupture' : stock <= threshold ? 'faible' : 'ok';
+                const rowThreshold = product.lowStockThreshold ?? threshold;
+                const stockStatus = stock <= 0 ? 'rupture' : stock <= rowThreshold ? 'faible' : 'ok';
 
                 return (
                   <SellerTableRow key={product.id} className={stockStatus === 'rupture' ? 'bg-red-50/50' : stockStatus === 'faible' ? 'bg-amber-50/50' : ''}>
@@ -501,6 +527,19 @@ export default function StocksPage(): React.ReactElement {
                         >
                           <Plus className="h-3 w-3" />
                         </button>
+                      </div>
+                      <div className="mt-1 flex items-center justify-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+                        <span>Seuil</span>
+                        <input
+                          type="number"
+                          min={0}
+                          defaultValue={rowThreshold}
+                          key={`${product.id}-${rowThreshold}`}
+                          onBlur={(e) => saveThreshold(product, Number(e.target.value))}
+                          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                          className="h-5 w-11 rounded border border-[var(--border)] bg-[var(--bg-input)] px-1 text-center text-[10px] text-[var(--text-secondary)] outline-none focus:border-[var(--accent-blue)]"
+                          title="Seuil d'alerte de ce produit"
+                        />
                       </div>
                     </SellerTableCell>
                     <SellerTableCell className="text-center">

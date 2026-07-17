@@ -356,6 +356,9 @@ export async function PATCH(req: NextRequest, context: RouteContext): Promise<Ne
         if (body.name !== undefined) {
             data.name = String(body.name);
         }
+        if (body.lowStockThreshold !== undefined) {
+            data.lowStockThreshold = body.lowStockThreshold === null ? null : Math.max(0, Number(body.lowStockThreshold));
+        }
 
         if (Object.keys(data).length === 0) {
             return NextResponse.json({ success: false, message: 'Aucun champ à mettre à jour.' }, { status: 400 });

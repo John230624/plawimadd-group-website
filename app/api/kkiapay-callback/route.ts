@@ -1,6 +1,7 @@
 // app/api/kkiapay-callback/route.ts - VERSION LIVE UNIQUEMENT
 import { getKkiapayConfig, verifyKkiapayTransaction } from '@/lib/kkiapay';
 import prisma from '@/lib/prisma';
+import { recordOrderStockOut, restockOrder } from '@/lib/stock';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -38,7 +39,12 @@ export async function GET(request: NextRequest) {
     // au total attendu (protection contre les sous-paiements).
     const order = await prisma.order.findUnique({
       where: { id: transactionId },
-      select: { totalAmount: true },
+      select: {
+        totalAmount: true,
+        userId: true,
+        paymentStatus: true,
+        orderItems: { select: { productId: true, quantity: true } },
+      },
     });
 
     if (!order) {
@@ -94,6 +100,19 @@ export async function GET(request: NextRequest) {
           updatedAt: new Date(),
         }
       });
+
+      // Inventaire : sortie de stock à la confirmation du paiement (idempotent),
+      // re-crédit si un paiement d'abord complété est finalement refusé.
+      const wasCompleted = order.paymentStatus === PaymentStatus.COMPLETED;
+      if (isSuccess) {
+        await recordOrderStockOut(prismaTx, {
+          orderId: transactionId,
+          items: order.orderItems,
+          userId: order.userId,
+        });
+      } else if (wasCompleted) {
+        await restockOrder(prismaTx, { orderId: transactionId, userId: order.userId });
+      }
     });
 
     console.log(`✅ Commande ${transactionId} mise à jour - Succès LIVE: ${isSuccess}`);

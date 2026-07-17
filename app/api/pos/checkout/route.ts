@@ -174,6 +174,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         if (updateResult.count !== 1) {
           throw new PosCheckoutError(`Stock insuffisant pour ${item.name}.`);
         }
+        // Traçabilité du mouvement de stock (sortie sur vente comptoir)
+        const afterProduct = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true } });
+        const stockAfter = afterProduct?.stock ?? 0;
+        await tx.stockMovement.create({
+          data: {
+            productId: item.productId,
+            type: 'OUT',
+            quantity: -item.quantity,
+            stockBefore: stockAfter + item.quantity,
+            stockAfter,
+            reason: 'Vente comptoir',
+            reference: `POS-${transaction.id}`,
+            userId,
+          },
+        });
       }
 
       const orderId = `POS-${transaction.id}`;

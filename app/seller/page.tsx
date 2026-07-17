@@ -113,10 +113,6 @@ export default function SellerDashboard(): React.ReactElement {
   const revenueData: RevenuePoint[] = stats?.revenueOverTime || [];
   const ordersData: { label: string; count: number }[] = stats?.ordersOverTime || [];
 
-  const revenueSparkline = useMemo(() => {
-    return revenueData.map((item) => Math.round(item.value / 100));
-  }, [revenueData]);
-
   const salesSparkline = useMemo(() => {
     return ordersData.map((item) => item.count);
   }, [ordersData]);
@@ -283,7 +279,6 @@ export default function SellerDashboard(): React.ReactElement {
           accentColor="green"
           change={`~${formatPrice(Math.round(s.totalRevenue / Math.max(s.totalOrders, 1)))} / commande`}
           changeType="positive"
-          sparklineData={revenueSparkline}
         />
         <StatCard
           title="Commandes"

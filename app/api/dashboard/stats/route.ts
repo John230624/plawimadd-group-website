@@ -72,7 +72,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         where: { paymentStatus: 'COMPLETED', ...nonPosOrderWhere },
       }),
       prisma.user.count(),
-      prisma.product.count({ where: { stock: { gt: 0, lte: 5 } } }),
+      prisma.$queryRaw<{ c: bigint }[]>`SELECT COUNT(*) AS c FROM products WHERE deletedAt IS NULL AND stock > 0 AND stock <= COALESCE(lowStockThreshold, 5)`.then((r) => Number(r[0]?.c ?? 0)),
       prisma.product.count({ where: { stock: { lte: 0 } } }),
       prisma.studentInstallmentRequest.count({ where: { status: 'PENDING' } }),
       prisma.order.findMany({
@@ -288,7 +288,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         ? {
             id: 'low-stock',
             title: 'Stock faible',
-            description: `${lowStockCount} reference(s) sous le seuil de 5 unites.`,
+            description: `${lowStockCount} reference(s) sous leur seuil d'alerte.`,
             severity: 'warning',
             href: '/seller/stocks',
           }

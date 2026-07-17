@@ -134,6 +134,7 @@ export interface Product {
     certifications?: string[] | null;
     soldCount?: number | null;
     reviewCount?: number | null;
+    lowStockThreshold?: number | null;
     variants?: ProductVariant[];
 }
 

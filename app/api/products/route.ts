@@ -26,6 +26,7 @@ type ProductWithRelations = {
     description: string | null;
     price: Decimal;
     stock: number;
+    lowStockThreshold: number | null;
     imgUrl: string | null;
     createdAt: Date;
     updatedAt: Date;
@@ -122,6 +123,7 @@ type ApiResponseProduct = {
     certifications: string[] | null;
     soldCount: number | null;
     reviewCount: number | null;
+    lowStockThreshold: number | null;
     variants?: {
         id: string;
         sku: string;
@@ -284,6 +286,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             price: parseFloat(newProduct.price.toString()),
             offerPrice: newProduct.offerPrice ? parseFloat(newProduct.offerPrice.toString()) : null,
             stock: newProduct.stock,
+            lowStockThreshold: newProduct.lowStockThreshold,
             createdAt: newProduct.createdAt,
             updatedAt: newProduct.updatedAt,
             imgUrl: parsedImgUrls,
@@ -403,6 +406,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                 certifications: parsedCertifications,
                 soldCount: product.soldCount,
                 reviewCount: product.reviewCount,
+                lowStockThreshold: product.lowStockThreshold,
                 variants: product.variants?.map(v => ({
                     ...v,
                     price: parseFloat(v.price.toString()),

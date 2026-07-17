@@ -171,26 +171,6 @@ export default function ReportsPage(): React.ReactElement {
     return data.recentOrders.slice(start, start + pageSize);
   }, [data?.recentOrders, page]);
 
-  const revenueSparkline = useMemo(() => {
-    return (data?.monthlyRevenues || []).map((m) => Math.round(m.revenue / 100));
-  }, [data?.monthlyRevenues]);
-
-  const profitSparkline = useMemo(() => {
-    if (!data) return [];
-    return [0, data.realizedProfit].map((v) => Math.round(Math.abs(v) / 100));
-  }, [data]);
-
-  const ordersSparkline = useMemo(() => {
-    if (!data) return [];
-    return [data.todayOrders, data.totalOrders - data.todayOrders, data.pendingOrders].map((v) => Math.round(v));
-  }, [data]);
-
-  const stockSparkline = useMemo(() => {
-    if (!data) return [];
-    const val = Math.round(data.stockValueAtSellingPrice / 10000);
-    return [val, Math.round(val * 0.8), Math.round(val * 1.1)];
-  }, [data]);
-
   function exportCSV() {
     if (!data) return;
     const header = 'Rang;Produit;Vendus;Revenu\n---\n';
@@ -310,7 +290,6 @@ export default function ReportsPage(): React.ReactElement {
           accentColor="green"
           change={`${data.todayRevenue > 0 ? '+' : ''}${formatPrice(data.todayRevenue)} aujourd'hui`}
           changeType={data.todayRevenue > 0 ? 'positive' : 'neutral'}
-          sparklineData={revenueSparkline}
         />
         <StatCard
           title={data.realizedProfit >= 0 ? 'Bénéfice net' : 'Perte nette'}
@@ -320,7 +299,6 @@ export default function ReportsPage(): React.ReactElement {
           accentColor={data.realizedProfit >= 0 ? 'green' : 'red'}
           change={`Coût ventes: ${formatPrice(data.totalCostOfGoodsSold)}`}
           changeType={data.realizedProfit >= 0 ? 'positive' : 'negative'}
-          sparklineData={profitSparkline}
         />
         <StatCard
           title="Commandes"
@@ -329,7 +307,6 @@ export default function ReportsPage(): React.ReactElement {
           accentColor="blue"
           change={`${data.pendingOrders} en attente · ${data.todayOrders} aujourd'hui`}
           changeType={data.pendingOrders > 0 ? 'negative' : 'positive'}
-          sparklineData={ordersSparkline}
         />
         <StatCard
           title="Stock"
@@ -339,7 +316,6 @@ export default function ReportsPage(): React.ReactElement {
           accentColor="amber"
           change={`${data.productsAddedThisPeriod} nouveau(x)`}
           changeType="positive"
-          sparklineData={stockSparkline}
         />
       </div>
 

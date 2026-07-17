@@ -17,6 +17,8 @@ import {
   Clock,
   Wallet,
   Plus,
+  FileCheck2,
+  ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAppContext } from '@/context/AppContext';
@@ -80,6 +82,58 @@ export default function InvoicesPage(): React.ReactElement {
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('CASH');
   const [paying, setPaying] = useState(false);
+
+  // Normalisation e-MECeF
+  interface NormalizedInfo {
+    id: string;
+    status: string;
+    type: string;
+    nim: string | null;
+    counters: string | null;
+    ni: string | null;
+    environment: string;
+    errorDesc: string | null;
+  }
+  const [normalizedInfo, setNormalizedInfo] = useState<NormalizedInfo | null>(null);
+  const [normalizing, setNormalizing] = useState(false);
+
+  const lookupNormalized = useCallback(async (transactionId: string) => {
+    setNormalizedInfo(null);
+    try {
+      const res = await fetch(`/api/admin/emecef/lookup?source=POS&id=${transactionId}`);
+      if (!res.ok) return; // 403 pour non-admin : on masque simplement la fonctionnalité
+      const data = await res.json();
+      setNormalizedInfo(data.invoice || null);
+    } catch {
+      /* silencieux */
+    }
+  }, []);
+
+  const openNormalizedPdf = (normalizedId: string) => {
+    window.open(`/api/admin/emecef/invoice-pdf?id=${normalizedId}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const normalizeInvoice = async (transactionId: string) => {
+    setNormalizing(true);
+    try {
+      const res = await fetch('/api/admin/emecef/normalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'POS', id: transactionId, type: 'FV' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast.success(`Facture normalisée ✅ NIM ${data.invoice?.nim ?? ''}`);
+        await lookupNormalized(transactionId);
+      } else {
+        toast.error(data.message || 'Échec de la normalisation.');
+      }
+    } catch {
+      toast.error('Échec de la normalisation.');
+    } finally {
+      setNormalizing(false);
+    }
+  };
 
   const fetchInvoices = useCallback(async (page = 1) => {
     setLoading(true);
@@ -193,6 +247,7 @@ export default function InvoicesPage(): React.ReactElement {
     if (invoice.paymentMethod === 'INSTALLMENT') {
       fetchHistory(invoice.id);
     }
+    lookupNormalized(invoice.id);
   };
 
   const submitTranche = async () => {
@@ -634,6 +689,58 @@ export default function InvoicesPage(): React.ReactElement {
                   )}
                 </div>
               )}
+
+              {/* Facturation normalisée e-MECeF (DGI) */}
+              <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] p-3">
+                <div className="flex items-center justify-between">
+                  <p className="flex items-center gap-1.5 text-xs font-600 uppercase text-[var(--text-tertiary)]">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Facture normalisée (DGI)
+                  </p>
+                  {normalizedInfo?.status === 'CONFIRMED' && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-600 text-emerald-400">
+                      <CheckCircle2 className="h-3 w-3" /> Normalisée
+                      {normalizedInfo.environment === 'TEST' ? ' (TEST)' : ''}
+                    </span>
+                  )}
+                </div>
+
+                {normalizedInfo?.status === 'CONFIRMED' ? (
+                  <div className="space-y-1.5">
+                    <div className="text-xs text-[var(--text-secondary)]">
+                      <span className="text-[var(--text-tertiary)]">NIM :</span> {normalizedInfo.nim || '—'}
+                      {normalizedInfo.counters ? <span className="ml-2 text-[var(--text-tertiary)]">Compteurs : {normalizedInfo.counters}</span> : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openNormalizedPdf(normalizedInfo.id)}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-600 text-emerald-400 transition hover:bg-emerald-500/20"
+                    >
+                      <FileCheck2 className="h-4 w-4" />
+                      Voir la facture normalisée
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {normalizedInfo?.status === 'ERROR' && (
+                      <p className="flex items-center gap-1 text-xs text-red-400">
+                        <AlertCircle className="h-3 w-3" /> Échec précédent : {normalizedInfo.errorDesc || 'erreur'}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      disabled={normalizing}
+                      onClick={() => normalizeInvoice(selectedInvoice.id)}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2 text-sm font-600 text-[var(--text-primary)] transition hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                    >
+                      {normalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                      {normalizing ? 'Normalisation…' : 'Normaliser cette facture'}
+                    </button>
+                    <p className="text-[10px] text-[var(--text-tertiary)]">
+                      Transmet la vente à la DGI et génère la facture normalisée (NIM + QR). Réservé aux administrateurs.
+                    </p>
+                  </div>
+                )}
+              </div>
 
               <div className="flex gap-2">
                 <button

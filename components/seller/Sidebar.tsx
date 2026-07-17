@@ -32,6 +32,7 @@ import {
   Languages,
   User,
   Receipt,
+  FileCheck2,
 } from 'lucide-react';
 
 import SellerBrand from '@/components/seller/SellerBrand';
@@ -56,30 +57,39 @@ interface MenuSection {
 
 const menuSections: MenuSection[] = [
   {
-    title: 'sidebar.admin',
+    title: 'sidebar.dashboard',
     items: [
-      { name: 'sidebar.admin', path: '/seller', icon: LayoutGrid, permission: 'reports.view' },
-      { name: 'sidebar.users', path: '/seller/users', icon: Users, permission: 'users.view', adminOnly: true },
-      { name: 'sidebar.roles', path: '/seller/roles', icon: Shield, permission: 'permissions.manage', adminOnly: true },
+      { name: 'sidebar.dashboard', path: '/seller', icon: LayoutGrid, permission: 'reports.view' },
     ],
   },
   {
-    title: 'sidebar.products',
+    title: 'sidebar.cashRegister',
+    items: [
+      { name: 'sidebar.pos', path: '/seller/pos', icon: Store, permission: 'pos.access' },
+      { name: 'sidebar.invoices', path: '/seller/invoices', icon: Receipt, permission: 'pos.view-transactions' },
+    ],
+  },
+  {
+    title: 'sidebar.catalog',
     items: [
       { name: 'sidebar.products', path: '/seller/product-list', icon: Box, permission: 'products.view' },
       { name: 'sidebar.categories', path: '/seller/categories', icon: Layers3, permission: 'categories.view' },
       { name: 'sidebar.characteristics', path: '/seller/characteristics', icon: SlidersHorizontal, permission: 'characteristics.view' },
       { name: 'sidebar.colors', path: '/seller/colors', icon: Palette, permission: 'colors.view' },
+      { name: 'sidebar.promotions', path: '/seller/promotions', icon: Tag, permission: 'promotions.view' },
+    ],
+  },
+  {
+    title: 'sidebar.stock',
+    items: [
       { name: 'sidebar.stocks', path: '/seller/stocks', icon: Package2, permission: 'products.manage-stock' },
+      { name: 'sidebar.stockMovements', path: '/seller/stocks/movements', icon: History, permission: 'products.manage-stock' },
     ],
   },
   {
     title: 'sidebar.sales',
     items: [
-      { name: 'sidebar.pos', path: '/seller/pos', icon: Store, permission: 'pos.access' },
       { name: 'sidebar.orders', path: '/seller/orders', icon: ShoppingCart, permission: 'orders.view' },
-      { name: 'sidebar.invoices', path: '/seller/invoices', icon: Receipt, permission: 'pos.view-transactions' },
-      { name: 'sidebar.promotions', path: '/seller/promotions', icon: Tag, permission: 'promotions.view' },
       { name: 'sidebar.reviews', path: '/seller/reviews', icon: MessageSquareText, permission: 'reviews.view' },
     ],
   },
@@ -92,12 +102,25 @@ const menuSections: MenuSection[] = [
     ],
   },
   {
+    title: 'sidebar.usersSection',
+    items: [
+      { name: 'sidebar.users', path: '/seller/users', icon: Users, permission: 'users.view', adminOnly: true },
+      { name: 'sidebar.roles', path: '/seller/roles', icon: Shield, permission: 'permissions.manage', adminOnly: true },
+    ],
+  },
+  {
+    title: 'sidebar.taxation',
+    items: [
+      { name: 'sidebar.emecef', path: '/seller/emecef', icon: FileCheck2, adminOnly: true },
+    ],
+  },
+  {
     title: 'sidebar.config',
     items: [
-      { name: 'sidebar.content', path: '/seller/content', icon: FileText, adminOnly: true },
-      { name: 'sidebar.settings', path: '/seller/settings', icon: Settings },
       { name: 'sidebar.reports', path: '/seller/reports', icon: BarChart3, permission: 'reports.view' },
       { name: 'sidebar.activityLog', path: '/seller/activity-logs', icon: History, permission: 'activity.view', adminOnly: true },
+      { name: 'sidebar.content', path: '/seller/content', icon: FileText, adminOnly: true },
+      { name: 'sidebar.settings', path: '/seller/settings', icon: Settings },
       { name: 'sidebar.trash', path: '/seller/trash', icon: Archive, adminOnly: true },
     ],
   },
