@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import AddressCheckoutModal from '@/components/cart/AddressCheckoutModal';
 import HomeFooter from '@/components/home/HomeFooter';
 import ProductCarouselSection from '@/components/home/ProductCarouselSection';
+import { CartItemSkeleton } from '@/components/Skeleton';
 import { useAppContext } from '@/context/AppContext';
 import type { Address, Product, StudentInstallmentRequest } from '@/lib/types';
 import type { KkiapayErrorResponse, KkiapaySuccessResponse } from '@/types/kkiapay';
@@ -42,6 +43,7 @@ export default function CartPage(): React.ReactElement {
     products,
     router,
     cartItems,
+    loadingCart,
     addToCart,
     removeFromCart,
     deleteFromCart,
@@ -473,7 +475,13 @@ export default function CartPage(): React.ReactElement {
         <section className="px-2 pb-2 pt-6 md:px-0">
           <div className="grid gap-6 px-3 py-4 md:px-0 md:py-0 xl:grid-cols-[1fr_360px]">
             <div className="space-y-5">
-              {cartProducts.length === 0 ? (
+              {loadingCart ? (
+                <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-4">
+                  <CartItemSkeleton />
+                  <CartItemSkeleton />
+                  <CartItemSkeleton />
+                </div>
+              ) : cartProducts.length === 0 ? (
                 <div className="bg-white p-10 text-center rounded-lg border border-transparent shadow-none">
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 text-slate-855 border border-transparent">
                     <ShoppingBag className="h-6 w-6" />

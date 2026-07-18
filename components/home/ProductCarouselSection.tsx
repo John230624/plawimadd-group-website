@@ -3,6 +3,7 @@
 import React from 'react';
 
 import ProductCard from '@/components/ProductCard';
+import { ProductCardSkeleton } from '@/components/Skeleton';
 import type { Product } from '@/lib/types';
 import SectionHeader from './SectionHeader';
 
@@ -13,6 +14,7 @@ interface ProductCarouselSectionProps {
   onAction: () => void;
   mode?: 'default' | 'student-offers';
   subtitle?: string;
+  loading?: boolean;
 }
 
 export default function ProductCarouselSection({
@@ -21,10 +23,11 @@ export default function ProductCarouselSection({
   products,
   onAction,
   subtitle,
+  loading = false,
 }: ProductCarouselSectionProps): React.ReactElement | null {
   const displayedProducts = products.slice(0, 12);
 
-  if (!displayedProducts.length) return null;
+  if (!loading && !displayedProducts.length) return null;
 
   return (
     <section className="pt-5 md:pt-6">
@@ -36,9 +39,13 @@ export default function ProductCarouselSection({
         ) : null}
 
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-          {displayedProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {loading
+            ? Array.from({ length: 6 }).map((_, idx) => (
+                <ProductCardSkeleton key={idx} />
+              ))
+            : displayedProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
         </div>
       </div>
     </section>

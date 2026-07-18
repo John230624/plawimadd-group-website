@@ -5,6 +5,7 @@ import React, { useState, useEffect, FormEvent, ChangeEvent, Suspense } from 're
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { FiLock, FiCheckCircle, FiAlertCircle, FiArrowRight } from 'react-icons/fi'; // Import des icônes
+import { validatePassword } from '@/lib/passwordPolicy';
 
 /**
  * Composant de la page de réinitialisation de mot de passe.
@@ -25,6 +26,7 @@ function ResetPasswordPage(): React.ReactElement { // Type le composant comme re
     const [token, setToken] = useState<string>(''); // Type l'état comme string
     const [newPassword, setNewPassword] = useState<string>(''); // Type l'état comme string
     const [confirmPassword, setConfirmPassword] = useState<string>(''); // Type l'état comme string
+    const [isNewPasswordFocused, setIsNewPasswordFocused] = useState<boolean>(false);
     const [message, setMessage] = useState<string>(''); // Type l'état comme string
     const [error, setError] = useState<string>(''); // Type l'état comme string
     const [isLoading, setIsLoading] = useState<boolean>(false); // Type l'état comme boolean
@@ -56,14 +58,15 @@ function ResetPasswordPage(): React.ReactElement { // Type le composant comme re
             return;
         }
 
-        if (newPassword !== confirmPassword) {
-            setError('Les mots de passe ne correspondent pas.');
+        const passwordCheck = validatePassword(newPassword);
+        if (!passwordCheck.valid) {
+            setError(passwordCheck.message);
             setIsLoading(false);
             return;
         }
 
-        if (newPassword.length < 6) {
-            setError('Le nouveau mot de passe doit contenir au moins 6 caractères.');
+        if (newPassword !== confirmPassword) {
+            setError('Les mots de passe ne correspondent pas.');
             setIsLoading(false);
             return;
         }
@@ -100,6 +103,13 @@ function ResetPasswordPage(): React.ReactElement { // Type le composant comme re
             setIsLoading(false);
         }
     };
+
+    const isLengthValid = newPassword.length >= 8;
+    const isUppercaseValid = /[A-Z]/.test(newPassword);
+    const isLowercaseValid = /[a-z]/.test(newPassword);
+    const isNumberValid = /[0-9]/.test(newPassword);
+    const isSpecialValid = /[^A-Za-z0-9]/.test(newPassword);
+    const isPasswordValid = isLengthValid && isUppercaseValid && isLowercaseValid && isNumberValid && isSpecialValid;
 
     return (
         <div className='min-h-screen bg-gradient-to-br from-blue-50 to-blue-200 flex items-center justify-center p-4'>
@@ -146,10 +156,42 @@ function ResetPasswordPage(): React.ReactElement { // Type le composant comme re
                                         className='focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-3 border-gray-300 rounded-md'
                                         value={newPassword}
                                         onChange={(e: ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)} // Type l'événement onChange
+                                        onFocus={() => setIsNewPasswordFocused(true)}
+                                        onBlur={() => setIsNewPasswordFocused(false)}
                                         required
                                         placeholder='••••••••'
                                         aria-label='Nouveau mot de passe' // Ajouté pour l'accessibilité
                                     />
+                                    {isNewPasswordFocused && !isPasswordValid && (
+                                        <div className="absolute left-0 right-0 z-20 mt-1 space-y-1 text-xs text-gray-500 leading-tight bg-white p-3 rounded-lg border border-slate-200 shadow-lg">
+                                            <p className="font-semibold text-gray-655 mb-1 text-[11px]">Le mot de passe doit contenir :</p>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={isLengthValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                                                    {isLengthValid ? "✓" : "○"} Au moins 8 caractères
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={isUppercaseValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                                                    {isUppercaseValid ? "✓" : "○"} Au moins une lettre majuscule
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={isLowercaseValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                                                    {isLowercaseValid ? "✓" : "○"} Au moins une lettre minuscule
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={isNumberValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                                                    {isNumberValid ? "✓" : "○"} Au moins un chiffre
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={isSpecialValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                                                    {isSpecialValid ? "✓" : "○"} Au moins un caractère spécial
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

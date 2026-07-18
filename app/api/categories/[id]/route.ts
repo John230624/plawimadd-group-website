@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, context: Context): Promise<NextRespo
             },
         });
 
-        if (!category) {
+        if (!category || category.deletedAt !== null) {
             return NextResponse.json({ message: 'Catégorie non trouvée.' }, { status: 404 });
         }
 
@@ -132,8 +132,9 @@ export async function DELETE(req: NextRequest, context: Context): Promise<NextRe
             data: { parentId: null, level: 0 },
         });
 
-        const deletedCategory = await prisma.category.delete({
+        const deletedCategory = await prisma.category.update({
             where: { id: id },
+            data: { deletedAt: new Date() },
         });
 
         await logActivity({
@@ -155,17 +156,6 @@ export async function DELETE(req: NextRequest, context: Context): Promise<NextRe
             (_error as { code?: string }).code === 'P2025'
         ) {
             return NextResponse.json({ message: 'Catégorie non trouvée ou déjà supprimée.' }, { status: 404 });
-        }
-
-        if (
-            typeof _error === 'object' &&
-            _error !== null &&
-            'code' in _error &&
-            (_error as { code?: string }).code === 'P2003'
-        ) {
-            return NextResponse.json({
-                message: "Impossible de supprimer la catégorie car elle est liée à d'autres entités (ex: produits). Supprimez d'abord les produits associés ou configurez la suppression en cascade dans votre schéma Prisma."
-            }, { status: 409 });
         }
 
         return NextResponse.json({ message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });

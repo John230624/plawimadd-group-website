@@ -27,7 +27,7 @@ import {
 import { useSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
 
-import Loading from '@/components/Loading';
+import { ProductDetailSkeleton } from '@/components/Skeleton';
 import HomeFooter from '@/components/home/HomeFooter';
 import ProductCarouselSection from '@/components/home/ProductCarouselSection';
 import VariantSelector from '@/components/product/VariantSelector';
@@ -301,7 +301,7 @@ export default function ProductPage(): React.ReactElement {
   if (loadingProduct) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f5f5f5]">
-        <Loading />
+        <ProductDetailSkeleton />
       </div>
     );
   }

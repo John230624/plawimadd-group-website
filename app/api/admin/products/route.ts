@@ -22,7 +22,10 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
         switch (action) {
             case 'delete':
-                result = await prisma.product.deleteMany({ where: { id: { in: ids } } });
+                result = await prisma.product.updateMany({
+                    where: { id: { in: ids } },
+                    data: { deletedAt: new Date() },
+                });
                 break;
 
             case 'setCategory': {

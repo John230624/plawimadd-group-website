@@ -60,8 +60,12 @@ export default function LoginPage(): React.ReactElement {
                 password,
             });
 
-            if (result?.error) { // Use optional chaining for result.error
-                setError(result.error);
+            if (result?.error) {
+                if (result.error === 'CredentialsSignin') {
+                    setError('Adresse email ou mot de passe incorrect.');
+                } else {
+                    setError(result.error);
+                }
             } else {
                 setSuccess('Connexion réussie ! Redirection...');
             }

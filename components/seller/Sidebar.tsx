@@ -162,6 +162,10 @@ export function useSellerMenuSections(): MenuSection[] {
   }, [session?.user?.role, status]);
 
   return useMemo(() => {
+    if (status === 'loading') {
+      return menuSections;
+    }
+
     const isAdmin = status === 'authenticated' && session?.user?.role === 'ADMIN';
 
     return menuSections

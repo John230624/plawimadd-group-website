@@ -7,6 +7,7 @@ import { signIn, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { FiMail, FiLock, FiUser, FiArrowRight, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
+import { validatePassword } from '@/lib/passwordPolicy';
 
 /**
  * Composant de la page d'inscription.
@@ -19,6 +20,7 @@ export default function RegisterPage(): React.ReactElement { // Type le composan
     const [lastName, setLastName] = useState<string>('');   // Type l'état comme string
     const [email, setEmail] = useState<string>('');         // Type l'état comme string
     const [password, setPassword] = useState<string>('');   // Type l'état comme string
+    const [isPasswordFocused, setIsPasswordFocused] = useState<boolean>(false);
     const [error, setError] = useState<string>('');         // Type l'état comme string
     const [success, setSuccess] = useState<string>('');     // Type l'état comme string
     const [isLoading, setIsLoading] = useState<boolean>(false); // Type l'état comme boolean
@@ -41,6 +43,13 @@ export default function RegisterPage(): React.ReactElement { // Type le composan
         e.preventDefault();
         setError('');
         setSuccess('');
+
+        const passwordCheck = validatePassword(password);
+        if (!passwordCheck.valid) {
+            setError(passwordCheck.message);
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -85,6 +94,13 @@ export default function RegisterPage(): React.ReactElement { // Type le composan
             setIsLoading(false);
         }
     };
+
+    const isLengthValid = password.length >= 8;
+    const isUppercaseValid = /[A-Z]/.test(password);
+    const isLowercaseValid = /[a-z]/.test(password);
+    const isNumberValid = /[0-9]/.test(password);
+    const isSpecialValid = /[^A-Za-z0-9]/.test(password);
+    const isPasswordValid = isLengthValid && isUppercaseValid && isLowercaseValid && isNumberValid && isSpecialValid;
 
     return (
         <div className='min-h-screen bg-gradient-to-br from-blue-50 to-blue-200 flex items-center justify-center p-4'>
@@ -181,12 +197,44 @@ export default function RegisterPage(): React.ReactElement { // Type le composan
                                 <input
                                     type='password'
                                     id='password'
-                                    className='focus:ring-blue-500 focus:border-blue-500 bg-zinc-100 block w-full py-3 pl-10 px-3 border-gray-300 rounded-md'
+                                    className='focus:ring-blue-500 focus:border-blue-500 bg-zinc-100 block w-full py-3 pl-10 pr-3 border-gray-300 rounded-md'
                                     value={password}
                                     onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} // Type l'événement onChange
+                                    onFocus={() => setIsPasswordFocused(true)}
+                                    onBlur={() => setIsPasswordFocused(false)}
                                     required
                                     aria-label='Votre mot de passe' // Ajouté pour l'accessibilité
                                 />
+                                {isPasswordFocused && !isPasswordValid && (
+                                    <div className="absolute left-0 right-0 z-20 mt-1 space-y-1 text-xs text-gray-500 leading-tight bg-white p-3 rounded-lg border border-slate-200 shadow-lg">
+                                        <p className="font-semibold text-gray-655 mb-1 text-[11px]">Le mot de passe doit contenir :</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={isLengthValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                                                {isLengthValid ? "✓" : "○"} Au moins 8 caractères
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={isUppercaseValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                                                {isUppercaseValid ? "✓" : "○"} Au moins une lettre majuscule
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={isLowercaseValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                                                {isLowercaseValid ? "✓" : "○"} Au moins une lettre minuscule
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={isNumberValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                                                {isNumberValid ? "✓" : "○"} Au moins un chiffre
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={isSpecialValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                                                {isSpecialValid ? "✓" : "○"} Au moins un caractère spécial
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

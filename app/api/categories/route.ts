@@ -12,10 +12,20 @@ import { ZodError } from 'zod';
 export async function GET(): Promise<NextResponse> { // Pas de 'req' nécessaire ici, donc pas de modification de signature
     try {
         const categories = await prisma.category.findMany({
+            where: { deletedAt: null },
             include: {
-                _count: { select: { products: true } },
+                _count: {
+                    select: {
+                        products: {
+                            where: { deletedAt: null }
+                        }
+                    }
+                },
                 parent: { select: { id: true, name: true } },
-                children: { select: { id: true, name: true } },
+                children: {
+                    where: { deletedAt: null },
+                    select: { id: true, name: true }
+                },
             },
             orderBy: [{ level: 'asc' }, { name: 'asc' }],
         });

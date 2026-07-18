@@ -62,7 +62,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       posTotalRevenueResult,
       outstandingCreditResult,
     ] = await Promise.all([
-      prisma.product.count(),
+      prisma.product.count({ where: { deletedAt: null } }),
       prisma.order.count({ where: orderWhere }),
       prisma.order.count({ where: { ...orderWhere, status: 'PENDING' } }),
       prisma.order.count({ where: { ...orderWhere, paymentStatus: 'COMPLETED' } }),
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }),
       prisma.user.count(),
       prisma.$queryRaw<{ c: bigint }[]>`SELECT COUNT(*) AS c FROM products WHERE deletedAt IS NULL AND stock > 0 AND stock <= COALESCE(lowStockThreshold, 5)`.then((r) => Number(r[0]?.c ?? 0)),
-      prisma.product.count({ where: { stock: { lte: 0 } } }),
+      prisma.product.count({ where: { stock: { lte: 0 }, deletedAt: null } }),
       prisma.studentInstallmentRequest.count({ where: { status: 'PENDING' } }),
       prisma.order.findMany({
         where: orderWhere,

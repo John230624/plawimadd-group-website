@@ -48,7 +48,7 @@ function getStudentOffers(products: Product[]): Product[] {
 }
 
 export default function HomePage(): React.ReactElement {
-  const { products, router } = useAppContext();
+  const { products, loadingProducts, router } = useAppContext();
 
   const newArrivals = useMemo(() => getNewArrivals(products), [products]);
   const bestSellers = useMemo(() => getBestSellers(products), [products]);
@@ -76,6 +76,7 @@ export default function HomePage(): React.ReactElement {
         actionLabel="Voir plus"
         products={newArrivals}
         onAction={() => router.push('/all-products?sortBy=newest')}
+        loading={loadingProducts}
       />
 
       <ProductCarouselSection
@@ -83,6 +84,7 @@ export default function HomePage(): React.ReactElement {
         actionLabel="Voir plus"
         products={bestSellers}
         onAction={() => router.push('/all-products')}
+        loading={loadingProducts}
       />
 
       <ProductCarouselSection
@@ -92,6 +94,7 @@ export default function HomePage(): React.ReactElement {
         mode="student-offers"
         subtitle="Des offres pensees pour les etudiants, avec une selection utile pour les cours, les projets et le quotidien, et des possibilites de paiement par tranche selon les modalites."
         onAction={() => router.push('/offer')}
+        loading={loadingProducts}
       />
 
       <HomeFooter />

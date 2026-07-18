@@ -23,7 +23,10 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
                 where: { parentId: { in: ids } },
                 data: { parentId: null, level: 0 },
             });
-            const result = await prisma.category.deleteMany({ where: { id: { in: ids } } });
+            const result = await prisma.category.updateMany({
+                where: { id: { in: ids } },
+                data: { deletedAt: new Date() },
+            });
             for (const id of ids) {
                 await logActivity({ userId: authResult.userId, action: 'DELETE', entity: 'CATEGORY', entityId: id, details: `Suppression de la catégorie ${id}` });
             }

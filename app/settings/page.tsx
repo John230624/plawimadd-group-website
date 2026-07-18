@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { signOut, useSession } from 'next-auth/react';
+import { validatePassword } from '@/lib/passwordPolicy';
 
 import HomeFooter from '@/components/home/HomeFooter';
 import Loading from '@/components/Loading';
@@ -41,6 +42,7 @@ export default function CustomerSettingsPage(): React.ReactElement {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isNewPasswordFocused, setIsNewPasswordFocused] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -107,6 +109,11 @@ export default function CustomerSettingsPage(): React.ReactElement {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    const passwordCheck = validatePassword(newPassword);
+    if (!passwordCheck.valid) {
+      toast.error(passwordCheck.message);
+      return;
+    }
     if (newPassword !== confirmPassword) {
       toast.error('Le nouveau mot de passe et sa confirmation ne correspondent pas.');
       return;
@@ -162,6 +169,13 @@ export default function CustomerSettingsPage(): React.ReactElement {
       setDeleting(false);
     }
   };
+
+  const isLengthValid = newPassword.length >= 8;
+  const isUppercaseValid = /[A-Z]/.test(newPassword);
+  const isLowercaseValid = /[a-z]/.test(newPassword);
+  const isNumberValid = /[0-9]/.test(newPassword);
+  const isSpecialValid = /[^A-Za-z0-9]/.test(newPassword);
+  const isPasswordValid = isLengthValid && isUppercaseValid && isLowercaseValid && isNumberValid && isSpecialValid;
 
   if (loading || status === 'loading') {
     return (
@@ -279,14 +293,48 @@ export default function CustomerSettingsPage(): React.ReactElement {
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-xs font-semibold text-slate-500">Nouveau mot de passe</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="h-10 rounded-lg border border-slate-200 px-3.5 text-xs outline-none focus:border-[#ff6a00] transition"
-                />
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    onFocus={() => setIsNewPasswordFocused(true)}
+                    onBlur={() => setIsNewPasswordFocused(false)}
+                    placeholder="••••••••"
+                    required
+                    className="h-10 w-full rounded-lg border border-slate-200 px-3.5 text-xs outline-none focus:border-[#ff6a00] transition"
+                  />
+                  {isNewPasswordFocused && !isPasswordValid && (
+                    <div className="absolute left-0 right-0 z-20 mt-1 p-3 rounded-lg border border-slate-200 bg-white shadow-lg text-xs space-y-1.5 transition-all duration-200">
+                      <p className="font-semibold text-slate-700 mb-1 text-[11px]">Le mot de passe doit contenir :</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className={isLengthValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                          {isLengthValid ? "✓" : "○"} Au moins 8 caractères
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={isUppercaseValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                          {isUppercaseValid ? "✓" : "○"} Au moins une lettre majuscule
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={isLowercaseValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                          {isLowercaseValid ? "✓" : "○"} Au moins une lettre minuscule
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={isNumberValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                          {isNumberValid ? "✓" : "○"} Au moins un chiffre
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={isSpecialValid ? "text-green-600 font-bold flex items-center gap-1" : "text-red-500 flex items-center gap-1"}>
+                          {isSpecialValid ? "✓" : "○"} Au moins un caractère spécial
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-xs font-semibold text-slate-500">Confirmer le mot de passe</label>

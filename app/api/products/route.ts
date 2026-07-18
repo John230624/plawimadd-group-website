@@ -325,8 +325,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             );
         }
         console.error('Erreur lors de l\'ajout du produit:', error);
-        if (error instanceof PrismaClientKnownRequestError) {
-            if (error.code === 'P2002') {
+        const err = error as any;
+        if (err && typeof err === 'object') {
+            if (err.code === 'P2002') {
                 return NextResponse.json({ success: false, message: 'Un produit avec ces caractéristiques existe déjà.' }, { status: 409 });
             }
         }
@@ -349,6 +350,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         const order = sortOrder === 'asc' ? 'asc' : 'desc';
 
         const products = await prisma.product.findMany({
+            where: { deletedAt: null },
             orderBy: { [field]: order },
             include: {
                 category: true,

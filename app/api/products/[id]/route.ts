@@ -107,7 +107,7 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
             },
         });
 
-        if (!product) {
+        if (!product || product.deletedAt !== null) {
             return NextResponse.json({ success: false, message: 'Produit non trouvé.' }, { status: 404 });
         }
 
@@ -312,12 +312,13 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
 
     } catch (_error: unknown) {
         console.error('Erreur lors de la mise à jour du produit:', _error);
-        if (_error instanceof PrismaClientKnownRequestError) {
-            if (_error.code === 'P2025') {
+        const err = _error as any;
+        if (err && typeof err === 'object') {
+            if (err.code === 'P2025') {
                 return NextResponse.json({ success: false, message: 'Produit non trouvé pour la mise à jour.' }, { status: 404 });
             }
             // Gérer la violation de contrainte unique, par exemple, si le nom du produit doit être unique
-            if (_error.code === 'P2002') {
+            if (err.code === 'P2002') {
                 return NextResponse.json({ success: false, message: 'Un produit avec ce nom existe déjà.' }, { status: 409 });
             }
         }
@@ -435,7 +436,7 @@ export async function PATCH(req: NextRequest, context: RouteContext): Promise<Ne
     }
 }
 
-// --- DELETE (Supprimer un produit) ---
+// --- DELETE (Supprimer un produit - Soft Delete) ---
 export async function DELETE(req: NextRequest, context: RouteContext): Promise<NextResponse> {
     const authResult: AuthResult = await authorizeByPermission(req, 'products.delete');
     if (!authResult.authorized) {
@@ -449,8 +450,9 @@ export async function DELETE(req: NextRequest, context: RouteContext): Promise<N
     }
 
     try {
-        const deletedProduct = await prisma.product.delete({
+        const deletedProduct = await prisma.product.update({
             where: { id: id },
+            data: { deletedAt: new Date() },
         });
 
         await logActivity({
@@ -465,15 +467,10 @@ export async function DELETE(req: NextRequest, context: RouteContext): Promise<N
 
     } catch (_error: unknown) {
         console.error('Erreur lors de la suppression du produit:', _error);
-        if (_error instanceof PrismaClientKnownRequestError) {
-            if (_error.code === 'P2025') {
+        const err = _error as any;
+        if (err && typeof err === 'object') {
+            if (err.code === 'P2025') {
                 return NextResponse.json({ success: false, message: 'Produit non trouvé.' }, { status: 404 });
-            }
-            if (_error.code === 'P2003') { // Foreign key constraint failed
-                return NextResponse.json({
-                    success: false,
-                    message: 'Impossible de supprimer le produit car il est lié à des commandes existantes ou des articles de panier. Veuillez le retirer des paniers/commandes d\'abord ou configurer la suppression en cascade dans votre schéma Prisma.'
-                }, { status: 409 });
             }
         }
         return NextResponse.json({ success: false, message: "Erreur serveur. Veuillez réessayer plus tard." }, { status: 500 });
