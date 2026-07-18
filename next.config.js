@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Prisma est chargé depuis node_modules au runtime, sans passer par le bundler.
+  // Évite l'extraction concurrente du runtime Prisma qui provoque des EEXIST en prod.
+  serverExternalPackages: ['@prisma/client', 'prisma'],
   turbopack: {
     root: process.cwd(),
   },

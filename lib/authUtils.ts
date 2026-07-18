@@ -15,7 +15,7 @@ declare module 'next/server' {
 }
 
 export interface Context {
-    params?: Promise<{
+    params: Promise<{
         userId?: string;
         id?: string;
         [key: string]: string | undefined;
