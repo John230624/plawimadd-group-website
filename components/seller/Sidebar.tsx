@@ -36,6 +36,7 @@ import {
   ShoppingBasket,
   Building2,
   BookOpenCheck,
+  HandCoins,
 } from 'lucide-react';
 
 import SellerBrand from '@/components/seller/SellerBrand';
@@ -101,6 +102,7 @@ const menuSections: MenuSection[] = [
     title: 'sidebar.sales',
     items: [
       { name: 'sidebar.orders', path: '/seller/orders', icon: ShoppingCart, permission: 'orders.view' },
+      { name: 'sidebar.receivables', path: '/seller/receivables', icon: HandCoins, permission: 'orders.view' },
       { name: 'sidebar.reviews', path: '/seller/reviews', icon: MessageSquareText, permission: 'reviews.view' },
     ],
   },
