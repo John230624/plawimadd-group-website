@@ -19,6 +19,7 @@ import {
   Plus,
   FileCheck2,
   ShieldCheck,
+  ReceiptText,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAppContext } from '@/context/AppContext';
@@ -204,6 +205,10 @@ export default function InvoicesPage(): React.ReactElement {
     } else {
       openInvoice(invoice.id);
     }
+  };
+
+  const openTicket = (transactionId: string) => {
+    window.open(`/api/pos/ticket?transactionId=${transactionId}&width=80`, '_blank', 'noopener,noreferrer');
   };
 
   const printInvoice = async (transactionId: string) => {
@@ -443,6 +448,13 @@ export default function InvoicesPage(): React.ReactElement {
                             title="Imprimer"
                           >
                             <Printer className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => openTicket(inv.id)}
+                            className="rounded-lg p-2 text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover)] hover:text-yellow-400"
+                            title="Ticket thermique (80mm)"
+                          >
+                            <ReceiptText className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
@@ -761,6 +773,13 @@ export default function InvoicesPage(): React.ReactElement {
                   className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border)] px-4 py-2.5 text-sm font-600 text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover)]"
                 >
                   <Printer className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => openTicket(selectedInvoice.id)}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border)] px-4 py-2.5 text-sm font-600 text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover)]"
+                  title="Ticket thermique (80mm)"
+                >
+                  <ReceiptText className="h-4 w-4" />
                 </button>
               </div>
             </div>
