@@ -33,6 +33,8 @@ import {
   User,
   Receipt,
   FileCheck2,
+  ShoppingBasket,
+  Building2,
 } from 'lucide-react';
 
 import SellerBrand from '@/components/seller/SellerBrand';
@@ -84,6 +86,13 @@ const menuSections: MenuSection[] = [
     items: [
       { name: 'sidebar.stocks', path: '/seller/stocks', icon: Package2, permission: 'products.manage-stock' },
       { name: 'sidebar.stockMovements', path: '/seller/stocks/movements', icon: History, permission: 'products.manage-stock' },
+    ],
+  },
+  {
+    title: 'sidebar.purchasing',
+    items: [
+      { name: 'sidebar.purchases', path: '/seller/purchases', icon: ShoppingBasket, permission: 'products.manage-stock' },
+      { name: 'sidebar.suppliers', path: '/seller/suppliers', icon: Building2, permission: 'products.manage-stock' },
     ],
   },
   {
