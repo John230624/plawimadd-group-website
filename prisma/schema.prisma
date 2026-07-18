@@ -659,6 +659,13 @@ model PosSession {
   closedAt  DateTime?
   createdAt DateTime  @default(now())
 
+  // Clôture de caisse (rapport Z)
+  openingFloat Decimal  @default(0) @db.Decimal(12, 2) // Fond de caisse à l'ouverture
+  closingCash  Decimal? @db.Decimal(12, 2) // Espèces comptées à la clôture
+  expectedCash Decimal? @db.Decimal(12, 2) // Espèces attendues (fond + encaissements espèces)
+  variance     Decimal? @db.Decimal(12, 2) // Écart de caisse (compté - attendu)
+  closingNotes String?  @db.Text
+
   user         User             @relation(fields: [userId], references: [id])
   transactions PosTransaction[]
 

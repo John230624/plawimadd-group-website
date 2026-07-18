@@ -35,6 +35,7 @@ import {
   FileCheck2,
   ShoppingBasket,
   Building2,
+  BookOpenCheck,
 } from 'lucide-react';
 
 import SellerBrand from '@/components/seller/SellerBrand';
@@ -69,6 +70,7 @@ const menuSections: MenuSection[] = [
     items: [
       { name: 'sidebar.pos', path: '/seller/pos', icon: Store, permission: 'pos.access' },
       { name: 'sidebar.invoices', path: '/seller/invoices', icon: Receipt, permission: 'pos.view-transactions' },
+      { name: 'sidebar.posSession', path: '/seller/pos/session', icon: BookOpenCheck, permission: 'pos.access' },
     ],
   },
   {
