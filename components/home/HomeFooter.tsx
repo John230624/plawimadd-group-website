@@ -85,9 +85,11 @@ export default function HomeFooter(): React.ReactElement {
           </div>
 
           <FooterColumn title="Catalogue">
-            {footerCategories.map((item) => (
-              <FooterLink key={item} href="/all-products" label={item} />
-            ))}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+              {footerCategories.map((item) => (
+                <FooterLink key={item} href="/all-products" label={item} />
+              ))}
+            </div>
           </FooterColumn>
 
           <FooterColumn title="Raccourcis">
