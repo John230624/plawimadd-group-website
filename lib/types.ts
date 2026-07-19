@@ -117,6 +117,7 @@ export interface Product {
     };
     rating?: number | null;
     brand?: string | null;
+    videoUrl?: string | null;
     color?: string | null;
     visible?: boolean;
     weight?: number | null;

@@ -181,6 +181,7 @@ export default function CharacteristicsPage(): React.ReactElement {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              autoComplete="off"
               placeholder="Rechercher une caractéristique"
               className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] pl-10 pr-4 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)]"
             />

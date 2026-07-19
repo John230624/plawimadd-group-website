@@ -36,6 +36,7 @@ export const productSchema = z.object({
   stock: z.number().int().nonnegative('Le stock doit être un nombre positif ou nul.'),
   categoryId: z.string().uuid('Catégorie invalide.'),
   imgUrl: z.union([z.string(), z.array(z.string())]).optional().nullable(),
+  videoUrl: z.string().max(500).optional().nullable(),
   offerPrice: z.number().positive('Le prix promo doit être positif.').optional().nullable(),
   brand: z.string().max(255).optional().nullable(),
   color: z.string().max(255).optional().nullable(),

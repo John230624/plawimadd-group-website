@@ -15,6 +15,7 @@ interface AddressCheckoutModalProps {
   selectedAddressId?: number | null;
   selectActionLabel?: string;
   createActionLabel?: string;
+  initialMode?: 'select' | 'create';
 }
 
 interface AddressFormState {
@@ -46,6 +47,7 @@ export default function AddressCheckoutModal({
   selectedAddressId,
   selectActionLabel = 'Utiliser cette adresse et payer',
   createActionLabel = 'Enregistrer et payer',
+  initialMode,
 }: AddressCheckoutModalProps): React.ReactElement | null {
   const { currentUser, userAddresses, loadingAddresses, fetchUserAddresses } = useAppContext();
   const [mode, setMode] = useState<'select' | 'create'>('select');
@@ -65,8 +67,12 @@ export default function AddressCheckoutModal({
       userAddresses.find((address) => address.isDefault) || userAddresses[0] || null;
 
     setSelectedId(selectedAddressId ?? defaultAddress?.id ?? null);
-    setMode(userAddresses.length ? 'select' : 'create');
-  }, [isOpen, selectedAddressId, userAddresses]);
+    if (initialMode) {
+      setMode(initialMode);
+    } else {
+      setMode(userAddresses.length ? 'select' : 'create');
+    }
+  }, [isOpen, selectedAddressId, userAddresses, initialMode]);
 
   useEffect(() => {
     if (isOpen && mode === 'create') {

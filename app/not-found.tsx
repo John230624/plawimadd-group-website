@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { motion, Variants } from 'framer-motion';
-import { Home, ShoppingBag, ArrowLeft, HelpCircle } from 'lucide-react';
+import { Home, ShoppingCart, ArrowLeft, HelpCircle } from 'lucide-react';
 
 export default function NotFound(): React.ReactElement {
   // Config des animations Framer Motion
@@ -108,7 +108,7 @@ export default function NotFound(): React.ReactElement {
               whileTap={{ scale: 0.98 }}
               className="flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-zinc-300 hover:text-white font-medium border border-white/10 hover:border-white/20 bg-white/[0.02] hover:bg-white/[0.05] transition-all cursor-pointer"
             >
-              <ShoppingBag className="w-4 h-4" />
+              <ShoppingCart className="w-4 h-4" />
               Voir la boutique
             </motion.a>
           </Link>

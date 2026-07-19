@@ -16,7 +16,7 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
 
   try {
     const body = await req.json();
-    const { title, tagline, description, image, category, bgColor, accentColor, layout, order } = body;
+    const { title, tagline, description, image, video, category, bgColor, accentColor, layout, order } = body;
 
     const existing = await prisma.heroSlide.findUnique({
       where: { id },
@@ -33,6 +33,7 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
         tagline: tagline !== undefined ? tagline : existing.tagline,
         description: description !== undefined ? description : existing.description,
         image: image !== undefined ? image : existing.image,
+        video: video !== undefined ? (typeof video === 'string' && video.trim() ? video.trim() : null) : existing.video,
         category: category !== undefined ? category : existing.category,
         bgColor: bgColor !== undefined ? bgColor : existing.bgColor,
         accentColor: accentColor !== undefined ? accentColor : existing.accentColor,

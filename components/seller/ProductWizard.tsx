@@ -61,6 +61,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [brand, setBrand] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null, null, null, null]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [removedImageUrls, setRemovedImageUrls] = useState<string[]>([]);
@@ -146,6 +147,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
         setName(product.name || '');
         setDescription(product.description || '');
         setBrand(product.brand || '');
+        setVideoUrl(product.videoUrl || '');
 
         // Images
         const urls: string[] = Array.isArray(product.imgUrl) ? product.imgUrl : (product.imgUrl ? [product.imgUrl] : []);
@@ -389,6 +391,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
         offerPrice: offerPrice ? parseFloat(offerPrice) : null,
         stock: parseInt(stock || '0', 10),
         imgUrl: finalImageUrls,
+        videoUrl: videoUrl.trim() || null,
         brand: brand.trim() || null,
         visible,
         costPrice: costPrice ? parseFloat(costPrice) : null,
@@ -579,6 +582,16 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
             <input type="text" value={brand} onChange={e => setBrand(e.target.value)}
               className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)]"
               placeholder="Apple, Samsung, HP..." />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Vidéo de présentation (optionnel)</label>
+            <input type="url" value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
+              className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)]"
+              placeholder="https://... (.mp4, .webm)" />
+            {videoUrl.trim() && (
+              <video src={videoUrl.trim()} muted loop autoPlay playsInline
+                className="mt-2 max-h-40 w-full rounded-lg border border-[var(--border)] bg-black object-contain" />
+            )}
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Couleur</label>

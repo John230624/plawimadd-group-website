@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
   Archive,
+  BadgeCheck,
   BarChart3,
   Box,
   Calendar,
@@ -78,6 +79,7 @@ const menuSections: MenuSection[] = [
     title: 'sidebar.catalog',
     items: [
       { name: 'sidebar.products', path: '/seller/product-list', icon: Box, permission: 'products.view' },
+      { name: 'sidebar.brands', path: '/seller/brands', icon: BadgeCheck, permission: 'products.view' },
       { name: 'sidebar.categories', path: '/seller/categories', icon: Layers3, permission: 'categories.view' },
       { name: 'sidebar.characteristics', path: '/seller/characteristics', icon: SlidersHorizontal, permission: 'characteristics.view' },
       { name: 'sidebar.colors', path: '/seller/colors', icon: Palette, permission: 'colors.view' },
@@ -226,6 +228,12 @@ export default function Sidebar(): React.ReactElement {
 
   return (
     <aside className="hidden h-screen w-[240px] shrink-0 flex-col lg:sticky lg:top-0 lg:flex p-0 bg-[var(--bg-outer)]">
+      {/* Trap autofill to prevent the search input from being filled with user credentials */}
+      <div className="absolute w-0 h-0 overflow-hidden opacity-0 pointer-events-none" aria-hidden="true">
+        <input type="text" name="fake-username-trap" tabIndex={-1} autoComplete="off" />
+        <input type="password" name="fake-password-trap" tabIndex={-1} autoComplete="off" />
+      </div>
+
       {/* Logo */}
       <div className="flex h-14 items-center gap-2 px-4 pt-1">
         <div className="min-w-0 flex-1">
@@ -238,7 +246,9 @@ export default function Sidebar(): React.ReactElement {
       <div className="relative mx-3 mb-3 mt-1">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-tertiary)]" />
         <input
-          type="text"
+          type="search"
+          name="sidebar-search"
+          autoComplete="off"
           placeholder={t('sidebar.search')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -250,9 +260,11 @@ export default function Sidebar(): React.ReactElement {
       <nav className="flex-1 overflow-y-auto space-y-5 px-3">
         {filteredSections.map((section) => (
           <div key={section.title}>
-            <p className="px-2 py-1.5 text-xs font-600 uppercase tracking-wider text-[var(--text-tertiary)]">
-              {t(section.title)}
-            </p>
+            {section.title !== 'sidebar.dashboard' && (
+              <p className="px-2 py-1.5 text-xs font-600 uppercase tracking-wider text-[var(--text-tertiary)]">
+                {t(section.title)}
+              </p>
+            )}
             <div className="mt-2 space-y-0.5">
               {section.items.map(({ name, path, icon: Icon }) => {
                 const isActive = pathname === path;

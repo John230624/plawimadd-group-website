@@ -135,6 +135,12 @@ export default function ProductListPage(): React.ReactElement {
     setPage(1);
   }, [searchTerm, categoryFilter, stockFilter, brandFilter]);
 
+  // Pré-filtre par marque quand on arrive depuis la page Marques (?brand=...)
+  useEffect(() => {
+    const brandParam = new URLSearchParams(window.location.search).get('brand');
+    if (brandParam) setBrandFilter(brandParam);
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -334,17 +340,17 @@ export default function ProductListPage(): React.ReactElement {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageW = doc.internal.pageSize.getWidth();
 
-    doc.setFillColor(18, 18, 18);
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, pageW, 50, 'F');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.setTextColor(241, 245, 249);
+    doc.setTextColor(24, 24, 27);
     doc.text('Catalogue produits', 20, 22);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.setTextColor(148, 163, 184);
+    doc.setTextColor(113, 113, 122);
     doc.text(
       `Genere le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
       20, 32,
@@ -362,7 +368,7 @@ export default function ProductListPage(): React.ReactElement {
 
     boxes.forEach((box, i) => {
       const x = 20 + i * (statWidth + 5);
-      doc.setFillColor(24, 24, 24);
+      doc.setFillColor(247, 247, 248);
       doc.roundedRect(x, statsY, statWidth, 22, 3, 3, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
@@ -370,7 +376,7 @@ export default function ProductListPage(): React.ReactElement {
       doc.text(box.value, x + 4, statsY + 9);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
-      doc.setTextColor(148, 163, 184);
+      doc.setTextColor(113, 113, 122);
       doc.text(box.label, x + 4, statsY + 17);
     });
 
@@ -389,25 +395,25 @@ export default function ProductListPage(): React.ReactElement {
       startY: statsY + 32,
       styles: {
         fontSize: 7,
-        textColor: [241, 245, 249],
-        fillColor: [18, 18, 18],
-        lineColor: [30, 41, 59],
+        textColor: [39, 39, 42],
+        fillColor: [255, 255, 255],
+        lineColor: [228, 228, 231],
         lineWidth: 0.3,
       },
       headStyles: {
-        fillColor: [16, 185, 129],
-        textColor: [255, 255, 255],
+        fillColor: [244, 244, 245],
+        textColor: [24, 24, 27],
         fontStyle: 'bold',
         fontSize: 7.5,
         halign: 'left',
       },
       alternateRowStyles: {
-        fillColor: [24, 24, 24],
+        fillColor: [250, 250, 250],
       },
       margin: { top: statsY + 32, bottom: 20 },
       didDrawPage: () => {
         doc.setFontSize(7);
-        doc.setTextColor(148, 163, 184);
+        doc.setTextColor(113, 113, 122);
         doc.text('Plawimadd Group — Catalogue produits', 20, doc.internal.pageSize.getHeight() - 10);
       },
     });
@@ -451,6 +457,7 @@ export default function ProductListPage(): React.ReactElement {
           icon={Search}
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
+          autoComplete="off"
           placeholder="Rechercher un produit, une categorie ou une marque"
         />
         <div className="grid gap-3 sm:grid-cols-2 lg:flex lg:w-auto">

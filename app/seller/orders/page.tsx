@@ -358,17 +358,17 @@ export default function OrdersPage(): React.ReactElement {
     const textSecondary = '#94a3b8';
 
     // En-tête
-    doc.setFillColor(18, 18, 18);
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, pageW, 50, 'F');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.setTextColor(241, 245, 249);
+    doc.setTextColor(24, 24, 27);
     doc.text('Rapport des commandes', 20, 22);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.setTextColor(148, 163, 184);
+    doc.setTextColor(113, 113, 122);
     doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, 20, 32);
     doc.text(`${filteredOrders.length} commande(s) · Filtres actifs : ${statusFilter !== 'ALL' ? statusLabels[statusFilter] + ' / ' : ''}${paymentFilter !== 'ALL' ? paymentLabels[paymentFilter] + ' / ' : ''}${rangeStart || rangeEnd ? rangeStart + ' → ' + rangeEnd : 'Toutes dates'}`, 20, 40);
 
@@ -384,7 +384,7 @@ export default function OrdersPage(): React.ReactElement {
 
     statBoxes.forEach((box, i) => {
       const x = 20 + i * (statWidth + 5);
-      doc.setFillColor(24, 24, 24);
+      doc.setFillColor(247, 247, 248);
       doc.roundedRect(x, statsY, statWidth, 22, 3, 3, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
@@ -392,7 +392,7 @@ export default function OrdersPage(): React.ReactElement {
       doc.text(box.value, x + 4, statsY + 9);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
-      doc.setTextColor(148, 163, 184);
+      doc.setTextColor(113, 113, 122);
       doc.text(box.label, x + 4, statsY + 17);
     });
 
@@ -415,20 +415,20 @@ export default function OrdersPage(): React.ReactElement {
       startY: statsY + 32,
       styles: {
         fontSize: 7,
-        textColor: [241, 245, 249],
-        fillColor: [18, 18, 18],
-        lineColor: [30, 41, 59],
+        textColor: [39, 39, 42],
+        fillColor: [255, 255, 255],
+        lineColor: [228, 228, 231],
         lineWidth: 0.3,
       },
       headStyles: {
-        fillColor: [16, 185, 129],
-        textColor: [255, 255, 255],
+        fillColor: [244, 244, 245],
+        textColor: [24, 24, 27],
         fontStyle: 'bold',
         fontSize: 7.5,
         halign: 'left',
       },
       alternateRowStyles: {
-        fillColor: [24, 24, 24],
+        fillColor: [250, 250, 250],
       },
       columnStyles: {
         0: { cellWidth: 18 },
@@ -440,7 +440,7 @@ export default function OrdersPage(): React.ReactElement {
       margin: { top: statsY + 32, bottom: 20 },
       didDrawPage: () => {
         doc.setFontSize(7);
-        doc.setTextColor(148, 163, 184);
+        doc.setTextColor(113, 113, 122);
         doc.text('Plawimadd Group — Rapport des commandes', 20, doc.internal.pageSize.getHeight() - 10);
       },
     });
@@ -503,7 +503,7 @@ export default function OrdersPage(): React.ReactElement {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
               type="text"
-              placeholder="Rechercher par client, email, ville ou numéro"
+              autoComplete="off" placeholder="Rechercher par client, email, ville ou numéro"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-4 py-2 pl-10 text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"

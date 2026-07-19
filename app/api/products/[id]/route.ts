@@ -34,6 +34,7 @@ type ApiResponseProduct = {
     category: { id: string; name: string; description: string | null; imageUrl: string | null; createdAt: Date; updatedAt: Date };
     rating: number | null;
     brand: string | null;
+    videoUrl: string | null;
     color: string | null;
     visible: boolean;
     weight: number | null;
@@ -149,6 +150,7 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
             category: product.category,
             rating: product.rating,
             brand: product.brand,
+            videoUrl: product.videoUrl ?? null,
             color: product.color,
             visible: product.visible,
             weight: product.weight,
@@ -229,6 +231,11 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
             updatedAt: new Date(),
         };
 
+        if (body.videoUrl !== undefined) {
+            const v = typeof body.videoUrl === 'string' ? body.videoUrl.trim() : '';
+            updateData.videoUrl = v || null;
+        }
+
         if (attributesJson !== undefined) {
             updateData.attributesJson = typeof attributesJson === 'string' ? attributesJson : JSON.stringify(attributesJson);
         }
@@ -291,6 +298,7 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
             category: updatedProduct.category,
             rating: updatedProduct.rating,
             brand: updatedProduct.brand,
+            videoUrl: updatedProduct.videoUrl ?? null,
             color: updatedProduct.color,
             visible: updatedProduct.visible,
             weight: updatedProduct.weight,
@@ -412,6 +420,7 @@ export async function PATCH(req: NextRequest, context: RouteContext): Promise<Ne
             category: updatedProduct.category,
             rating: updatedProduct.rating,
             brand: updatedProduct.brand,
+            videoUrl: updatedProduct.videoUrl ?? null,
             color: updatedProduct.color,
             visible: updatedProduct.visible,
             weight: updatedProduct.weight,

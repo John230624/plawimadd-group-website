@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { LOGO_BASE64 } from './logo-base64';
+import { LOGO_WIDE_BASE64 } from './logo-base64';
 
 
 interface InvoiceOrderItem {
@@ -144,13 +144,13 @@ export function generateOrderInvoicePDF(data: InvoiceOrderData): jsPDF {
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   // Header Left - Company Logo and Information
-  doc.addImage(LOGO_BASE64, 'PNG', 15, 8, 30, 20);
+  doc.addImage(LOGO_WIDE_BASE64, 'PNG', 15, 10, 55, 8.87);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
-  doc.text('IFU : 3202226549581', 50, 18);
-  doc.text('RCCM : RB/ABC/22 B 6030', 50, 23);
+  doc.text('IFU : 3202226549581', 15, 24);
+  doc.text('RCCM : RB/ABC/22 B 6030', 15, 28.5);
 
   // Header Right - Invoice Meta Information
   const typeLabel = data.type === 'student' ? 'FACTURE - PAIEMENT ETUDIANT'
@@ -361,6 +361,19 @@ export function generateOrderInvoicePDF(data: InvoiceOrderData): jsPDF {
     head: [['Type de paiement', 'Payé']],
     body: paymentRows,
     theme: 'grid',
+    didParseCell: (cell) => {
+      // Mise en evidence : RESTE A PAYER en rouge gras, TOTAL VERSE en gras
+      const rawRow = cell.row.raw as unknown as string[] | undefined;
+      const rowLabel = String(rawRow?.[0] ?? '');
+      if (rowLabel === 'RESTE A PAYER') {
+        cell.cell.styles.textColor = [220, 38, 38];
+        cell.cell.styles.fontStyle = 'bold';
+        cell.cell.styles.fontSize = 9;
+        cell.cell.styles.fillColor = [254, 242, 242];
+      } else if (rowLabel === 'TOTAL VERSE') {
+        cell.cell.styles.fontStyle = 'bold';
+      }
+    },
     headStyles: {
       fillColor: [240, 240, 240] as any,
       textColor: [0, 0, 0] as any,

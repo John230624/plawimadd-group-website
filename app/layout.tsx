@@ -1,6 +1,7 @@
 // app/layout.tsx
 import "./globals.css";
 import AppChrome from "@/components/AppChrome";
+import CookieBanner from "@/components/CookieBanner";
 import SessionProvider from "./SessionProvider";
 import Providers from "./Providers";
 import { AppProvider } from "@/context/AppContext";
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: RootLayoutProps): React.ReactNo
                     <Providers>
                     <AppProvider>
                         <AppChrome>{children}</AppChrome>
+                        <CookieBanner />
                         {/* ToastContainer est correctement configuré ici */}
                         <ToastContainer
                             position="bottom-right"

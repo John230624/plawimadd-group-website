@@ -38,6 +38,7 @@ type ProductWithRelations = {
     offerPrice: Decimal | null;
     rating: number | null;
     brand: string | null;
+    videoUrl: string | null;
     color: string | null;
     visible: boolean;
     weight: number | null;
@@ -111,6 +112,7 @@ type ApiResponseProduct = {
     };
     rating: number | null;
     brand: string | null;
+    videoUrl: string | null;
     color: string | null;
     visible: boolean;
     weight: number | null;
@@ -208,7 +210,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
         const body = await req.json() as ProductRequest;
         const parsed = productSchema.omit({ categoryId: true }).parse(body);
-        const { name, description, price, offerPrice, stock, imgUrl, brand, color } = parsed;
+        const { name, description, price, offerPrice, stock, imgUrl, videoUrl, brand, color } = parsed;
         const { category, visible, weight, length: dimLength, width, height, costPrice, metaTitle, metaDescription, tags, attributesJson, moqMin, moqMax, leadTimeRange, certifications } = body;
         const bodyCategoryId = (body as unknown as Record<string, unknown>).categoryId as string | undefined;
 
@@ -251,6 +253,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 offerPrice: finalOfferPrice,
                 stock,
                 imgUrl: imgUrlToSave,
+                videoUrl: videoUrl?.trim() ? videoUrl.trim() : null,
                 brand: brand || null,
                 color: color || null,
                 visible: visible !== undefined ? visible : true,
@@ -298,6 +301,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             category: { id: newProduct.category.id, name: newProduct.category.name },
             rating: newProduct.rating,
             brand: newProduct.brand,
+            videoUrl: newProduct.videoUrl ?? null,
             color: newProduct.color,
             visible: newProduct.visible,
             weight: newProduct.weight,
@@ -396,6 +400,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                 category: { id: product.category.id, name: product.category.name },
                 rating: averageRating,
                 brand: product.brand,
+                videoUrl: product.videoUrl ?? null,
                 color: product.color,
                 visible: product.visible,
                 weight: product.weight,

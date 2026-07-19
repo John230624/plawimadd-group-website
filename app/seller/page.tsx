@@ -3,13 +3,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
+  AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   DollarSign,
+  Info,
   Package,
   ShoppingCart,
   Store,
   Users,
   Wallet,
+  XCircle,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -271,6 +275,34 @@ export default function SellerDashboard(): React.ReactElement {
         </div>
       </div>
 
+      {/* Alertes actionnables : premiere chose visible apres le titre */}
+      {(s.alerts?.length ?? 0) > 0 && (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {s.alerts.map((alert) => {
+            const styles =
+              alert.severity === 'error'
+                ? { border: 'border-red-500/40', icon: <XCircle className="h-4 w-4 text-red-400" /> }
+                : alert.severity === 'warning'
+                  ? { border: 'border-amber-400/40', icon: <AlertTriangle className="h-4 w-4 text-amber-400" /> }
+                  : { border: 'border-sky-400/40', icon: <Info className="h-4 w-4 text-sky-400" /> };
+            return (
+              <Link
+                key={alert.id}
+                href={alert.href}
+                className={`group flex items-start gap-3 rounded-xl border ${styles.border} bg-[var(--bg-card)] p-4 transition hover:bg-[var(--bg-secondary)]`}
+              >
+                <span className="mt-0.5 shrink-0">{styles.icon}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-700 text-[var(--text-primary)]">{alert.title}</span>
+                  <span className="mt-0.5 block text-xs text-[var(--text-secondary)]">{alert.description}</span>
+                </span>
+                <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-[var(--text-tertiary)] transition group-hover:translate-x-0.5 group-hover:text-[var(--text-primary)]" />
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Revenus totaux"
@@ -298,7 +330,7 @@ export default function SellerDashboard(): React.ReactElement {
           changeType="positive"
           sparklineData={clientsSparkline}
         />
-        {s.openCreditCount > 0 && (
+        {s.openCreditCount > 0 ? (
           <StatCard
             title="Crédits en cours"
             value={`${formatPrice(s.outstandingCredit)}`}
@@ -306,6 +338,19 @@ export default function SellerDashboard(): React.ReactElement {
             accentColor="amber"
             change={`${s.openCreditCount} vente(s) à recouvrer`}
             changeType="negative"
+          />
+        ) : (
+          <StatCard
+            title="Produits"
+            value={String(s.totalProducts)}
+            icon={Package}
+            accentColor={s.outOfStockCount > 0 ? 'amber' : 'green'}
+            change={
+              s.outOfStockCount > 0 || s.lowStockCount > 0
+                ? `${s.outOfStockCount} rupture(s) · ${s.lowStockCount} stock bas`
+                : 'Stocks sains'
+            }
+            changeType={s.outOfStockCount > 0 || s.lowStockCount > 0 ? 'negative' : 'positive'}
           />
         )}
       </div>

@@ -52,7 +52,7 @@ function CatalogSelect({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex h-11 w-full items-center justify-between gap-3 rounded-[2px] border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 outline-none transition duration-300 hover:bg-slate-50 focus:border-slate-800"
+        className="flex h-11 w-full items-center justify-between gap-3 rounded-[4px] border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 outline-none transition duration-300 hover:bg-slate-50 focus:border-slate-800"
       >
         <span className="truncate">{activeOption?.label}</span>
         <ChevronDown
@@ -64,7 +64,7 @@ function CatalogSelect({
 
       {isOpen && (
         <div
-          className={`absolute z-40 mt-1.5 min-w-full overflow-hidden rounded-[2px] border border-slate-200 bg-white p-1 shadow-[0_4px_20px_rgba(0,0,0,0.08)] ${
+          className={`absolute z-40 mt-1.5 min-w-full overflow-hidden rounded-[4px] border border-slate-200 bg-white p-1 shadow-[0_4px_20px_rgba(0,0,0,0.08)] ${
             align === 'right' ? 'right-0' : 'left-0'
           }`}
         >
@@ -78,7 +78,7 @@ function CatalogSelect({
                   onChange(option.value);
                   setIsOpen(false);
                 }}
-                className={`flex w-full items-center justify-between rounded-[2px] px-3.5 py-2.5 text-left text-xs font-bold transition duration-200 ${
+                className={`flex w-full items-center justify-between rounded-[4px] px-3.5 py-2.5 text-left text-xs font-bold transition duration-200 ${
                   isActive
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-655 hover:bg-slate-50 hover:text-slate-900'
@@ -121,7 +121,7 @@ function FilterPopover({ label, active = false, children, onReset }: FilterPopov
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`flex h-11 items-center gap-1.5 rounded-[2px] border px-4.5 text-xs font-bold transition duration-200 focus:outline-none ${
+        className={`flex h-11 items-center gap-1.5 rounded-[4px] border px-4.5 text-xs font-bold transition duration-200 focus:outline-none ${
           active
             ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
             : 'border-slate-200 bg-white text-slate-650 hover:bg-slate-50'
@@ -136,7 +136,7 @@ function FilterPopover({ label, active = false, children, onReset }: FilterPopov
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 mt-1.5 z-40 w-64 overflow-hidden rounded-[2px] border border-slate-200 bg-white p-4 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
+        <div className="absolute left-0 mt-1.5 z-40 w-64 overflow-hidden rounded-[4px] border border-slate-200 bg-white p-4 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
           <div className="space-y-4">
             {children}
           </div>
@@ -459,7 +459,7 @@ function AllProductsPage(): React.ReactElement {
   return (
     <div className="flex min-h-screen flex-col bg-[#f5f5f5]">
       <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-4 pb-0 pt-4 md:px-6 lg:px-8">        <section className="pb-4 pt-2">
-          <div className="rounded-[2px] bg-white border border-slate-200 p-5 md:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+          <div className="rounded-[4px] bg-white border border-slate-200 p-5 md:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
             <div className="flex flex-col gap-4">
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-450">
@@ -472,7 +472,7 @@ function AllProductsPage(): React.ReactElement {
                 </h1>
               </div>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                <label className="flex h-11 w-full items-center gap-3 rounded-[2px] border border-slate-200 bg-white px-4 text-xs text-slate-500 transition duration-200 focus-within:border-slate-800 lg:flex-1">
+                <label className="flex h-11 w-full items-center gap-3 rounded-[4px] border border-slate-200 bg-white px-4 text-xs text-slate-500 transition duration-200 focus-within:border-slate-800 lg:flex-1">
                   <Search className="h-4 w-4 text-slate-400 shrink-0" />
                   <input
                     type="text"
@@ -599,53 +599,7 @@ function AllProductsPage(): React.ReactElement {
                     </div>
                   </FilterPopover>
 
-                  <FilterPopover
-                    label="Filtres"
-                    active={moqMax !== '' || selectedCertifications.length > 0}
-                    onReset={() => {
-                      setMoqMax('');
-                      setSelectedCertifications([]);
-                    }}
-                  >
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">MOQ max</h4>
-                        <input
-                          type="number"
-                          placeholder="MOQ max"
-                          value={moqMax}
-                          onChange={(e) => setMoqMax(e.target.value)}
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs outline-none focus:border-slate-800 focus:bg-white"
-                        />
-                      </div>
 
-                      <div className="space-y-2">
-                        <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Certifications</h4>
-                        <div className="space-y-2">
-                          {['CE', 'FCC', 'RoHS', 'ISO 9001'].map((cert) => {
-                            const isChecked = selectedCertifications.includes(cert);
-                            return (
-                              <label key={cert} className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedCertifications(prev => [...prev, cert]);
-                                    } else {
-                                      setSelectedCertifications(prev => prev.filter(c => c !== cert));
-                                    }
-                                  }}
-                                  className="rounded text-slate-900 focus:ring-slate-900 h-4 w-4 border-slate-350"
-                                />
-                                <span>{cert}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </FilterPopover>
 
                   {hasActiveFilters && (
                     <button
@@ -670,7 +624,7 @@ function AllProductsPage(): React.ReactElement {
                     <button
                       type="button"
                       onClick={() => setViewMode('list')}
-                      className={`flex h-9 w-9 items-center justify-center rounded-[2px] border transition focus:outline-none ${
+                      className={`flex h-9 w-9 items-center justify-center rounded-[4px] border transition focus:outline-none ${
                         viewMode === 'list'
                           ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
                           : 'border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700'
@@ -682,7 +636,7 @@ function AllProductsPage(): React.ReactElement {
                     <button
                       type="button"
                       onClick={() => setViewMode('grid')}
-                      className={`flex h-9 w-9 items-center justify-center rounded-[2px] border transition focus:outline-none ${
+                      className={`flex h-9 w-9 items-center justify-center rounded-[4px] border transition focus:outline-none ${
                         viewMode === 'grid'
                           ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
                           : 'border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700'
@@ -772,7 +726,7 @@ function AllProductsPage(): React.ReactElement {
             ) : null}            <section className="pb-12 pt-3">
               <div className="w-full">
                 {paginatedProducts.length === 0 ? (
-                  <div className="mt-3 rounded-[2px] bg-white border border-slate-200 px-6 py-10 text-center text-slate-500 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+                  <div className="mt-3 rounded-[4px] bg-white border border-slate-200 px-6 py-10 text-center text-slate-500 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
                     Aucun produit ne correspond à cette sélection.
                   </div>
                 ) : (
@@ -794,7 +748,7 @@ function AllProductsPage(): React.ReactElement {
                         <button
                           type="button"
                           onClick={() => setVisibleCount((prev) => prev + 12)}
-                          className="inline-flex items-center gap-2 rounded-[2px] border border-slate-200 bg-white px-8 py-3.5 text-xs font-bold text-slate-700 transition hover:border-slate-850 hover:bg-slate-50"
+                          className="inline-flex items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-8 py-3.5 text-xs font-bold text-slate-700 transition hover:border-slate-850 hover:bg-slate-50"
                         >
                           Voir plus de produits
                         </button>

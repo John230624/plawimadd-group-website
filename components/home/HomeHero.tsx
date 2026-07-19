@@ -61,7 +61,7 @@ export default function HomeHero({
   onBrowseCatalog,
   onContact,
 }: HomeHeroProps): React.ReactElement {
-  const [slides, setSlides] = useState<typeof defaultSlides>(defaultSlides);
+  const [slides, setSlides] = useState<((typeof defaultSlides)[number] & { video?: string | null })[]>(defaultSlides);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [direction, setDirection] = useState(1);
@@ -238,14 +238,25 @@ export default function HomeHero({
                       animate="visible"
                       className="relative w-full h-full max-w-[260px] sm:max-w-[320px] md:max-w-[450px]"
                     >
-                      <Image
-                        src={slide.image}
-                        alt={slide.title}
-                        fill
-                        priority
-                        className="object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.03)]"
-                        sizes="(max-width: 768px) 100vw, 40vw"
-                      />
+                      {slide.video ? (
+                        <video
+                          src={slide.video}
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          className="h-full w-full rounded-xl object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.03)]"
+                        />
+                      ) : (
+                        <Image
+                          src={slide.image}
+                          alt={slide.title}
+                          fill
+                          priority
+                          className="object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.03)]"
+                          sizes="(max-width: 768px) 100vw, 40vw"
+                        />
+                      )}
                     </motion.div>
                   </div>
                 </div>
@@ -335,14 +346,25 @@ export default function HomeHero({
                       className="relative w-full h-full max-w-[300px] md:max-w-none flex items-center justify-center"
                     >
                       <div className="relative w-full h-full aspect-video md:aspect-square lg:aspect-video">
-                        <Image
-                          src={slide.image}
-                          alt={slide.title}
-                          fill
-                          priority
-                          className="object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.04)] md:scale-105 lg:scale-110 transition-transform duration-500"
-                          sizes="(max-width: 768px) 100vw, 40vw"
-                        />
+                        {slide.video ? (
+                          <video
+                            src={slide.video}
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            className="h-full w-full rounded-2xl object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.04)]"
+                          />
+                        ) : (
+                          <Image
+                            src={slide.image}
+                            alt={slide.title}
+                            fill
+                            priority
+                            className="object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.04)] md:scale-105 lg:scale-110 transition-transform duration-500"
+                            sizes="(max-width: 768px) 100vw, 40vw"
+                          />
+                        )}
                       </div>
                     </motion.div>
                   </div>

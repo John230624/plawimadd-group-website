@@ -18,7 +18,7 @@ import {
   Settings,
   ShieldCheck,
   Ship,
-  ShoppingBag,
+  ShoppingCart,
   User,
   UserPlus,
   Wrench,
@@ -322,14 +322,12 @@ export default function Navbar(): React.ReactElement {
     ].join(' ');
   };
 
-  const displayedCategories = megaCategories.length > 0
-    ? megaCategories.map((cat) => ({
-        id: cat.id,
-        title: cat.name,
-        image: cat.imageUrl || getCategoryFallbackImage(cat.name),
-        categoryName: cat.name,
-      }))
-    : megaMenuCategories;
+  const displayedCategories = megaCategories.map((cat) => ({
+    id: cat.id,
+    title: cat.name,
+    image: cat.imageUrl || getCategoryFallbackImage(cat.name),
+    categoryName: cat.name,
+  }));
 
   return (
     <header
@@ -355,8 +353,18 @@ export default function Navbar(): React.ReactElement {
               <div key={link.href} className="relative flex items-center" ref={megaRef}>
                 <button
                   type="button"
-                  onMouseEnter={() => setIsMegaOpen(true)}
-                  onClick={() => setIsMegaOpen(prev => !prev)}
+                  onMouseEnter={() => {
+                    if (displayedCategories.length > 0) {
+                      setIsMegaOpen(true);
+                    }
+                  }}
+                  onClick={() => {
+                    if (displayedCategories.length > 0) {
+                      setIsMegaOpen(prev => !prev);
+                    } else {
+                      router.push('/all-products');
+                    }
+                  }}
                   className={[
                     'relative py-2 text-sm font-semibold transition-all duration-200 border-b-2',
                     pathname.startsWith('/all-products')
@@ -367,7 +375,7 @@ export default function Navbar(): React.ReactElement {
                   {link.label}
                 </button>
 
-                {isMegaOpen && (
+                {isMegaOpen && displayedCategories.length > 0 && (
                   <div
                     className="fixed left-1/2 top-[72px] z-50 w-[min(95vw,1100px)] -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.16)]"
                     onMouseLeave={() => setIsMegaOpen(false)}
@@ -865,7 +873,7 @@ export default function Navbar(): React.ReactElement {
               className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100 hover:text-[var(--brand-700)]"
               aria-label="Panier"
             >
-              <ShoppingBag className="h-[18px] w-[18px]" />
+              <ShoppingCart className="h-[18px] w-[18px]" />
               {cartCount > 0 ? (
                 <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-600)] px-1 text-[9px] font-semibold text-white">
                   {cartCount}
@@ -983,7 +991,7 @@ export default function Navbar(): React.ReactElement {
             className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100"
             aria-label="Panier"
           >
-            <ShoppingBag className="h-[18px] w-[18px]" />
+            <ShoppingCart className="h-[18px] w-[18px]" />
             {cartCount > 0 ? (
               <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-600)] px-1 text-[9px] font-semibold text-white">
                 {cartCount}

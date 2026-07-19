@@ -144,6 +144,7 @@ export default function SuppliersPage(): React.ReactElement {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          autoComplete="off"
           placeholder="Rechercher un fournisseur…"
           className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] pl-10 pr-4 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)]"
         />

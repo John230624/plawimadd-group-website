@@ -9,7 +9,7 @@ import {
   ChevronDown,
   FileText,
   Package,
-  ShoppingBag,
+  ShoppingCart,
   Clock,
   CheckCircle2,
   Search,
@@ -376,7 +376,7 @@ export default function MyOrdersPage(): React.ReactElement {
           ) : !isLoggedIn ? (
             <div className="rounded-xl border border-slate-200/60 bg-white py-16 px-6 text-center shadow-sm">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 border border-slate-200/60 text-slate-400">
-                <ShoppingBag className="h-5 w-5" />
+                <ShoppingCart className="h-5 w-5" />
               </div>
               <h2 className="mt-5 text-base font-bold text-slate-900">Connectez-vous pour voir vos commandes</h2>
               <p className="mt-2 text-xs text-slate-500 max-w-[40ch] mx-auto">

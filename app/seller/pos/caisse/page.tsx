@@ -270,6 +270,7 @@ const [discountReason, setDiscountReason] = useState('');
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              autoComplete="off"
               placeholder="Rechercher par produit, marque ou catégorie..."
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-4 py-2.5 pl-10 text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none transition focus:border-yellow-400"
             />

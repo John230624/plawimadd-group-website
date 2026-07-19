@@ -106,6 +106,7 @@ export default function ProductPage(): React.ReactElement {
   const [productData, setProductData] = useState<Product | null>(null);
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string>('/images/default_product_image.png');
+  const [mediaMode, setMediaMode] = useState<'photos' | 'video'>('photos');
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [variantImages, setVariantImages] = useState<string[]>([]);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
@@ -353,7 +354,7 @@ export default function ProductPage(): React.ReactElement {
                     <button
                       key={`${image}-${index}`}
                       type="button"
-                      onClick={() => setSelectedImage(image)}
+                      onClick={() => { setSelectedImage(image); setMediaMode('photos'); }}
                       className={`relative h-[70px] w-[70px] shrink-0 overflow-hidden rounded-lg border bg-[#f7f7f7] transition ${
                         selectedImage === image
                           ? 'border-[#ff6a00] ring-2 ring-[#ff6a00]/25'
@@ -397,14 +398,24 @@ export default function ProductPage(): React.ReactElement {
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
-                  <Image
-                    src={selectedImage}
-                    alt={productData.name}
-                    width={720}
-                    height={720}
-                    priority
-                    className="max-h-[260px] w-auto max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.06] sm:max-h-[370px]"
-                  />
+                  {mediaMode === 'video' && productData.videoUrl ? (
+                    <video
+                      src={productData.videoUrl}
+                      controls
+                      autoPlay
+                      playsInline
+                      className="max-h-[260px] w-auto max-w-full rounded-lg object-contain sm:max-h-[370px]"
+                    />
+                  ) : (
+                    <Image
+                      src={selectedImage}
+                      alt={productData.name}
+                      width={720}
+                      height={720}
+                      priority
+                      className="max-h-[260px] w-auto max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.06] sm:max-h-[370px]"
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => handleGalleryMove('next')}
@@ -422,12 +433,30 @@ export default function ProductPage(): React.ReactElement {
               </div>
 
               <div className="mt-3 flex justify-center gap-2">
-                <button className="rounded-md bg-[#f2f2f2] px-4 py-2 text-sm font-semibold text-[#222]">
+                <button
+                  type="button"
+                  onClick={() => setMediaMode('photos')}
+                  className={`rounded-md px-4 py-2 text-sm ${
+                    mediaMode === 'photos'
+                      ? 'bg-[#f2f2f2] font-semibold text-[#222]'
+                      : 'font-medium text-[#777] hover:bg-[#f7f7f7]'
+                  }`}
+                >
                   Photos
                 </button>
-                <button className="rounded-md px-4 py-2 text-sm font-medium text-[#777] hover:bg-[#f7f7f7]">
-                  Video
-                </button>
+                {productData.videoUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setMediaMode('video')}
+                    className={`rounded-md px-4 py-2 text-sm ${
+                      mediaMode === 'video'
+                        ? 'bg-[#f2f2f2] font-semibold text-[#222]'
+                        : 'font-medium text-[#777] hover:bg-[#f7f7f7]'
+                    }`}
+                  >
+                    Vidéo
+                  </button>
+                ) : null}
               </div>
             </div>
 

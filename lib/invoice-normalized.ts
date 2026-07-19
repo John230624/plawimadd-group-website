@@ -5,7 +5,7 @@
 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { LOGO_BASE64 } from './logo-base64';
+import { LOGO_WIDE_BASE64 } from './logo-base64';
 import { numberToFrenchWords } from './invoice';
 import { TAX_GROUP_LABELS, type EmecefTaxGroup } from './emecef';
 
@@ -86,13 +86,13 @@ export function generateNormalizedInvoicePDF(data: NormalizedInvoiceData): jsPDF
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   // --- En-tête émetteur ---
-  doc.addImage(LOGO_BASE64, 'PNG', 15, 8, 30, 20);
+  doc.addImage(LOGO_WIDE_BASE64, 'PNG', 15, 10, 55, 8.87);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
-  doc.text(`IFU : ${data.seller.ifu}`, 50, 15);
-  if (data.seller.rccm) doc.text(`RCCM : ${data.seller.rccm}`, 50, 20);
-  if (data.seller.name) doc.text(data.seller.name, 50, 25);
+  doc.text(`IFU : ${data.seller.ifu}`, 15, 24);
+  if (data.seller.rccm) doc.text(`RCCM : ${data.seller.rccm}`, 15, 28.5);
+  if (data.seller.name) doc.text(data.seller.name, 15, 33);
 
   // --- Titre / méta ---
   doc.setFont('helvetica', 'bold');
@@ -112,11 +112,11 @@ export function generateNormalizedInvoicePDF(data: NormalizedInvoiceData): jsPDF
 
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.3);
-  doc.line(15, 33, pageWidth - 15, 33);
+  doc.line(15, 35.5, pageWidth - 15, 35.5);
 
   // --- Bloc émetteur (adresse/contact) ---
   autoTable(doc, {
-    startY: 36,
+    startY: 38,
     margin: { left: 15 },
     tableWidth: 120,
     body: [

@@ -247,7 +247,7 @@ export default function AdminPosPage(): React.ReactElement {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
               type="text"
-              placeholder="Rechercher facture, client, vendeur ou produit"
+              autoComplete="off" placeholder="Rechercher facture, client, vendeur ou produit"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] px-4 py-2 pl-10 text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none transition-smooth focus:border-[var(--accent-blue)]"

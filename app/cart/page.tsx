@@ -2,7 +2,7 @@
 
 import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { AlertTriangle, ArrowRight, Bookmark, Clock, Loader2, Minus, Plus, ShoppingBag, Trash2, Truck, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Bookmark, Clock, Loader2, Minus, Plus, ShoppingCart, Trash2, Truck, X } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -61,6 +61,7 @@ export default function CartPage(): React.ReactElement {
 
   const [promoCode, setPromoCode] = useState('');
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [modalInitialMode, setModalInitialMode] = useState<'select' | 'create'>('select');
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [colorMap, setColorMap] = useState<Record<string, string>>({});
 
@@ -484,7 +485,7 @@ export default function CartPage(): React.ReactElement {
               ) : cartProducts.length === 0 ? (
                 <div className="bg-white p-10 text-center rounded-lg border border-transparent shadow-none">
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 text-slate-855 border border-transparent">
-                    <ShoppingBag className="h-6 w-6" />
+                    <ShoppingCart className="h-6 w-6" />
                   </div>
                   <h2 className="mt-5 text-lg font-extrabold text-slate-900">
                     Votre panier est vide
@@ -753,7 +754,10 @@ export default function CartPage(): React.ReactElement {
                       </p>
                       <button
                         type="button"
-                        onClick={() => router.push('/add-address')}
+                        onClick={() => {
+                          setModalInitialMode('create');
+                          setIsAddressModalOpen(true);
+                        }}
                         className="mt-2.5 inline-flex w-full items-center justify-center bg-[#ff6a00] hover:bg-[#e25c00] text-white px-4 py-2 text-xs font-bold transition rounded-lg shadow-none"
                       >
                         Ajouter votre adresse
@@ -818,6 +822,7 @@ export default function CartPage(): React.ReactElement {
       <AddressCheckoutModal
         isOpen={isAddressModalOpen}
         onClose={() => setIsAddressModalOpen(false)}
+        initialMode={modalInitialMode}
         onAddressSelected={
           checkoutMode === 'student' ? handleProceedToStudentInstallment : handleProceedToCheckout
         }

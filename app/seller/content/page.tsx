@@ -25,6 +25,7 @@ interface HeroSlide {
   tagline: string;
   description: string;
   image: string;
+  video?: string | null;
   category: string;
   bgColor: string;
   accentColor: string;
@@ -50,6 +51,7 @@ export default function ContentPage(): React.ReactElement {
   const [taglineInput, setTaglineInput] = useState('');
   const [descriptionInput, setDescriptionInput] = useState('');
   const [imageInput, setImageInput] = useState('');
+  const [videoInput, setVideoInput] = useState('');
   const [categoryInput, setCategoryInput] = useState('');
   const [bgColorInput, setBgColorInput] = useState('#e2e7f3');
   const [accentColorInput, setAccentColorInput] = useState('#3b82f6');
@@ -99,6 +101,7 @@ export default function ContentPage(): React.ReactElement {
     setTaglineInput('');
     setDescriptionInput('');
     setImageInput('');
+    setVideoInput('');
     if (categories.length > 0) {
       setCategoryInput(categories[0].name);
     } else {
@@ -117,6 +120,7 @@ export default function ContentPage(): React.ReactElement {
     setTaglineInput(slide.tagline);
     setDescriptionInput(slide.description);
     setImageInput(slide.image);
+    setVideoInput(slide.video || '');
     setCategoryInput(slide.category);
     setBgColorInput(slide.bgColor);
     setAccentColorInput(slide.accentColor);
@@ -165,6 +169,7 @@ export default function ContentPage(): React.ReactElement {
         tagline: taglineInput.trim(),
         description: descriptionInput.trim(),
         image: imageInput.trim(),
+        video: videoInput.trim(),
         category: categoryInput.trim(),
         bgColor: bgColorInput,
         accentColor: accentColorInput,
@@ -462,7 +467,42 @@ export default function ContentPage(): React.ReactElement {
             </div>
           </div>
 
-          {imageInput && (
+          <div>
+            <span className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+              Vidéo (optionnel — remplace l&apos;image)
+            </span>
+            <SellerInput
+              placeholder="URL de la vidéo (.mp4, .webm)…"
+              value={videoInput}
+              onChange={(e) => setVideoInput(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+              Si une vidéo est définie, elle est lue à la place de l&apos;image (en boucle, sans son).
+            </p>
+          </div>
+
+          {videoInput.trim() ? (
+            <div className="mt-2 overflow-hidden rounded-xl border border-[var(--border)] bg-black shadow-lg">
+              <video
+                src={videoInput.trim()}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="max-h-56 w-full object-contain"
+              />
+              <div className="flex items-center justify-between bg-[var(--bg-card)] px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)]">Aperçu vidéo</span>
+                <button
+                  type="button"
+                  onClick={() => setVideoInput('')}
+                  className="text-xs font-medium text-[var(--accent-red)] transition hover:opacity-80"
+                >
+                  Retirer la vidéo
+                </button>
+              </div>
+            </div>
+          ) : imageInput && (
             <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--bg-outer)] p-3 flex items-center justify-center relative min-h-[120px]" style={{ backgroundColor: bgColorInput }}>
               <div className="relative h-28 w-48">
                 <Image

@@ -1,116 +1,105 @@
-// app/privacy-policy/page.tsx
-'use client';
 import React from 'react';
-import { FaShieldAlt, FaUserSecret, FaLock } from 'react-icons/fa';
+import Link from 'next/link';
 
-/**
- * Composant de la page "Politique de Confidentialité".
- * Affiche les informations sur la collecte, l'utilisation et la protection des données personnelles.
- * @returns {React.ReactElement} Le JSX de la page de politique de confidentialité.
- */
-const PrivacyPolicy = (): React.ReactElement => {
-    const currentYear = new Date().getFullYear(); // Récupérer l'année une seule fois pour le pied de page
-    const contactEmail = 'plawimaddgroup1beninbranch@gmail.com'; // Définir l'e-mail de contact une seule fois
-
-    return (
-        <div className='bg-gradient-to-b from-blue-50 via-white to-blue-50 min-h-screen py-10 px-6 md:px-12 lg:px-20'>
-            <div className='max-w-5xl mx-auto bg-white p-10 rounded-2xl shadow-2xl border-t-4 border-blue-500'>
-                <div className='text-center mb-10'>
-                    <h1 className='text-4xl font-extrabold text-gray-800 mb-4'>Politique de Confidentialité</h1>
-                    <p className='text-gray-600 text-lg leading-relaxed'>
-                        Votre confidentialité est notre priorité. Découvrez comment nous protégeons vos informations personnelles.
-                    </p>
-                </div>
-
-                <div className='space-y-12'>
-                    {/* Section 1: Collecte des informations */}
-                    <section aria-labelledby="section-collecte">
-                        <div className='flex items-center space-x-3 mb-4'>
-                            <FaShieldAlt className='text-blue-500 text-3xl flex-shrink-0' aria-hidden='true' /> {/* flex-shrink-0 pour que l'icône ne se réduise pas */}
-                            <h2 id="section-collecte" className='text-2xl font-bold text-gray-800'>1. Collecte des informations</h2>
-                        </div>
-                        <p className='text-gray-700 leading-relaxed'> {/* Lighter gray for better contrast */}
-                            Nous collectons vos informations personnelles lorsque vous utilisez notre site ou nos services. Cela peut inclure votre nom, adresse e-mail, numéro de téléphone, et d&#39;autres détails fournis lors de la création d&#39;un compte ou d&#39;une commande.
-                        </p>
-                    </section>
-
-                    {/* Section 2: Utilisation des informations */}
-                    <section aria-labelledby="section-utilisation">
-                        <div className='flex items-center space-x-3 mb-4'>
-                            <FaUserSecret className='text-blue-500 text-3xl flex-shrink-0' aria-hidden='true' />
-                            <h2 id="section-utilisation" className='text-2xl font-bold text-gray-800'>2. Utilisation des informations</h2>
-                        </div>
-                        <p className='text-gray-700 leading-relaxed'>
-                            Vos informations sont utilisées pour :
-                        </p>
-                        <ul className='list-disc list-inside text-gray-700 pl-6 space-y-2 mt-4'> {/* Added mt-4 for spacing */}
-                            <li>Traiter vos commandes et paiements.</li>
-                            <li>Fournir un service client personnalisé.</li>
-                            <li>Améliorer nos produits et services.</li>
-                            <li>Vous informer sur nos promotions et offres spéciales.</li>
-                        </ul>
-                    </section>
-
-                    {/* Section 3: Sécurité des données */}
-                    <section aria-labelledby="section-securite">
-                        <div className='flex items-center space-x-3 mb-4'>
-                            <FaLock className='text-blue-500 text-3xl flex-shrink-0' aria-hidden='true' />
-                            <h2 id="section-securite" className='text-2xl font-bold text-gray-800'>3. Sécurité des données</h2>
-                        </div>
-                        <p className='text-gray-700 leading-relaxed'>
-                            Nous utilisons des mesures techniques et organisationnelles pour protéger vos données contre tout accès non autorisé, perte ou modification.
-                        </p>
-                    </section>
-
-                    {/* Section 4: Vos droits */}
-                    <section aria-labelledby="section-droits">
-                        <h2 id="section-droits" className='text-2xl font-bold text-gray-800 mb-4'>4. Vos droits</h2>
-                        <p className='text-gray-700 leading-relaxed'>
-                            Vous avez le droit d&#39;accéder à vos données, de les corriger ou de demander leur suppression. Pour exercer ces droits, contactez-nous à :
-                        </p>
-                        <p className='mt-2'>
-                            <a
-                                href={`mailto:${contactEmail}`}
-                                className='text-blue-600 hover:text-blue-800 hover:underline font-semibold text-lg transition-colors duration-200' // Added transition for smooth hover
-                            >
-                                {contactEmail}
-                            </a>
-                        </p>
-                    </section>
-
-                    {/* Section 5: Modifications de cette politique */}
-                    <section aria-labelledby="section-modifications">
-                        <h2 id="section-modifications" className='text-2xl font-bold text-gray-800 mb-4'>5. Modifications de cette politique</h2>
-                        <p className='text-gray-700 leading-relaxed'>
-                            Nous pouvons mettre à jour cette politique de confidentialité de temps en temps. Toute modification sera publiée sur cette page.
-                        </p>
-                    </section>
-
-                    {/* Section 6: Contact */}
-                    <section aria-labelledby="section-contact">
-                        <h2 id="section-contact" className='text-2xl font-bold text-gray-800 mb-4'>6. Contact</h2>
-                        <p className='text-gray-700 leading-relaxed'>
-                            Si vous avez des questions concernant cette politique, vous pouvez nous contacter à :
-                        </p>
-                        <p>
-                            <a
-                                href={`mailto:${contactEmail}`}
-                                className='text-blue-600 hover:text-blue-800 hover:underline font-semibold text-lg transition-colors duration-200'
-                            >
-                                {contactEmail}
-                            </a>
-                        </p>
-                    </section>
-                </div>
-
-                <div className='mt-12 text-center border-t border-gray-200 pt-6'> {/* Added a subtle border top for separation */}
-                    <p className='text-gray-500 text-sm'>
-                        Développé par Tiburce & Jean. &copy; {currentYear} Plawimadd Group. Tous droits réservés.
-                    </p>
-                </div>
-            </div>
-        </div>
-    );
+export const metadata = {
+  title: 'Politique de confidentialité | Plawimadd Group',
+  description: 'Comment Plawimadd Group collecte, utilise et protège vos données personnelles.',
 };
 
-export default PrivacyPolicy;
+const CONTACT_EMAIL = 'plawimaddgroup1beninbranch@gmail.com';
+
+const sections: { title: string; body?: string; list?: string[] }[] = [
+  {
+    title: '1. Collecte des informations',
+    body: `Nous collectons vos informations personnelles lorsque vous utilisez notre site ou nos
+services : nom, adresse e-mail, numéro de téléphone, adresse de livraison et informations
+fournies lors de la création d'un compte ou d'une commande.`,
+  },
+  {
+    title: '2. Utilisation des informations',
+    body: 'Vos informations sont utilisées pour :',
+    list: [
+      'Traiter vos commandes et paiements.',
+      'Fournir un service client personnalisé.',
+      'Améliorer nos produits et services.',
+      'Vous informer sur nos promotions et offres spéciales, si vous y avez consenti.',
+    ],
+  },
+  {
+    title: '3. Partage des données',
+    body: `Vos données ne sont jamais vendues. Elles ne sont partagées qu'avec les prestataires
+strictement nécessaires au service : traitement des paiements (Kkiapay), hébergement du site,
+et facturation normalisée (e-MECeF / DGI) lorsque la loi l'exige.`,
+  },
+  {
+    title: '4. Sécurité des données',
+    body: `Nous utilisons des mesures techniques et organisationnelles pour protéger vos données
+contre tout accès non autorisé, perte ou modification : chiffrement des connexions (HTTPS),
+mots de passe hachés et accès restreint aux données.`,
+  },
+  {
+    title: '5. Vos droits',
+    body: `Vous avez le droit d'accéder à vos données, de les corriger ou de demander leur
+suppression. Pour exercer ces droits, contactez-nous à l'adresse indiquée ci-dessous.
+Nous répondons sous 30 jours.`,
+  },
+  {
+    title: '6. Modifications de cette politique',
+    body: `Nous pouvons mettre à jour cette politique de confidentialité. Toute modification est
+publiée sur cette page avec une nouvelle date de mise à jour.`,
+  },
+];
+
+export default function PrivacyPolicyPage(): React.ReactElement {
+  return (
+    <div className="mx-auto max-w-3xl px-6 py-16">
+      <p className="text-sm font-medium uppercase tracking-wide text-slate-400">Mentions légales</p>
+      <h1 className="mt-2 text-3xl font-bold text-slate-900">Politique de confidentialité</h1>
+      <p className="mt-3 text-sm text-slate-500">
+        Dernière mise à jour :{' '}
+        {new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' })}
+      </p>
+
+      <div className="mt-10 space-y-10">
+        {sections.map((s) => (
+          <section key={s.title}>
+            <h2 className="text-lg font-semibold text-slate-900">{s.title}</h2>
+            {s.body && (
+              <p className="mt-2 whitespace-pre-line text-[15px] leading-7 text-slate-600">
+                {s.body}
+              </p>
+            )}
+            {s.list && (
+              <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[15px] leading-7 text-slate-600">
+                {s.list.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ))}
+
+        <section>
+          <h2 className="text-lg font-semibold text-slate-900">7. Contact</h2>
+          <p className="mt-2 text-[15px] leading-7 text-slate-600">
+            Pour toute question concernant cette politique ou vos données personnelles :
+          </p>
+          <a
+            href={`mailto:${CONTACT_EMAIL}`}
+            className="mt-1 inline-block font-medium text-slate-900 underline underline-offset-2"
+          >
+            {CONTACT_EMAIL}
+          </a>
+        </section>
+      </div>
+
+      <div className="mt-12 rounded-xl border border-slate-200 bg-slate-50 p-6 text-sm leading-6 text-slate-600">
+        Consultez également notre{' '}
+        <Link href="/cookies" className="font-medium text-slate-900 underline underline-offset-2">
+          politique de cookies
+        </Link>
+        .
+      </div>
+    </div>
+  );
+}

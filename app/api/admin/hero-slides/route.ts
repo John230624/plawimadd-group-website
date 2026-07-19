@@ -10,7 +10,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   try {
     const body = await req.json();
-    const { title, tagline, description, image, category, bgColor, accentColor, layout, order } = body;
+    const { title, tagline, description, image, video, category, bgColor, accentColor, layout, order } = body;
 
     if (!title || !tagline || !description || !image || !category) {
       return NextResponse.json({ success: false, message: 'Champs obligatoires manquants.' }, { status: 400 });
@@ -22,6 +22,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         tagline,
         description,
         image,
+        video: typeof video === 'string' && video.trim() ? video.trim() : null,
         category,
         bgColor: bgColor || '#f3f4f6',
         accentColor: accentColor || '#3b82f6',

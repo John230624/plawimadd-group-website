@@ -258,6 +258,7 @@ model Product {
   stock           Int // Quantité en stock total
   lowStockThreshold Int?   @default(5) // Seuil d'alerte de stock bas (par produit)
   imgUrl          String?  @map("imgUrl") @db.Text // URL(s) de l'image (JSON array d'URLs)
+  videoUrl        String?  @map("videoUrl") @db.VarChar(500) // URL vidéo optionnelle de présentation
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   offerPrice      Decimal? @map("offerPrice") @db.Decimal(10, 2)
@@ -721,6 +722,7 @@ model HeroSlide {
   tagline     String   @db.VarChar(255)
   description String   @db.Text
   image       String   @db.VarChar(255)
+  video       String?  @db.VarChar(500) // URL vidéo optionnelle : remplace l'image quand définie
   category    String   @db.VarChar(255)
   bgColor     String   @db.VarChar(50)
   accentColor String   @db.VarChar(50)

@@ -304,17 +304,17 @@ export default function CategoriesPage(): React.ReactElement {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageW = doc.internal.pageSize.getWidth();
 
-    doc.setFillColor(18, 18, 18);
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, pageW, 50, 'F');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.setTextColor(241, 245, 249);
+    doc.setTextColor(24, 24, 27);
     doc.text('Categories du catalogue', 20, 22);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.setTextColor(148, 163, 184);
+    doc.setTextColor(113, 113, 122);
     doc.text(
       `Genere le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
       20, 32,
@@ -334,7 +334,7 @@ export default function CategoriesPage(): React.ReactElement {
 
     boxes.forEach((box, i) => {
       const x = 20 + i * (statWidth + 5);
-      doc.setFillColor(24, 24, 24);
+      doc.setFillColor(247, 247, 248);
       doc.roundedRect(x, statsY, statWidth, 22, 3, 3, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
@@ -342,7 +342,7 @@ export default function CategoriesPage(): React.ReactElement {
       doc.text(box.value, x + 4, statsY + 9);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
-      doc.setTextColor(148, 163, 184);
+      doc.setTextColor(113, 113, 122);
       doc.text(box.label, x + 4, statsY + 17);
     });
 
@@ -359,14 +359,14 @@ export default function CategoriesPage(): React.ReactElement {
       startY: statsY + 32,
       styles: {
         fontSize: 7,
-        textColor: [241, 245, 249],
-        fillColor: [18, 18, 18],
-        lineColor: [30, 41, 59],
+        textColor: [39, 39, 42],
+        fillColor: [255, 255, 255],
+        lineColor: [228, 228, 231],
         lineWidth: 0.3,
       },
       headStyles: {
-        fillColor: [16, 185, 129],
-        textColor: [255, 255, 255],
+        fillColor: [244, 244, 245],
+        textColor: [24, 24, 27],
         fontStyle: 'bold',
         fontSize: 7.5,
       },
@@ -374,7 +374,7 @@ export default function CategoriesPage(): React.ReactElement {
       margin: { top: statsY + 32, bottom: 20 },
       didDrawPage: () => {
         doc.setFontSize(7);
-        doc.setTextColor(148, 163, 184);
+        doc.setTextColor(113, 113, 122);
         doc.text('Plawimadd Group — Categories', 20, doc.internal.pageSize.getHeight() - 10);
       },
     });
@@ -432,6 +432,7 @@ export default function CategoriesPage(): React.ReactElement {
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
+              autoComplete="off"
               placeholder="Rechercher une categorie"
               className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] pl-10 pr-4 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)]"
             />

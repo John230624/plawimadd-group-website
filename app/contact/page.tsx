@@ -1,11 +1,9 @@
 'use client';
 
 import React, { ChangeEvent, FormEvent, useState } from 'react';
-import Image from 'next/image';
 import {
-  ArrowRight,
   Clock3,
-  Headphones,
+  Mail,
   MapPin,
   Phone,
   Send,
@@ -32,29 +30,23 @@ const contactCards = [
   {
     icon: MapPin,
     title: 'Adresse',
-    value: 'Abomey-Calavi, en face du College Bakhita',
+    value: 'Abomey-Calavi, en face du Collège Sainte Bakhita, Bénin',
   },
   {
     icon: Phone,
-    title: 'Telephone',
-    value: '+(229) 0197747178',
+    title: 'Téléphone / WhatsApp',
+    value: '+229 01 48 23 26 81',
+  },
+  {
+    icon: Mail,
+    title: 'Email',
+    value: 'plawimaddgroup1beninbranch@gmail.com',
   },
   {
     icon: Clock3,
     title: 'Horaires',
     value: 'Lundi - Samedi, 09h - 21h',
   },
-  {
-    icon: Headphones,
-    title: 'Support',
-    value: 'Questions produits, suivi de commande, paiement par tranche.',
-  },
-];
-
-const supportHighlights = [
-  'Reponse rapide pour vos demandes de produits et disponibilites.',
-  'Accompagnement sur les offres etudiantes et les paiements par tranche.',
-  'Orientation claire avant achat et suivi apres commande.',
 ];
 
 export default function ContactPage(): React.ReactElement {
@@ -85,7 +77,7 @@ export default function ContactPage(): React.ReactElement {
         throw new Error(data.message || "Impossible d'envoyer votre message.");
       }
 
-      toast.success('Message envoye avec succes.');
+      toast.success('Message envoyé avec succès.');
       setForm(initialForm);
     } catch (error) {
       console.error(error);
@@ -97,106 +89,51 @@ export default function ContactPage(): React.ReactElement {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-4 pb-0 pt-8 md:px-6 lg:px-8">
+      <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-4 pb-0 pt-6 md:px-6 lg:px-8">
+        {/* En-tête de page */}
         <section className="px-2 pb-2 md:px-0">
-          <div className="grid gap-6 rounded-[2rem] bg-white p-4 shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:p-6 lg:grid-cols-[1.02fr_0.98fr] lg:p-8">
-            <div className="flex flex-col justify-center rounded-[1.7rem] bg-[linear-gradient(180deg,rgba(237,244,253,0.86),rgba(255,255,255,0.98))] p-6 md:p-7">
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-[var(--brand-700)]">
-                Contact
-              </p>
-              <h1 className="mt-4 max-w-[11ch] text-[2.5rem] font-semibold leading-[0.98] tracking-[-0.06em] text-slate-950 md:text-[3.35rem]">
-                Restons proches de votre besoin.
-              </h1>
-              <p className="mt-5 max-w-[58ch] text-sm leading-8 text-slate-500 md:text-[0.98rem]">
-                Pour une demande produit, un suivi de commande, une orientation achat ou une
-                offre etudiante, nous vous repondons avec une approche claire, utile et rapide.
-              </p>
-
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                {contactCards.map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <div
-                      key={item.title}
-                      className="rounded-[1.4rem] bg-white/90 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)]"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="rounded-2xl bg-[rgba(191,219,254,0.22)] p-3 text-[var(--brand-700)]">
-                          <Icon className="h-4.5 w-4.5" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-950">{item.title}</p>
-                          <p className="mt-2 text-sm leading-7 text-slate-500">{item.value}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="relative min-h-[420px] overflow-hidden rounded-[1.8rem]">
-              <Image
-                src="/images/home/newsletter-handshake.jpg"
-                alt="Accompagnement client Plawimadd Group"
-                fill
-                className="object-cover"
-              />
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.1),rgba(15,23,42,0.42))]" />
-              <div className="absolute inset-x-6 bottom-6 rounded-[1.5rem] bg-white/92 p-5 backdrop-blur md:p-6">
-                <p className="text-sm font-medium uppercase tracking-[0.16em] text-[var(--brand-700)]">
-                  Support utile
-                </p>
-                <p className="mt-2 text-[1.18rem] font-semibold text-slate-950">
-                  Une equipe qui vous oriente sans vous compliquer le parcours
-                </p>
-
-                <div className="mt-4 space-y-3">
-                  {supportHighlights.map((item) => (
-                    <div key={item} className="flex items-start gap-3">
-                      <span className="mt-2 h-2.5 w-2.5 rounded-full bg-white" />
-                      <p className="text-sm leading-7 text-white">{item}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+          <div className="px-3 py-4 md:px-0 md:py-0 text-left">
+            <p className="text-sm text-slate-500">Accueil / Contact</p>
+            <h1 className="mt-2 text-2.5xl font-extrabold tracking-tight text-slate-900">
+              Contactez-nous
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 font-medium">
+              Une question sur nos produits, un besoin de support ou d'accompagnement ? Notre équipe est à votre écoute.
+            </p>
           </div>
         </section>
 
-        <section className="px-2 pb-2 pt-8 md:px-0">
-          <div className="grid gap-6 lg:grid-cols-[1fr_0.94fr]">
-            <div className="rounded-[2rem] bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.05)] lg:p-8">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.18em] text-[var(--brand-700)]">
-                    Formulaire
-                  </p>
-                  <h2 className="mt-3 text-[2rem] font-semibold tracking-[-0.05em] text-slate-950">
-                    Envoyez-nous votre message
-                  </h2>
-                </div>
-                <div className="hidden rounded-full bg-[rgba(191,219,254,0.2)] px-4 py-2 text-sm font-medium text-[var(--brand-700)] md:inline-flex">
-                  Reponse rapide
-                </div>
+        {/* Section principale en 2 colonnes */}
+        <section className="px-2 pb-2 pt-6 md:px-0">
+          <div className="grid gap-6 px-3 py-4 md:px-0 md:py-0 lg:grid-cols-[1fr_400px]">
+            {/* Colonne Gauche : Formulaire */}
+            <div className="bg-white p-6 border border-slate-100 rounded-lg shadow-sm space-y-6">
+              <div>
+                <h2 className="text-lg font-extrabold text-slate-900 text-left">
+                  Envoyez-nous un message
+                </h2>
+                <p className="mt-1 text-xs text-slate-400 font-medium text-left">
+                  Nous répondons généralement en moins de 24h.
+                </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="mt-8 grid gap-5">
+              <form onSubmit={handleSubmit} className="grid gap-5">
                 <div className="grid gap-5 md:grid-cols-2">
                   <Field
                     type="text"
                     name="name"
                     value={form.name}
                     onChange={handleChange}
-                    placeholder="Votre nom"
+                    placeholder="Votre nom complet"
+                    label="Nom complet"
                   />
                   <Field
                     type="email"
                     name="email"
                     value={form.email}
                     onChange={handleChange}
-                    placeholder="Votre email"
+                    placeholder="votre.email@exemple.com"
+                    label="Adresse email"
                   />
                 </div>
 
@@ -205,23 +142,30 @@ export default function ContactPage(): React.ReactElement {
                   name="subject"
                   value={form.subject}
                   onChange={handleChange}
-                  placeholder="Sujet"
+                  placeholder="Sujet de votre message"
+                  label="Sujet"
                 />
 
-                <textarea
-                  required
-                  rows={7}
-                  name="message"
-                  value={form.message}
-                  onChange={handleChange}
-                  placeholder="Expliquez-nous votre besoin"
-                  className="w-full rounded-[1.15rem] border border-[rgba(148,163,184,0.2)] bg-[rgba(248,250,252,0.82)] px-4 py-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[var(--brand-300)] focus:bg-white"
-                />
+                <div className="flex flex-col gap-1.5 text-left">
+                  <label htmlFor="message" className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Votre message
+                  </label>
+                  <textarea
+                    required
+                    id="message"
+                    rows={6}
+                    name="message"
+                    value={form.message}
+                    onChange={handleChange}
+                    placeholder="Comment pouvons-nous vous aider ? Expliquez-nous votre besoin en détail..."
+                    className="w-full rounded-md border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-800 focus:bg-white focus:ring-4 focus:ring-slate-800/5"
+                  />
+                </div>
 
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--brand-700)] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-800)] disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--brand-700)] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[var(--brand-800)] disabled:opacity-60"
                 >
                   <Send className="h-4 w-4" />
                   {isSubmitting ? 'Envoi en cours...' : 'Envoyer le message'}
@@ -229,48 +173,55 @@ export default function ContactPage(): React.ReactElement {
               </form>
             </div>
 
-            <div className="overflow-hidden rounded-[2rem] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.05)]">
-              <div className="relative h-[220px]">
-                <Image
-                  src="/images/hero-bg.jpg"
-                  alt="Boutique Plawimadd Group"
-                  fill
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.34))]" />
-                <div className="absolute inset-x-6 bottom-6 rounded-full bg-white/92 px-4 py-2 text-sm font-medium text-slate-700 backdrop-blur w-fit">
-                  Abomey-Calavi, Benin
+            {/* Colonne Droite : Coordonnées et Carte */}
+            <div className="space-y-6">
+              {/* Coordonnées */}
+              <div className="space-y-4">
+                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider text-left">
+                  Nos coordonnées
+                </h2>
+                <div className="grid gap-3">
+                  {contactCards.map((item) => {
+                    const Icon = item.icon;
+
+                    return (
+                      <div
+                        key={item.title}
+                        className="flex gap-4 items-start bg-white p-4 border border-slate-100 rounded-lg shadow-sm"
+                      >
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-50 text-slate-700 border border-transparent">
+                          <Icon className="h-5 w-5 text-slate-655" />
+                        </div>
+                        <div className="text-left">
+                          <h3 className="text-xs font-bold text-slate-450 uppercase tracking-wider">
+                            {item.title}
+                          </h3>
+                          <p className="mt-1 text-sm font-semibold text-slate-900 leading-normal">
+                            {item.value}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="p-6 lg:p-8">
-                <p className="text-sm font-medium uppercase tracking-[0.18em] text-[var(--brand-700)]">
-                  Venir nous voir
-                </p>
-                <h2 className="mt-3 text-[1.95rem] font-semibold tracking-[-0.05em] text-slate-950">
-                  Une adresse simple a trouver
+              {/* Localisation Interactive (Google Maps) */}
+              <div className="space-y-3">
+                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider text-left">
+                  Notre localisation
                 </h2>
-                <p className="mt-4 text-sm leading-8 text-slate-500">
-                  Nous sommes situes en face du College Bakhita. Vous pouvez aussi nous appeler
-                  avant de passer pour verifier la disponibilite d&apos;un produit ou discuter
-                  d&apos;une offre etudiante.
-                </p>
-
-                <div className="mt-7 rounded-[1.5rem] bg-[rgba(237,244,253,0.55)] p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-950">Besoin d&apos;un retour rapide ?</p>
-                      <p className="mt-2 text-sm leading-7 text-slate-500">
-                        Appelez-nous ou ecrivez-nous pour avancer plus vite sur votre demande.
-                      </p>
-                    </div>
-                    <ArrowRight className="mt-1 h-5 w-5 shrink-0 text-[var(--brand-700)]" />
-                  </div>
-                </div>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <InfoBadge label="Telephone" value="+(229) 0197747178" />
-                  <InfoBadge label="Disponibilite" value="09h - 21h" />
+                <div className="overflow-hidden rounded-lg border border-slate-100 shadow-sm bg-white p-1">
+                  <iframe
+                    src="https://maps.google.com/maps?q=6.436463954610858,2.3396186215547394&z=16&output=embed"
+                    width="100%"
+                    height="280"
+                    className="rounded-md border-0 block"
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title="Localisation de Plawimadd Group"
+                  ></iframe>
                 </div>
               </div>
             </div>
@@ -289,37 +240,30 @@ function Field({
   value,
   onChange,
   placeholder,
+  label,
 }: {
   type: string;
   name: string;
   value: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   placeholder: string;
-}): React.ReactElement {
-  return (
-    <input
-      required
-      type={type}
-      name={name}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      className="w-full rounded-[1.15rem] border border-[rgba(148,163,184,0.2)] bg-[rgba(248,250,252,0.82)] px-4 py-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[var(--brand-300)] focus:bg-white"
-    />
-  );
-}
-
-function InfoBadge({
-  label,
-  value,
-}: {
   label: string;
-  value: string;
 }): React.ReactElement {
   return (
-    <div className="rounded-[1.15rem] border border-[rgba(148,163,184,0.12)] bg-white px-4 py-4">
-      <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-400">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-slate-900">{value}</p>
+    <div className="flex flex-col gap-1.5 text-left">
+      <label htmlFor={name} className="text-xs font-bold text-slate-755 uppercase tracking-wider">
+        {label}
+      </label>
+      <input
+        required
+        id={name}
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="h-11 w-full rounded-md border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-800 focus:bg-white focus:ring-4 focus:ring-slate-800/5"
+      />
     </div>
   );
 }

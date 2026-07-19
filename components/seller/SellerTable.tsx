@@ -33,8 +33,12 @@ export function SellerTableBody({ children, className = '' }: SellerTableProps):
   return <tbody className={`divide-y divide-[var(--border)] ${className}`}>{children}</tbody>;
 }
 
-export function SellerTableRow({ children, className = '' }: SellerTableProps): React.ReactElement {
-  return <tr className={`align-middle transition hover:bg-[var(--bg-hover)] ${className}`}>{children}</tr>;
+interface SellerTableRowProps extends SellerTableProps {
+  onClick?: React.MouseEventHandler<HTMLTableRowElement>;
+}
+
+export function SellerTableRow({ children, className = '', onClick }: SellerTableRowProps): React.ReactElement {
+  return <tr className={`align-middle transition hover:bg-[var(--bg-hover)] ${className}`} onClick={onClick}>{children}</tr>;
 }
 
 export function SellerTableCell({

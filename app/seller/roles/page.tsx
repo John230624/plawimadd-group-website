@@ -368,15 +368,15 @@ export default function RolesPage(): React.ReactElement {
     if (roles.length === 0) return;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageW = doc.internal.pageSize.getWidth();
-    doc.setFillColor(18, 18, 18);
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, pageW, 50, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.setTextColor(241, 245, 249);
+    doc.setTextColor(24, 24, 27);
     doc.text('Rôles & Permissions', 20, 22);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.setTextColor(148, 163, 184);
+    doc.setTextColor(113, 113, 122);
     doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, 20, 32);
     doc.text(`${total} rôle(s)`, 20, 40);
 
@@ -390,8 +390,8 @@ export default function RolesPage(): React.ReactElement {
         r.isSystem ? 'Oui' : 'Non',
       ]),
       startY: 55,
-      styles: { fontSize: 8, textColor: [241, 245, 249], fillColor: [18, 18, 18], lineColor: [30, 41, 59], lineWidth: 0.3 },
-      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+      styles: { fontSize: 8, textColor: [39, 39, 42], fillColor: [255, 255, 255], lineColor: [228, 228, 231], lineWidth: 0.3 },
+      headStyles: { fillColor: [244, 244, 245], textColor: [24, 24, 27], fontStyle: 'bold', fontSize: 8 },
       alternateRowStyles: { fillColor: [24, 24, 24] },
       margin: { top: 55, bottom: 20 },
     });
@@ -433,6 +433,7 @@ export default function RolesPage(): React.ReactElement {
               type="text"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+              autoComplete="off"
               placeholder="Rechercher par nom ou description..."
               className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] pl-10 pr-4 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)]"
             />
@@ -564,12 +565,13 @@ export default function RolesPage(): React.ReactElement {
               type="text"
               value={permSearch}
               onChange={(e) => setPermSearch(e.target.value)}
+              autoComplete="off"
               placeholder="Rechercher une permission..."
               className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] pl-10 pr-4 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)]"
             />
           </div>
 
-          <div className="max-h-[400px] space-y-4 overflow-y-auto overscroll-contain">
+          <div className="max-h-[400px] space-y-4 overflow-y-auto overscroll-contain pb-8">
             {Object.entries(filteredGroupedPermissions).length === 0 ? (
               <p className="text-sm text-[var(--text-tertiary)] text-center py-4">Aucune permission trouvée.</p>
             ) : (

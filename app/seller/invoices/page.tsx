@@ -317,10 +317,12 @@ export default function InvoicesPage(): React.ReactElement {
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <input
-            type="text"
+            type="search"
+            name="invoice-search"
+            autoComplete="off"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par facture, client, téléphone, email..."
+            placeholder="Rechercher (n° facture, client, téléphone…)"
             className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2.5 pl-10 text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none transition focus:border-yellow-400"
           />
         </div>

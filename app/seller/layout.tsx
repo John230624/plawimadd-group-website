@@ -15,6 +15,8 @@ export default function Layout({ children }: LayoutProps): React.ReactElement {
   const router = useRouter();
   const { data: session, status } = useSession();
 
+  const isStaff = session?.user?.role === 'ADMIN' || session?.user?.role === 'SELLER';
+
   useEffect(() => {
     if (status === 'loading') return;
     if (status === 'unauthenticated') {
@@ -23,10 +25,32 @@ export default function Layout({ children }: LayoutProps): React.ReactElement {
     }
 
     if (!session) return;
-    if (session.user?.role !== 'ADMIN' && session.user?.role !== 'SELLER') {
-      router.replace('/login');
+    // Connecté mais sans rôle staff : retour à l'accueil, pas au login.
+    if (!isStaff) {
+      router.replace('/');
     }
-  }, [session, status, router]);
+  }, [session, status, router, isStaff]);
+
+  // Ne jamais rendre le contenu protégé tant que le rôle n'est pas confirmé
+  // (évite le flash de l'interface admin pendant la redirection).
+  if (status === 'loading' || !isStaff) {
+    return (
+      <div className="dark-theme flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--bg-outer)] text-center">
+        {status === 'loading' ? (
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent" />
+        ) : (
+          <>
+            <p className="text-6xl font-extrabold text-[var(--text-tertiary)]">403</p>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Accès refusé</h1>
+            <p className="max-w-sm text-sm text-[var(--text-secondary)]">
+              Vous n&apos;avez pas les droits nécessaires pour accéder à cet espace.
+              Redirection vers l&apos;accueil…
+            </p>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="dark-theme min-h-screen bg-[var(--bg-outer)]">

@@ -71,6 +71,7 @@ export default function StocksPage(): React.ReactElement {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [brandFilter, setBrandFilter] = useState('ALL');
   const [threshold, setThreshold] = useState(5);
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'stock', dir: 'asc' });
@@ -110,6 +111,7 @@ export default function StocksPage(): React.ReactElement {
         if (statusFilter === 'LOW_STOCK' && (stock <= 0 || stock > threshold)) return false;
         if (statusFilter === 'IN_STOCK' && stock <= threshold) return false;
         if (categoryFilter !== 'ALL' && product.category?.id !== categoryFilter) return false;
+        if (brandFilter !== 'ALL' && (product.brand || '').trim() !== brandFilter) return false;
         return true;
       })
       .map((product) => {
@@ -128,7 +130,14 @@ export default function StocksPage(): React.ReactElement {
           default: return 0;
         }
       });
-  }, [products, searchTerm, sort, statusFilter, categoryFilter, threshold]);
+  }, [products, searchTerm, sort, statusFilter, categoryFilter, brandFilter, threshold]);
+
+  // Marques distinctes presentes dans le catalogue, pour l'inventaire par marque
+  const brands = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach((p) => { const b = (p.brand || '').trim(); if (b) set.add(b); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [products]);
 
   const paginatedRows = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -251,6 +260,20 @@ export default function StocksPage(): React.ReactElement {
     }
   };
 
+  // Libelle de l'inventaire en cours selon les filtres actifs (inventaire specifique)
+  function inventoryScopeLabel(): string {
+    const parts: string[] = [];
+    if (categoryFilter !== 'ALL') {
+      const cat = categories.find((c) => c.id === categoryFilter);
+      if (cat) parts.push(cat.name);
+    }
+    if (brandFilter !== 'ALL') parts.push(brandFilter);
+    if (statusFilter === 'OUT_OF_STOCK') parts.push('en rupture');
+    else if (statusFilter === 'LOW_STOCK') parts.push('stock faible');
+    else if (statusFilter === 'IN_STOCK') parts.push('disponible');
+    return parts.length > 0 ? parts.join(' · ') : 'Complet';
+  }
+
   function exportCSV() {
     const header = 'Produit;Categorie;Marque;Stock;Prix unitaire;Valeur stock;Etat\n';
     const rows = inventoryRows.map((p) =>
@@ -275,53 +298,77 @@ export default function StocksPage(): React.ReactElement {
   }
 
   function exportPDF() {
+    // Design clair et minimaliste : fond blanc, texte sombre, accents discrets.
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageW = doc.internal.pageSize.getWidth();
-    doc.setFillColor(18, 18, 18);
-    doc.rect(0, 0, pageW, 50, 'F');
+    const scope = inventoryScopeLabel();
+
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.setTextColor(241, 245, 249);
-    doc.text('Etat du stock', 20, 22);
+    doc.setFontSize(18);
+    doc.setTextColor(24, 24, 27);
+    doc.text('Inventaire', 20, 20);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(148, 163, 184);
-    doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, 20, 32);
-    doc.text(`${inventoryRows.length} produit(s)`, 20, 40);
-    const statsY = 60;
-    const statWidth = (pageW - 40) / 3;
+    doc.setFontSize(11);
+    doc.setTextColor(82, 82, 91);
+    doc.text(scope === 'Complet' ? 'Inventaire complet' : `Inventaire : ${scope}`, 20, 28);
+    doc.setFontSize(9);
+    doc.setTextColor(161, 161, 170);
+    doc.text(
+      `Genere le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} a ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} — ${inventoryRows.length} produit(s)`,
+      20,
+      35
+    );
+    doc.setDrawColor(228, 228, 231);
+    doc.setLineWidth(0.4);
+    doc.line(20, 40, pageW - 20, 40);
+
+    const statsY = 46;
+    const statWidth = (pageW - 40 - 10) / 3;
     const boxes = [
-      { label: 'En rupture', value: String(inventoryRows.filter((p) => p.stock <= 0).length), color: [239, 68, 68] },
-      { label: 'Stock faible', value: String(inventoryRows.filter((p) => p.stock > 0 && p.stock <= threshold).length), color: [245, 158, 11] },
-      { label: 'Valeur totale', value: formatPrice(inventoryRows.reduce((s, p) => s + p.stockValue, 0)), color: [16, 185, 129] },
+      { label: 'En rupture', value: String(inventoryRows.filter((p) => p.stock <= 0).length), color: [220, 38, 38] },
+      { label: 'Stock faible', value: String(inventoryRows.filter((p) => p.stock > 0 && p.stock <= threshold).length), color: [217, 119, 6] },
+      { label: 'Valeur totale du stock', value: formatPrice(inventoryRows.reduce((s, p) => s + p.stockValue, 0)), color: [5, 150, 105] },
     ];
     boxes.forEach((box, i) => {
       const x = 20 + i * (statWidth + 5);
-      doc.setFillColor(24, 24, 24);
-      doc.roundedRect(x, statsY, statWidth, 22, 3, 3, 'F');
+      doc.setFillColor(250, 250, 250);
+      doc.setDrawColor(228, 228, 231);
+      doc.roundedRect(x, statsY, statWidth, 18, 2, 2, 'FD');
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
+      doc.setFontSize(11);
       doc.setTextColor(box.color[0], box.color[1], box.color[2]);
-      doc.text(box.value, x + 4, statsY + 9);
+      doc.text(box.value, x + 5, statsY + 8);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.setTextColor(148, 163, 184);
-      doc.text(box.label, x + 4, statsY + 17);
+      doc.setFontSize(7.5);
+      doc.setTextColor(113, 113, 122);
+      doc.text(box.label, x + 5, statsY + 14);
     });
+
     autoTable(doc, {
-      head: [['Produit', 'Categorie', 'Stock', 'Prix unitaire', 'Valeur', 'Etat']],
+      head: [['Produit', 'Categorie', 'Marque', 'Stock', 'Prix unitaire', 'Valeur', 'Etat']],
       body: inventoryRows.map((p) => [
-        p.name, p.category?.name || 'N/A', String(p.stock),
+        p.name, p.category?.name || '—', p.brand || '—', String(p.stock),
         formatPrice(p.offerPrice ?? p.price), formatPrice(p.stockValue),
         p.stock <= 0 ? 'Rupture' : p.stock <= threshold ? 'Stock faible' : 'OK',
       ]),
-      startY: statsY + 32,
-      styles: { fontSize: 7, textColor: [241, 245, 249], fillColor: [18, 18, 18], lineColor: [30, 41, 59], lineWidth: 0.3 },
-      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
-      alternateRowStyles: { fillColor: [24, 24, 24] },
-      margin: { top: statsY + 32, bottom: 20 },
+      startY: statsY + 24,
+      styles: { fontSize: 8, textColor: [39, 39, 42], lineColor: [228, 228, 231], lineWidth: 0.2, cellPadding: 2 },
+      headStyles: { fillColor: [244, 244, 245], textColor: [24, 24, 27], fontStyle: 'bold', fontSize: 8 },
+      alternateRowStyles: { fillColor: [250, 250, 250] },
+      margin: { bottom: 18 },
+      didParseCell: (data) => {
+        // Etat colore discretement : rouge rupture, ambre stock faible
+        if (data.section === 'body' && data.column.index === 6) {
+          const txt = String(data.cell.raw);
+          if (txt === 'Rupture') data.cell.styles.textColor = [220, 38, 38];
+          else if (txt === 'Stock faible') data.cell.styles.textColor = [217, 119, 6];
+          else data.cell.styles.textColor = [5, 150, 105];
+        }
+      },
     });
-    doc.save(`stock_${new Date().toISOString().slice(0, 10)}.pdf`);
+
+    const slug = scope === 'Complet' ? 'complet' : scope.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    doc.save(`inventaire_${slug}_${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
   if (loadingProducts) {
@@ -358,6 +405,7 @@ export default function StocksPage(): React.ReactElement {
               type="text"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+              autoComplete="off"
               placeholder="Rechercher un produit ou une categorie"
               className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] pl-10 pr-4 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)]"
             />
@@ -381,6 +429,15 @@ export default function StocksPage(): React.ReactElement {
               ...categories.map((c) => ({ value: c.id, label: c.name })),
             ]}
             className="[&_button]:!h-9 [&_button]:!py-1.5 [&_button]:!px-3 w-[180px] shrink-0"
+          />
+          <SellerSelect
+            value={brandFilter}
+            onChange={(v) => { setBrandFilter(v); setPage(1); }}
+            options={[
+              { value: 'ALL', label: 'Toutes marques' },
+              ...brands.map((b) => ({ value: b, label: b })),
+            ]}
+            className="[&_button]:!h-9 [&_button]:!py-1.5 [&_button]:!px-3 w-[170px] shrink-0"
           />
           <input
             type="number"

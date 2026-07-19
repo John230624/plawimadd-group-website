@@ -541,7 +541,7 @@ const OrderSummary = () => {
                                 className="px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-gray-100 cursor-pointer text-center border-t mt-1 pt-1"
                                 onClick={() => {
                                     setIsDropdownOpen(false);
-                                    router.push("/add-address");
+                                    router.push("/addresses");
                                 }}
                             >
                                 + Ajouter une nouvelle adresse
