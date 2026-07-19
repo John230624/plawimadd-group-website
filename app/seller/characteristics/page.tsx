@@ -280,15 +280,19 @@ export default function CharacteristicsPage(): React.ReactElement {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="mb-1.5 text-sm font-medium text-[var(--text-primary)]">Type d&apos;attribut</p>
-              <select value={attributeTypeInput} onChange={(e) => setAttributeTypeInput(e.target.value)}
-                className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-4 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)]">
-                <option value="TEXT">Texte libre</option>
-                <option value="SELECT">Sélection unique</option>
-                <option value="MULTI_SELECT">Sélection multiple</option>
-                <option value="COLOR">Couleur</option>
-                <option value="SIZE">Taille</option>
-                <option value="RANGE">Intervalle</option>
-              </select>
+              <SellerSelect
+                value={attributeTypeInput}
+                onChange={setAttributeTypeInput}
+                options={[
+                  { value: 'TEXT', label: 'Texte libre' },
+                  { value: 'SELECT', label: 'Sélection unique' },
+                  { value: 'MULTI_SELECT', label: 'Sélection multiple' },
+                  { value: 'COLOR', label: 'Couleur' },
+                  { value: 'SIZE', label: 'Taille' },
+                  { value: 'RANGE', label: 'Intervalle' },
+                ]}
+                className="[&_button]:!h-11"
+              />
             </div>
             <div>
               <p className="mb-1.5 text-sm font-medium text-[var(--text-primary)]">Variante</p>

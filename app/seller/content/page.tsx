@@ -52,6 +52,7 @@ export default function ContentPage(): React.ReactElement {
   const [descriptionInput, setDescriptionInput] = useState('');
   const [imageInput, setImageInput] = useState('');
   const [videoInput, setVideoInput] = useState('');
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [categoryInput, setCategoryInput] = useState('');
   const [bgColorInput, setBgColorInput] = useState('#e2e7f3');
   const [accentColorInput, setAccentColorInput] = useState('#3b82f6');
@@ -471,11 +472,36 @@ export default function ContentPage(): React.ReactElement {
             <span className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
               Vidéo (optionnel — remplace l&apos;image)
             </span>
-            <SellerInput
-              placeholder="URL de la vidéo (.mp4, .webm)…"
-              value={videoInput}
-              onChange={(e) => setVideoInput(e.target.value)}
-            />
+            <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-input)] px-4 py-3 text-sm transition hover:border-[var(--accent-blue)] hover:bg-[var(--bg-hover)] ${uploadingVideo ? 'pointer-events-none opacity-60' : ''}`}>
+              <input
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  if (file.size > 50 * 1024 * 1024) { toast.error('Vidéo trop volumineuse (50 Mo max).'); return; }
+                  setUploadingVideo(true);
+                  try {
+                    const fd = new FormData();
+                    fd.append('video', file);
+                    const res = await fetch('/api/upload-image', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    if (!res.ok || !data.imageUrl) throw new Error(data.message || 'Echec de l\'upload');
+                    setVideoInput(data.imageUrl);
+                    toast.success('Vidéo téléchargée.');
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Echec de l\'upload de la vidéo.');
+                  } finally {
+                    setUploadingVideo(false);
+                  }
+                }}
+              />
+              <span className="text-[var(--text-secondary)]">
+                {uploadingVideo ? 'Envoi de la vidéo en cours…' : videoInput.trim() ? 'Remplacer la vidéo' : 'Choisir une vidéo depuis votre PC (MP4, WebM — 50 Mo max)'}
+              </span>
+            </label>
             <p className="mt-1 text-xs text-[var(--text-tertiary)]">
               Si une vidéo est définie, elle est lue à la place de l&apos;image (en boucle, sans son).
             </p>

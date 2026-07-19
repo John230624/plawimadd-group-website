@@ -62,6 +62,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
   const [description, setDescription] = useState('');
   const [brand, setBrand] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null, null, null, null]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [removedImageUrls, setRemovedImageUrls] = useState<string[]>([]);
@@ -585,12 +586,48 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Vidéo de présentation (optionnel)</label>
-            <input type="url" value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
-              className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)]"
-              placeholder="https://... (.mp4, .webm)" />
+            <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm transition hover:border-[var(--accent-blue)] hover:bg-[var(--bg-hover)] ${uploadingVideo ? 'pointer-events-none opacity-60' : ''}`}>
+              <input
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  if (file.size > 50 * 1024 * 1024) { toast.error('Vidéo trop volumineuse (50 Mo max).'); return; }
+                  setUploadingVideo(true);
+                  try {
+                    const fd = new FormData();
+                    fd.append('video', file);
+                    const res = await fetch('/api/upload-image', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    if (!res.ok || !data.imageUrl) throw new Error(data.message || 'Echec de l\'upload');
+                    setVideoUrl(data.imageUrl);
+                    toast.success('Vidéo téléchargée.');
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Echec de l\'upload de la vidéo.');
+                  } finally {
+                    setUploadingVideo(false);
+                  }
+                }}
+              />
+              <span className="text-[var(--text-secondary)]">
+                {uploadingVideo ? 'Envoi de la vidéo en cours…' : videoUrl.trim() ? 'Remplacer la vidéo' : 'Choisir une vidéo depuis votre PC (MP4, WebM — 50 Mo max)'}
+              </span>
+            </label>
             {videoUrl.trim() && (
-              <video src={videoUrl.trim()} muted loop autoPlay playsInline
-                className="mt-2 max-h-40 w-full rounded-lg border border-[var(--border)] bg-black object-contain" />
+              <div className="relative mt-2">
+                <video src={videoUrl.trim()} muted loop autoPlay playsInline
+                  className="max-h-40 w-full rounded-lg border border-[var(--border)] bg-black object-contain" />
+                <button
+                  type="button"
+                  onClick={() => setVideoUrl('')}
+                  className="absolute right-2 top-2 rounded-md bg-black/70 px-2 py-1 text-xs text-white transition hover:bg-red-600"
+                >
+                  Retirer
+                </button>
+              </div>
             )}
           </div>
           <div>

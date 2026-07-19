@@ -6,7 +6,9 @@ import { v2 as cloudinary } from 'cloudinary';
 import { authorizeLoggedInUser } from '@/lib/authUtils';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+const ALLOWED_VIDEO_MIME_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_VIDEO_FILE_SIZE = 50 * 1024 * 1024;
 
 interface CloudinaryUploadResult {
   secure_url: string;
@@ -42,6 +44,9 @@ function getFileExtension(file: File): string {
     'image/webp': '.webp',
     'image/gif': '.gif',
     'image/avif': '.avif',
+    'video/mp4': '.mp4',
+    'video/webm': '.webm',
+    'video/quicktime': '.mov',
   };
 
   return mimeTypeMap[file.type] || '.jpg';
@@ -57,13 +62,13 @@ async function saveImageLocally(file: File, buffer: Buffer): Promise<string> {
   return `/images/uploads/${fileName}`;
 }
 
-async function uploadToCloudinary(buffer: Buffer): Promise<string> {
+async function uploadToCloudinary(buffer: Buffer, isVideo: boolean): Promise<string> {
   const uploadResult: CloudinaryUploadResult = await new Promise((resolve, reject) => {
     cloudinary.uploader
       .upload_stream(
         {
-          folder: 'plawimadd_products',
-          resource_type: 'image',
+          folder: isVideo ? 'plawimadd_videos' : 'plawimadd_products',
+          resource_type: isVideo ? 'video' : 'image',
         },
         (error, result) => {
           if (error) {
@@ -91,22 +96,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const formData = await req.formData();
-    const file = formData.get('image');
+    // 'image' reste le nom historique ; 'video' est accepte pour les uploads video
+    const file = formData.get('image') ?? formData.get('video');
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ message: 'Aucun fichier image fourni.' }, { status: 400 });
+      return NextResponse.json({ message: 'Aucun fichier fourni.' }, { status: 400 });
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    const isVideo = ALLOWED_VIDEO_MIME_TYPES.includes(file.type);
+    const maxSize = isVideo ? MAX_VIDEO_FILE_SIZE : MAX_FILE_SIZE;
+
+    if (file.size > maxSize) {
       return NextResponse.json(
-        { message: `Fichier trop volumineux. Taille maximale : ${MAX_FILE_SIZE / 1024 / 1024} Mo.` },
+        { message: `Fichier trop volumineux. Taille maximale : ${maxSize / 1024 / 1024} Mo.` },
         { status: 400 }
       );
     }
 
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    if (!isVideo && !ALLOWED_MIME_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { message: 'Type de fichier non autorisé. Formats acceptés : JPEG, PNG, WebP, GIF, AVIF.' },
+        { message: 'Type de fichier non autorisé. Formats acceptés : JPEG, PNG, WebP, GIF, AVIF, MP4, WebM, MOV.' },
         { status: 400 }
       );
     }
@@ -117,7 +126,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let imageUrl: string;
 
     if (hasCloudinaryConfig) {
-      imageUrl = await uploadToCloudinary(buffer);
+      imageUrl = await uploadToCloudinary(buffer, isVideo);
     } else {
       imageUrl = await saveImageLocally(file, buffer);
     }

@@ -77,6 +77,7 @@ export default function CategoriesPage(): React.ReactElement {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [form, setForm] = useState(emptyForm);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [formErrors, setFormErrors] = useState<FieldError[]>([]);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
@@ -207,8 +208,9 @@ export default function CategoriesPage(): React.ReactElement {
   const validateForm = (): boolean => {
     const errs: FieldError[] = [];
     if (!form.name.trim()) errs.push({ field: 'name', message: 'Le nom est requis.' });
-    if (form.imageUrl.trim() && !/^https?:\/\/.+/.test(form.imageUrl.trim())) {
-      errs.push({ field: 'imageUrl', message: 'URL invalide (doit commencer par http).' });
+    // Accepte les URLs absolues (Cloudinary) et les chemins relatifs (/images/uploads/...)
+    if (form.imageUrl.trim() && !/^(https?:\/\/|\/).+/.test(form.imageUrl.trim())) {
+      errs.push({ field: 'imageUrl', message: 'Image invalide.' });
     }
     setFormErrors(errs);
     return errs.length === 0;
@@ -622,16 +624,41 @@ export default function CategoriesPage(): React.ReactElement {
             }}
             placeholder="Ex: Ordinateurs"
           />
-          <SellerInput
-            label="Image URL"
-            value={form.imageUrl}
-            error={getFormError('imageUrl')}
-            onChange={(event) => {
-              setForm((current) => ({ ...current, imageUrl: event.target.value }));
-              setFormErrors((prev) => prev.filter((e) => e.field !== 'imageUrl'));
-            }}
-            placeholder="https://..."
-          />
+          <div>
+            <span className="mb-2 block text-sm font-medium text-[var(--text-primary)]">Image de la catégorie</span>
+            <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-input)] px-4 py-3 text-sm transition hover:border-[var(--accent-blue)] hover:bg-[var(--bg-hover)] ${uploadingImage ? 'pointer-events-none opacity-60' : ''}`}>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                className="hidden"
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  if (!file) return;
+                  setUploadingImage(true);
+                  try {
+                    const fd = new FormData();
+                    fd.append('image', file);
+                    const res = await fetch('/api/upload-image', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    if (!res.ok || !data.imageUrl) throw new Error(data.message || 'Echec de l\'upload');
+                    setForm((current) => ({ ...current, imageUrl: data.imageUrl }));
+                    setFormErrors((prev) => prev.filter((e) => e.field !== 'imageUrl'));
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Echec de l\'upload de l\'image.');
+                  } finally {
+                    setUploadingImage(false);
+                  }
+                }}
+              />
+              <span className="text-[var(--text-secondary)]">
+                {uploadingImage ? 'Envoi en cours…' : form.imageUrl ? 'Remplacer l\'image' : 'Choisir une image depuis votre PC'}
+              </span>
+            </label>
+            {getFormError('imageUrl') && (
+              <p className="mt-1 text-xs text-[var(--accent-red)]">{getFormError('imageUrl')}</p>
+            )}
+          </div>
           {form.imageUrl && (
             <div className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-hover)]">

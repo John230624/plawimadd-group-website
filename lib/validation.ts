@@ -45,7 +45,12 @@ export const productSchema = z.object({
 export const categorySchema = z.object({
   name: z.string().min(1, 'Le nom de la catégorie est requis.').max(255),
   description: z.string().max(2000).optional().nullable(),
-  imageUrl: z.string().url('URL invalide.').max(500).optional().nullable(),
+  imageUrl: z
+    .string()
+    .max(500)
+    .regex(/^(https?:\/\/|\/).+/, 'Image invalide (URL ou chemin relatif attendu).')
+    .optional()
+    .nullable(),
   parentId: z.string().uuid().optional().nullable(),
 });
 

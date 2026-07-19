@@ -103,6 +103,16 @@ body {
   background: var(--text-tertiary);
 }
 
+/* Selects natifs en theme sombre : sans ceci, le menu deroulant systeme
+   s'affiche blanc sur blanc (illisible). */
+.dark-theme select {
+  color-scheme: dark;
+}
+.dark-theme select option {
+  background-color: #161616;
+  color: var(--text-primary);
+}
+
 /* Styles pour les transitions fluides */
 @layer components {
   .transition-smooth {
