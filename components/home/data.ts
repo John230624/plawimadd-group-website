@@ -1,3 +1,16 @@
+// Sélection courte affichée dans le footer (style épuré) ;
+// la liste complète reste disponible sur /all-products.
+export const footerCategoriesEssential = [
+  'Ordinateurs',
+  'Smartphones',
+  'Tablettes',
+  'Télévisions',
+  'Casques audio',
+  'Appareils photo',
+  'Électroménager',
+  'Gadgets & accessoires',
+];
+
 export const footerCategories = [
   'Ordinateurs',
   'Smartphones',

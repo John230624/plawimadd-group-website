@@ -4,8 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { assets } from "@/assets/assets";
-import { ShieldCheck, LockKeyhole, Truck } from 'lucide-react';
-import { FaFacebook, FaInstagram, FaWhatsapp, FaCcVisa, FaCcMastercard } from 'react-icons/fa';
+import { ShieldCheck, LockKeyhole } from 'lucide-react';
+import { FaFacebook, FaInstagram, FaWhatsapp } from 'react-icons/fa';
 import {
   SiTiktok,
   SiSamsung,
@@ -16,9 +16,12 @@ import {
   SiApple,
   SiAsus,
   SiXiaomi,
+  SiSony,
+  SiHuawei,
+  SiVisa,
 } from 'react-icons/si';
 
-import { footerCategories, footerQuickLinks } from './data';
+import { footerCategoriesEssential, footerQuickLinks } from './data';
 
 const WHATSAPP_NUMBER_DISPLAY = '01 48 23 26 81';
 const WHATSAPP_LINK = 'https://wa.me/2290148232681';
@@ -27,7 +30,8 @@ export default function HomeFooter(): React.ReactElement {
   return (
     <footer className="relative left-1/2 mt-12 w-screen -translate-x-1/2 bg-white px-6 pt-12 md:px-10 lg:px-12">
       <div className="mx-auto max-w-[1440px]">
-        <div className="grid gap-10 border-b border-slate-200 pb-10 lg:grid-cols-[1.15fr_1fr_1fr_1fr_auto]">
+        {/* Rangee principale : colonnes simples, une entree par ligne (style epure) */}
+        <div className="grid gap-10 border-b border-slate-200 pb-10 md:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
           <div>
             <Link href="/" className="inline-flex items-baseline whitespace-nowrap">
               <Image
@@ -39,7 +43,7 @@ export default function HomeFooter(): React.ReactElement {
               />
             </Link>
             <p className="mt-4 max-w-[34ch] text-sm leading-7 text-slate-600">
-              Plawimadd Group accompagne le quotidien avec une selection tech moderne, claire et
+              Plawimadd Group accompagne le quotidien avec une sélection tech moderne, claire et
               accessible.
             </p>
 
@@ -85,11 +89,15 @@ export default function HomeFooter(): React.ReactElement {
           </div>
 
           <FooterColumn title="Catalogue">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-              {footerCategories.map((item) => (
-                <FooterLink key={item} href="/all-products" label={item} />
-              ))}
-            </div>
+            {footerCategoriesEssential.map((item) => (
+              <FooterLink key={item} href="/all-products" label={item} />
+            ))}
+            <Link
+              href="/all-products"
+              className="block pt-1 text-sm font-medium text-[var(--brand-700)] transition hover:opacity-80"
+            >
+              Tout le catalogue →
+            </Link>
           </FooterColumn>
 
           <FooterColumn title="Raccourcis">
@@ -99,9 +107,9 @@ export default function HomeFooter(): React.ReactElement {
           </FooterColumn>
 
           <FooterColumn title="Infos utiles">
-            <FooterText text="Paiement par tranche sur certaines offres etudiantes" />
-            <FooterText text="Livraison selon disponibilite" />
-            <FooterText text="Service client reactif" />
+            <FooterText text="Paiement par tranche sur certaines offres étudiantes" />
+            <FooterText text="Livraison selon disponibilité" />
+            <FooterText text="Service client réactif" />
             <FooterText text="Garantie selon les produits" />
           </FooterColumn>
 
@@ -120,12 +128,56 @@ export default function HomeFooter(): React.ReactElement {
           </div>
         </div>
 
-        {/* Marques principales : televiseurs, ordinateurs, smartphones */}
-        <div className="border-b border-slate-200 py-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Nos marques principales
-          </p>
-          <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-4 text-slate-400">
+        {/* Bandeau securite + paiements : badges reels sur pastilles blanches (style Alibaba) */}
+        <div className="flex flex-col gap-4 border-b border-slate-200 py-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <SecurityBadge icon={<ShieldCheck className="h-4 w-4 text-emerald-600" />} label="Paiement sécurisé Kkiapay" />
+            <SecurityBadge icon={<LockKeyhole className="h-4 w-4 text-emerald-600" />} label="Données protégées (SSL)" />
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* MTN MoMo : jaune officiel, texte navy */}
+            <PaymentChip>
+              <span className="flex h-full items-center gap-1.5 rounded bg-[#FFCC00] px-2">
+                <span className="text-[11px] font-extrabold tracking-tight text-[#004F71]">MTN</span>
+                <span className="text-[11px] font-bold italic text-[#004F71]">MoMo</span>
+              </span>
+            </PaymentChip>
+            {/* Moov Money : bleu et orange officiels */}
+            <PaymentChip>
+              <span className="text-[11px] font-extrabold text-[#0060A9]">
+                moov <span className="text-[#F39200]">money</span>
+              </span>
+            </PaymentChip>
+            {/* Celtiis Cash */}
+            <PaymentChip>
+              <span className="text-[11px] font-extrabold text-[#00A5A8]">
+                celtiis <span className="font-bold text-slate-700">cash</span>
+              </span>
+            </PaymentChip>
+            {/* Visa : marque officielle */}
+            <PaymentChip>
+              <SiVisa className="h-6 w-10 text-[#1A1F71]" title="Visa" />
+            </PaymentChip>
+            {/* Mastercard : les deux cercles officiels */}
+            <PaymentChip>
+              <svg viewBox="0 0 36 22" className="h-5 w-8" aria-label="Mastercard" role="img">
+                <circle cx="13" cy="11" r="10" fill="#EB001B" />
+                <circle cx="23" cy="11" r="10" fill="#F79E1B" />
+                <path d="M18 3.2a10 10 0 0 1 0 15.6 10 10 0 0 1 0-15.6z" fill="#FF5F00" />
+              </svg>
+            </PaymentChip>
+            <PaymentChip>
+              <span className="text-[11px] font-semibold text-slate-600">Espèces</span>
+            </PaymentChip>
+          </div>
+        </div>
+
+        {/* Marques principales : vrais logos vectoriels */}
+        <div className="border-b border-slate-200 py-5">
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-4 text-slate-400">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Nos marques principales
+            </span>
             <SiSamsung className="h-5 w-14" title="Samsung" />
             <SiApple className="h-5 w-5" title="Apple" />
             <SiHp className="h-6 w-6" title="HP" />
@@ -134,64 +186,27 @@ export default function HomeFooter(): React.ReactElement {
             <SiAsus className="h-5 w-14" title="Asus" />
             <SiLg className="h-6 w-12" title="LG" />
             <SiXiaomi className="h-5 w-5" title="Xiaomi" />
+            <SiSony className="h-5 w-14" title="Sony" />
+            <SiHuawei className="h-6 w-6" title="Huawei" />
           </div>
         </div>
 
-        {/* Paiements et garanties de securite */}
-        <div className="grid gap-6 border-b border-slate-200 py-6 md:grid-cols-2">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Moyens de paiement
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center rounded-md border border-slate-200 bg-yellow-50 px-2.5 py-1 text-xs font-semibold text-yellow-700">
-                MTN MoMo
-              </span>
-              <span className="inline-flex items-center rounded-md border border-slate-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
-                Moov Money
-              </span>
-              <span className="inline-flex items-center rounded-md border border-slate-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                Celtiis Cash
-              </span>
-              <FaCcVisa className="h-7 w-10 text-slate-500" title="Visa" />
-              <FaCcMastercard className="h-7 w-10 text-slate-500" title="Mastercard" />
-              <span className="inline-flex items-center rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                Especes en boutique
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 md:items-end md:text-right">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Securite</p>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 md:justify-end">
-              <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                Paiement securise Kkiapay
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <LockKeyhole className="h-4 w-4 text-emerald-600" />
-                Donnees protegees
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Truck className="h-4 w-4 text-emerald-600" />
-                Retrait en boutique
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4 py-6 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        {/* Barre legale : liens separes par des points, copyright a droite */}
+        <div className="flex flex-col items-center gap-3 py-6 text-sm text-slate-500 md:flex-row md:justify-between">
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2">
             <Link href="/privacy-policy" className="transition hover:text-slate-900">
-              Politique de confidentialite
+              Politique de confidentialité
             </Link>
+            <span className="text-slate-300">·</span>
             <Link href="/cookies" className="transition hover:text-slate-900">
               Cookies
             </Link>
+            <span className="text-slate-300">·</span>
             <Link href="/contact" className="transition hover:text-slate-900">
               Contact
             </Link>
           </div>
-          <p>&copy; {new Date().getFullYear()} Plawimadd Group — Tous droits reserves</p>
+          <p>&copy; {new Date().getFullYear()} Plawimadd Group — Tous droits réservés</p>
         </div>
       </div>
     </footer>
@@ -226,4 +241,22 @@ function FooterLink({ href, label }: { href: string; label: string }): React.Rea
 
 function FooterText({ text }: { text: string }): React.ReactElement {
   return <p className="text-sm text-slate-600">{text}</p>;
+}
+
+/* Pastille blanche bordee, comme les badges de paiement Alibaba */
+function PaymentChip({ children }: { children: React.ReactNode }): React.ReactElement {
+  return (
+    <span className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-2 shadow-sm">
+      {children}
+    </span>
+  );
+}
+
+function SecurityBadge({ icon, label }: { icon: React.ReactNode; label: string }): React.ReactElement {
+  return (
+    <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 shadow-sm">
+      {icon}
+      {label}
+    </span>
+  );
 }
