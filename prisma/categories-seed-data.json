@@ -1,0 +1,978 @@
+[
+  {
+    "name": "Ordinateurs",
+    "description": "Ordinateurs portables, ordinateurs de bureau et stations de travail.",
+    "characteristics": [
+      {
+        "name": "Marque PC",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Apple" }, { "value": "HP" }, { "value": "Dell" }, { "value": "Lenovo" },
+          { "value": "Asus" }, { "value": "Acer" }, { "value": "MSI" }, { "value": "Microsoft" },
+          { "value": "Samsung" }
+        ]
+      },
+      {
+        "name": "Processeur (CPU)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Intel Core i3" }, { "value": "Intel Core i5" }, { "value": "Intel Core i7" },
+          { "value": "Intel Core i9" }, { "value": "AMD Ryzen 5" }, { "value": "AMD Ryzen 7" },
+          { "value": "AMD Ryzen 9" }, { "value": "Apple M1" }, { "value": "Apple M2" },
+          { "value": "Apple M3" }, { "value": "Apple M3 Pro" }
+        ]
+      },
+      {
+        "name": "Mémoire RAM (PC)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "8 Go" }, { "value": "16 Go" }, { "value": "24 Go" }, { "value": "32 Go" }, { "value": "64 Go" }
+        ]
+      },
+      {
+        "name": "Capacité de Stockage (PC)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "256 Go SSD" }, { "value": "512 Go SSD" }, { "value": "1 To SSD" }, { "value": "2 To SSD" }
+        ]
+      },
+      {
+        "name": "Taille de l'écran (PC)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "13 pouces" }, { "value": "13.3 pouces" }, { "value": "14 pouces" },
+          { "value": "15.6 pouces" }, { "value": "16 pouces" }, { "value": "17.3 pouces" }
+        ]
+      },
+      {
+        "name": "Système d'exploitation (PC)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Windows 11 Famille" }, { "value": "Windows 11 Professionnel" },
+          { "value": "macOS" }, { "value": "Linux (Ubuntu)" }, { "value": "Sans OS (FreeDOS)" }
+        ]
+      },
+      {
+        "name": "Carte Graphique (GPU)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Intégrée (Intel Iris Xe / AMD Radeon)" }, { "value": "NVIDIA GeForce RTX 4050" },
+          { "value": "NVIDIA GeForce RTX 4060" }, { "value": "NVIDIA GeForce RTX 4070" },
+          { "value": "Apple GPU" }
+        ]
+      },
+      {
+        "name": "Couleur PC",
+        "type": "COLOR",
+        "required": false,
+        "values": [
+          { "value": "Noir", "colorCode": "#000000" }, { "value": "Gris Sidéral", "colorCode": "#4e5054" },
+          { "value": "Argent", "colorCode": "#c0c0c0" }, { "value": "Bleu Nuit", "colorCode": "#1a2c42" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Smartphones",
+    "description": "Téléphones portables intelligents et mobiles.",
+    "characteristics": [
+      {
+        "name": "Marque Smartphone",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Apple" }, { "value": "Samsung" }, { "value": "Xiaomi" }, { "value": "Huawei" },
+          { "value": "Google" }, { "value": "OnePlus" }, { "value": "Infinix" }, { "value": "Tecno" },
+          { "value": "Realme" }
+        ]
+      },
+      {
+        "name": "Capacité de Stockage (Phone)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "64 Go" }, { "value": "128 Go" }, { "value": "256 Go" }, { "value": "512 Go" }, { "value": "1 To" }
+        ]
+      },
+      {
+        "name": "Mémoire RAM (Phone)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "4 Go" }, { "value": "6 Go" }, { "value": "8 Go" }, { "value": "12 Go" }, { "value": "16 Go" }
+        ]
+      },
+      {
+        "name": "Couleur Smartphone",
+        "type": "COLOR",
+        "required": true,
+        "values": [
+          { "value": "Noir", "colorCode": "#000000" }, { "value": "Blanc", "colorCode": "#ffffff" },
+          { "value": "Bleu", "colorCode": "#0000ff" }, { "value": "Vert", "colorCode": "#008000" },
+          { "value": "Titane Naturel", "colorCode": "#bebd7f" }, { "value": "Or", "colorCode": "#ffd700" }
+        ]
+      },
+      {
+        "name": "Taille de l'écran (Phone)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "6.1 pouces" }, { "value": "6.2 pouces" }, { "value": "6.5 pouces" },
+          { "value": "6.7 pouces" }, { "value": "6.8 pouces" }
+        ]
+      },
+      {
+        "name": "Type de Réseau",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "5G" }, { "value": "4G LTE" }
+        ]
+      },
+      {
+        "name": "Système d'exploitation (Phone)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "iOS" }, { "value": "Android" }
+        ]
+      },
+      {
+        "name": "Capacité Batterie",
+        "type": "SELECT",
+        "required": false,
+        "values": [
+          { "value": "4000 mAh" }, { "value": "4500 mAh" }, { "value": "5000 mAh" }, { "value": "6000 mAh" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Tablettes",
+    "description": "Tablettes tactiles et liseuses électroniques.",
+    "characteristics": [
+      {
+        "name": "Marque Tablette",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Apple" }, { "value": "Samsung" }, { "value": "Lenovo" }, { "value": "Xiaomi" },
+          { "value": "Huawei" }
+        ]
+      },
+      {
+        "name": "Taille de l'écran (Tablette)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "10.2 pouces" }, { "value": "10.9 pouces" }, { "value": "11 pouces" },
+          { "value": "12.4 pouces" }, { "value": "12.9 pouces" }
+        ]
+      },
+      {
+        "name": "Capacité de Stockage (Tablette)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "64 Go" }, { "value": "128 Go" }, { "value": "256 Go" }, { "value": "512 Go" },
+          { "value": "1 To" }
+        ]
+      },
+      {
+        "name": "Mémoire RAM (Tablette)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "4 Go" }, { "value": "6 Go" }, { "value": "8 Go" }, { "value": "12 Go" }, { "value": "16 Go" }
+        ]
+      },
+      {
+        "name": "Connectivité Tablette",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Wi-Fi uniquement" }, { "value": "Wi-Fi + Cellulaire (4G/5G)" }
+        ]
+      },
+      {
+        "name": "Système d'exploitation (Tablette)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "iPadOS" }, { "value": "Android" }
+        ]
+      },
+      {
+        "name": "Couleur Tablette",
+        "type": "COLOR",
+        "required": false,
+        "values": [
+          { "value": "Gris Sidéral", "colorCode": "#4e5054" }, { "value": "Argent", "colorCode": "#c0c0c0" },
+          { "value": "Noir", "colorCode": "#000000" }, { "value": "Or Rose", "colorCode": "#b76e79" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Télévisions",
+    "description": "Téléviseurs, dalles et écrans de salon.",
+    "characteristics": [
+      {
+        "name": "Marque TV",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Samsung" }, { "value": "LG" }, { "value": "Sony" }, { "value": "TCL" },
+          { "value": "Hisense" }, { "value": "Xiaomi" }
+        ]
+      },
+      {
+        "name": "Taille de l'écran (TV)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "32 pouces" }, { "value": "43 pouces" }, { "value": "50 pouces" }, { "value": "55 pouces" },
+          { "value": "65 pouces" }, { "value": "75 pouces" }, { "value": "85 pouces" }
+        ]
+      },
+      {
+        "name": "Technologie d'affichage",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "LED" }, { "value": "QLED" }, { "value": "OLED" }, { "value": "Neo QLED" },
+          { "value": "Mini-LED" }
+        ]
+      },
+      {
+        "name": "Résolution d'écran",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Full HD (1080p)" }, { "value": "4K Ultra HD" }, { "value": "8K UHD" }
+        ]
+      },
+      {
+        "name": "Smart TV (OS)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Oui (Google TV / Android TV)" }, { "value": "Oui (Tizen OS)" },
+          { "value": "Oui (webOS)" }, { "value": "Non" }
+        ]
+      },
+      {
+        "name": "Fréquence de Rafraîchissement",
+        "type": "SELECT",
+        "required": false,
+        "values": [
+          { "value": "60 Hz" }, { "value": "120 Hz" }, { "value": "144 Hz" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Casques & Écouteurs",
+    "description": "Casques audio, écouteurs sans fil, kit mains libres et matériel audio personnel.",
+    "characteristics": [
+      {
+        "name": "Marque Audio",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Apple" }, { "value": "Sony" }, { "value": "JBL" }, { "value": "Bose" },
+          { "value": "Sennheiser" }, { "value": "Jabra" }, { "value": "Beats" }, { "value": "Xiaomi" },
+          { "value": "Samsung" }
+        ]
+      },
+      {
+        "name": "Format Audio",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Casque Circum-auriculaire (Over-Ear)" }, { "value": "Écouteurs Intra-auriculaires (In-Ear)" },
+          { "value": "Casque Supra-auriculaire (On-Ear)" }
+        ]
+      },
+      {
+        "name": "Type de Connexion",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Bluetooth (Sans fil)" }, { "value": "Filaire (Jack 3.5mm)" },
+          { "value": "Hybride (Bluetooth + Filaire)" }
+        ]
+      },
+      {
+        "name": "Réduction de Bruit Active (ANC)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Oui" }, { "value": "Non" }
+        ]
+      },
+      {
+        "name": "Autonomie Moyenne",
+        "type": "SELECT",
+        "required": false,
+        "values": [
+          { "value": "Jusqu'à 6 heures" }, { "value": "Jusqu'à 20 heures" },
+          { "value": "Jusqu'à 30 heures" }, { "value": "Jusqu'à 40 heures" }
+        ]
+      },
+      {
+        "name": "Couleur Audio",
+        "type": "COLOR",
+        "required": false,
+        "values": [
+          { "value": "Noir", "colorCode": "#000000" }, { "value": "Blanc", "colorCode": "#ffffff" },
+          { "value": "Bleu Marine", "colorCode": "#0f2042" }, { "value": "Gris", "colorCode": "#808080" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Haut-parleurs",
+    "description": "Enceintes portables, barres de son TV et systèmes sonores.",
+    "characteristics": [
+      {
+        "name": "Marque Enceinte",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "JBL" }, { "value": "Bose" }, { "value": "Sony" }, { "value": "Marshall" },
+          { "value": "Sonos" }, { "value": "Xiaomi" }, { "value": "Ultimate Ears" }, { "value": "Harman Kardon" }
+        ]
+      },
+      {
+        "name": "Type d'Enceinte",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Enceinte Portable Bluetooth" }, { "value": "Enceinte de Salon / Multiroom" },
+          { "value": "Barre de Son (TV)" }
+        ]
+      },
+      {
+        "name": "Puissance de Sortie (RMS)",
+        "type": "SELECT",
+        "required": false,
+        "values": [
+          { "value": "10 Watts" }, { "value": "20 Watts" }, { "value": "40 Watts" }, { "value": "100 Watts" },
+          { "value": "200 Watts" }, { "value": "500 Watts et plus" }
+        ]
+      },
+      {
+        "name": "Options de Connectivité",
+        "type": "MULTI_SELECT",
+        "required": true,
+        "values": [
+          { "value": "Bluetooth" }, { "value": "Wi-Fi" }, { "value": "Jack 3.5mm" }, { "value": "Optique" },
+          { "value": "HDMI ARC" }, { "value": "USB" }
+        ]
+      },
+      {
+        "name": "Étanchéité (IPX)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Non protégé" }, { "value": "Résistant aux éclaboussures (IPX4)" },
+          { "value": "Étanche à l'immersion (IPX7)" }
+        ]
+      },
+      {
+        "name": "Alimentation Enceinte",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Batterie rechargeable" }, { "value": "Secteur uniquement" }
+        ]
+      },
+      {
+        "name": "Couleur Enceinte",
+        "type": "COLOR",
+        "required": false,
+        "values": [
+          { "value": "Noir", "colorCode": "#000000" }, { "value": "Bleu", "colorCode": "#0000ff" },
+          { "value": "Rouge", "colorCode": "#ff0000" }, { "value": "Gris", "colorCode": "#808080" },
+          { "value": "Vert", "colorCode": "#008000" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Appareils photo",
+    "description": "Appareils photo numériques reflex, hybrides, compacts et objectifs.",
+    "characteristics": [
+      {
+        "name": "Marque Appareil Photo",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Canon" }, { "value": "Nikon" }, { "value": "Sony" }, { "value": "Fujifilm" },
+          { "value": "Panasonic" }, { "value": "GoPro" }
+        ]
+      },
+      {
+        "name": "Type d'Appareil",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Reflex (DSLR)" }, { "value": "Hybride (Mirrorless)" }, { "value": "Compact" },
+          { "value": "Action Cam / Sport" }
+        ]
+      },
+      {
+        "name": "Résolution (Mégapixels)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "12 MP" }, { "value": "20 MP" }, { "value": "24 MP" }, { "value": "33 MP" },
+          { "value": "45 MP" }, { "value": "61 MP" }
+        ]
+      },
+      {
+        "name": "Résolution Vidéo Max",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Full HD (1080p)" }, { "value": "4K (2160p)" }, { "value": "5.3K" }, { "value": "8K" }
+        ]
+      },
+      {
+        "name": "Taille du Capteur",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Plein Format (Full Frame)" }, { "value": "APS-C" }, { "value": "Micro 4/3" },
+          { "value": "1 pouce" }
+        ]
+      },
+      {
+        "name": "Objectif Inclus",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Boîtier Nu" }, { "value": "Avec Objectif Kit (18-55mm)" }, { "value": "Avec Objectif Kit (28-70mm)" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Drones",
+    "description": "Drones de prise de vue aérienne et accessoires.",
+    "characteristics": [
+      {
+        "name": "Marque Drone",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "DJI" }, { "value": "Autel Robotics" }, { "value": "Parrot" }
+        ]
+      },
+      {
+        "name": "Temps de Vol Max",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Jusqu'à 20 min" }, { "value": "Jusqu'à 30 min" }, { "value": "Jusqu'à 45 min" }
+        ]
+      },
+      {
+        "name": "Résolution Caméra Drone",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "4K" }, { "value": "5.4K" }, { "value": "1080p" }, { "value": "Sans Caméra" }
+        ]
+      },
+      {
+        "name": "Portée de Transmission",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Jusqu'à 4 km" }, { "value": "Jusqu'à 10 km" }, { "value": "Jusqu'à 15 km" }
+        ]
+      },
+      {
+        "name": "Poids du Drone",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Moins de 249g" }, { "value": "Entre 250g et 900g" }, { "value": "Plus de 900g" }
+        ]
+      },
+      {
+        "name": "GPS Intégré",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Oui" }, { "value": "Non" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Montres connectées",
+    "description": "Montres et bracelets connectés sport et quotidien.",
+    "characteristics": [
+      {
+        "name": "Marque Montre",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Apple" }, { "value": "Samsung" }, { "value": "Garmin" }, { "value": "Xiaomi" },
+          { "value": "Huawei" }, { "value": "Fitbit" }
+        ]
+      },
+      {
+        "name": "Compatibilité OS",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "iOS uniquement" }, { "value": "Android uniquement" }, { "value": "Android et iOS (Universel)" }
+        ]
+      },
+      {
+        "name": "Type d'Écran Montre",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "AMOLED" }, { "value": "LCD" }, { "value": "OLED" }
+        ]
+      },
+      {
+        "name": "Autonomie Montre",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "1 à 2 jours" }, { "value": "Jusqu'à 7 jours" }, { "value": "Jusqu'à 14 jours" },
+          { "value": "Plus de 14 jours" }
+        ]
+      },
+      {
+        "name": "Capteurs de Santé",
+        "type": "MULTI_SELECT",
+        "required": true,
+        "values": [
+          { "value": "Fréquence cardiaque" }, { "value": "SpO2 (Oxygène)" }, { "value": "ECG" },
+          { "value": "Sommeil" }, { "value": "GPS" }
+        ]
+      },
+      {
+        "name": "Couleur Bracelet",
+        "type": "COLOR",
+        "required": false,
+        "values": [
+          { "value": "Noir", "colorCode": "#000000" }, { "value": "Blanc", "colorCode": "#ffffff" },
+          { "value": "Bleu", "colorCode": "#0000ff" }, { "value": "Rose", "colorCode": "#ffc0cb" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Souris",
+    "description": "Souris d'ordinateur bureautique et gaming.",
+    "characteristics": [
+      {
+        "name": "Marque Souris",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Logitech" }, { "value": "Razer" }, { "value": "Corsair" }, { "value": "HP" },
+          { "value": "Dell" }, { "value": "Asus" }
+        ]
+      },
+      {
+        "name": "Type de Connexion Souris",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Sans fil (Bluetooth/Dongle)" }, { "value": "Filaire (USB)" },
+          { "value": "Double connectivité (Filaire/Sans fil)" }
+        ]
+      },
+      {
+        "name": "Sensibilité Max (DPI)",
+        "type": "SELECT",
+        "required": false,
+        "values": [
+          { "value": "Jusqu'à 4000 DPI" }, { "value": "Jusqu'à 16000 DPI" }, { "value": "Plus de 20000 DPI" }
+        ]
+      },
+      {
+        "name": "Nombre de Boutons",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "3 à 5 boutons" }, { "value": "6 à 8 boutons" }, { "value": "Plus de 8 boutons" }
+        ]
+      },
+      {
+        "name": "Rétroéclairage RGB",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Oui" }, { "value": "Non" }
+        ]
+      },
+      {
+        "name": "Usage Souris",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Bureautique" }, { "value": "Gaming" }, { "value": "Ergonomique" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Claviers",
+    "description": "Claviers d'ordinateur mécaniques, à membrane ou ergonomiques.",
+    "characteristics": [
+      {
+        "name": "Marque Clavier",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Logitech" }, { "value": "Razer" }, { "value": "Corsair" }, { "value": "Keychron" },
+          { "value": "Asus" }
+        ]
+      },
+      {
+        "name": "Technologie de frappe",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Mécanique" }, { "value": "Membrane" }, { "value": "Chiclet (Touches plates)" }
+        ]
+      },
+      {
+        "name": "Format Clavier",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Complet (100%)" }, { "value": "TKL (Sans pavé numérique)" },
+          { "value": "Compact (60% / 65%)" }
+        ]
+      },
+      {
+        "name": "Disposition des touches",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "AZERTY (Français)" }, { "value": "QWERTY (Anglais)" }
+        ]
+      },
+      {
+        "name": "Rétroéclairage Clavier",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "RGB" }, { "value": "Monochrome (Blanc)" }, { "value": "Aucun" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Câbles & chargeurs",
+    "description": "Câbles USB, chargeurs secteur rapides, adaptateurs et connectique.",
+    "characteristics": [
+      {
+        "name": "Marque Connectique",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Anker" }, { "value": "Apple" }, { "value": "Samsung" }, { "value": "Baseus" },
+          { "value": "Ugreen" }
+        ]
+      },
+      {
+        "name": "Type de Produit Câble",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Câble USB-C vers USB-C" }, { "value": "Câble USB-C vers Lightning" },
+          { "value": "Chargeur Secteur" }, { "value": "Chargeur Sans fil (QI)" }, { "value": "Adaptateur / Hub USB" }
+        ]
+      },
+      {
+        "name": "Puissance Max (Watts)",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "15 Watts" }, { "value": "25 Watts" }, { "value": "65 Watts" }, { "value": "100 Watts" },
+          { "value": "140 Watts" }
+        ]
+      },
+      {
+        "name": "Longueur de Câble",
+        "type": "SELECT",
+        "required": false,
+        "values": [
+          { "value": "0.9 mètre" }, { "value": "1.5 mètre" }, { "value": "2 mètres" }, { "value": "Sans câble" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Clés USB & stockage",
+    "description": "Disques durs externes, SSD portables, clés USB et cartes mémoire.",
+    "characteristics": [
+      {
+        "name": "Marque Stockage",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Samsung" }, { "value": "SanDisk" }, { "value": "Western Digital" },
+          { "value": "Seagate" }, { "value": "Kingston" }, { "value": "Crucial" }
+        ]
+      },
+      {
+        "name": "Type de Stockage",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Clé USB" }, { "value": "Disque Dur Externe (HDD)" }, { "value": "SSD Externe Portable" },
+          { "value": "Carte Mémoire (MicroSD/SD)" }
+        ]
+      },
+      {
+        "name": "Capacité de Stockage",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "64 Go" }, { "value": "128 Go" }, { "value": "256 Go" }, { "value": "512 Go" },
+          { "value": "1 To" }, { "value": "2 To" }, { "value": "4 To" }
+        ]
+      },
+      {
+        "name": "Interface Stockage",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "USB 3.0 / 3.2" }, { "value": "USB-C" }, { "value": "Thunderbolt" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Imprimantes",
+    "description": "Imprimantes laser, jet d'encre, multifonctions et consommables.",
+    "characteristics": [
+      {
+        "name": "Marque Imprimante",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "HP" }, { "value": "Canon" }, { "value": "Epson" }, { "value": "Brother" }
+        ]
+      },
+      {
+        "name": "Technologie d'impression",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Jet d'encre" }, { "value": "Laser" }, { "value": "Réservoir d'encre (EcoTank)" }
+        ]
+      },
+      {
+        "name": "Fonctionnalités Imprimante",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Monofonction (Impression seule)" },
+          { "value": "Multifonction 3-en-1 (Impression, Scan, Copie)" },
+          { "value": "Multifonction 4-en-1 (Impression, Scan, Copie, Fax)" }
+        ]
+      },
+      {
+        "name": "Impression Couleur",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Couleur" }, { "value": "Monochrome (Noir & Blanc)" }
+        ]
+      },
+      {
+        "name": "Connectivité Imprimante",
+        "type": "MULTI_SELECT",
+        "required": true,
+        "values": [
+          { "value": "Wi-Fi" }, { "value": "USB" }, { "value": "Bluetooth" }, { "value": "Ethernet (Réseau)" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Électroménager",
+    "description": "Gros et petit électroménager pour la maison et la cuisine.",
+    "characteristics": [
+      {
+        "name": "Marque Électroménager",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Philips" }, { "value": "Moulinex" }, { "value": "Samsung" }, { "value": "LG" },
+          { "value": "Midea" }, { "value": "Tefal" }, { "value": "Bosch" }
+        ]
+      },
+      {
+        "name": "Type d'Appareil Électro",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Réfrigérateur" }, { "value": "Micro-ondes" }, { "value": "Machine à laver" },
+          { "value": "Mixeur / Blender" }, { "value": "Friteuse sans huile (Airfryer)" }, { "value": "Machine à café" }
+        ]
+      },
+      {
+        "name": "Puissance (Watts)",
+        "type": "SELECT",
+        "required": false,
+        "values": [
+          { "value": "Moins de 500W" }, { "value": "500W à 1000W" }, { "value": "1000W à 2000W" },
+          { "value": "Plus de 2000W" }
+        ]
+      },
+      {
+        "name": "Capacité de Contenance",
+        "type": "SELECT",
+        "required": false,
+        "values": [
+          { "value": "Moins de 5 Litres" }, { "value": "5 à 20 Litres" }, { "value": "20 à 50 Litres" },
+          { "value": "Plus de 100 Litres" }, { "value": "7 kg (Lavage)" }, { "value": "9 kg (Lavage)" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Vélos",
+    "description": "Vélos tout terrain, vélos de ville, électriques et accessoires de mobilité.",
+    "characteristics": [
+      {
+        "name": "Marque Vélo",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Decathlon (Rockrider/Btwin)" }, { "value": "Giant" }, { "value": "Trek" },
+          { "value": "Specialized" }, { "value": "Xiaomi (Électrique)" }
+        ]
+      },
+      {
+        "name": "Type de Vélo",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "VTT (Vélo Tout Terrain)" }, { "value": "Vélo de Ville" },
+          { "value": "Vélo Électrique (VAE)" }, { "value": "VTC (Vélo Tout Chemin)" }
+        ]
+      },
+      {
+        "name": "Taille du Cadre",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Taille S" }, { "value": "Taille M" }, { "value": "Taille L" }, { "value": "Taille XL" }
+        ]
+      },
+      {
+        "name": "Matière du Cadre",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Aluminium" }, { "value": "Carbone" }, { "value": "Acier" }
+        ]
+      },
+      {
+        "name": "Couleur Vélo",
+        "type": "COLOR",
+        "required": false,
+        "values": [
+          { "value": "Noir", "colorCode": "#000000" }, { "value": "Rouge", "colorCode": "#ff0000" },
+          { "value": "Bleu", "colorCode": "#0000ff" }, { "value": "Jaune", "colorCode": "#ffff00" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Paillassons & tapis d’entrée",
+    "description": "Paillassons, tapis et revêtements d'entrée.",
+    "characteristics": [
+      {
+        "name": "Type de Tapis",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Paillasson d'extérieur" }, { "value": "Tapis de couloir d'intérieur" },
+          { "value": "Paillasson absorbant d'intérieur" }
+        ]
+      },
+      {
+        "name": "Matière Tapis",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Fibre de Coco" }, { "value": "Caoutchouc" }, { "value": "Polyester / Microfibre" }
+        ]
+      },
+      {
+        "name": "Dimensions Tapis",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "40 x 60 cm" }, { "value": "60 x 90 cm" }, { "value": "80 x 120 cm" }
+        ]
+      },
+      {
+        "name": "Couleur Tapis",
+        "type": "COLOR",
+        "required": false,
+        "values": [
+          { "value": "Noir", "colorCode": "#000000" }, { "value": "Gris", "colorCode": "#808080" },
+          { "value": "Marron", "colorCode": "#8b5a2b" }, { "value": "Bleu", "colorCode": "#0000ff" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Gadgets & accessoires",
+    "description": "Gadgets électroniques, anneaux lumineux, trépieds et divers accessoires tech.",
+    "characteristics": [
+      {
+        "name": "Type d'Accessoire Tech",
+        "type": "SELECT",
+        "required": true,
+        "values": [
+          { "value": "Trépied / Stabilisateur" }, { "value": "Anneau lumineux (Ring Light)" },
+          { "value": "Coque de téléphone" }, { "value": "Pochette d'ordinateur" }, { "value": "Support téléphone voiture" }
+        ]
+      },
+      {
+        "name": "Compatibilité Accessoire",
+        "type": "SELECT",
+        "required": false,
+        "values": [
+          { "value": "Universel" }, { "value": "Pour iPhone" }, { "value": "Pour Samsung" },
+          { "value": "Pour ordinateurs 13-14 pouces" }, { "value": "Pour ordinateurs 15-16 pouces" }
+        ]
+      },
+      {
+        "name": "Couleur Accessoire",
+        "type": "COLOR",
+        "required": false,
+        "values": [
+          { "value": "Noir", "colorCode": "#000000" }, { "value": "Blanc", "colorCode": "#ffffff" },
+          { "value": "Bleu", "colorCode": "#0000ff" }, { "value": "Rose", "colorCode": "#ffc0cb" }
+        ]
+      }
+    ]
+  }
+]

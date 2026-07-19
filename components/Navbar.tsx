@@ -380,32 +380,40 @@ export default function Navbar(): React.ReactElement {
                     className="fixed left-1/2 top-[72px] z-50 w-[min(95vw,1100px)] -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.16)]"
                     onMouseLeave={() => setIsMegaOpen(false)}
                   >
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 p-5 bg-white">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-8 p-8 bg-white justify-items-center">
                       {displayedCategories.slice(0, 12).map((item) => (
                         <Link
                           key={item.id}
                           href={`/all-products?category=${encodeURIComponent(item.categoryName)}`}
                           onClick={() => setIsMegaOpen(false)}
-                          className="group relative flex flex-col justify-between items-center bg-[#efefef] hover:bg-[#f7f7f7] shadow-[0_4px_12px_rgba(0,0,0,0.02)] hover:shadow-none rounded-[1rem] p-4 text-center transition-all duration-300 min-h-[190px] focus:outline-none"
+                          className="group flex flex-col items-center text-center transition-all duration-300 focus:outline-none w-full max-w-[120px]"
                         >
-                          {/* Category Title */}
-                          <div className="pt-1 pb-1">
-                            <h4 className="font-extrabold text-slate-800 text-xs md:text-[0.9rem] tracking-tight group-hover:text-black transition-colors duration-200">
-                              {item.title}
-                            </h4>
+                          {/* Circle container for the Image */}
+                          <div className="relative flex h-[105px] w-[105px] items-center justify-center rounded-full bg-[#f4f4f5] transition-all duration-300 group-hover:bg-[#e4e4e7] group-hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] shadow-[0_4px_10px_rgba(0,0,0,0.02)]">
+                            {/* Product Image inside Circle */}
+                            <div className="relative h-[65%] w-[65%] flex items-center justify-center overflow-hidden">
+                              <Image
+                                src={item.image}
+                                alt={item.title}
+                                fill
+                                sizes="100px"
+                                className="object-contain scale-100 group-hover:scale-110 transition-transform duration-500 ease-out"
+                                priority
+                              />
+                            </div>
+
+                            {/* Small blue top-right arrow badge */}
+                            <div className="absolute right-0 top-0 flex h-6 w-6 items-center justify-center rounded-full bg-[#3b82f6] text-white shadow-[0_2px_4px_rgba(59,130,246,0.3)] transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H9M17 7V15" />
+                              </svg>
+                            </div>
                           </div>
 
-                          {/* Product Image - Centered and Sharp */}
-                          <div className="relative w-[90%] aspect-[4/3] max-h-[105px] md:max-h-[115px] mt-1 mb-1 flex items-center justify-center overflow-hidden">
-                            <Image
-                              src={item.image}
-                              alt={item.title}
-                              fill
-                              sizes="150px"
-                              className="object-cover scale-105 group-hover:scale-100 transition-transform duration-500 ease-out"
-                              priority
-                            />
-                          </div>
+                          {/* Category Title below Circle */}
+                          <span className="mt-3 text-xs font-bold text-slate-700 leading-tight transition-colors duration-200 group-hover:text-slate-950 line-clamp-2 max-w-[110px]">
+                            {item.title}
+                          </span>
                         </Link>
                       ))}
                     </div>

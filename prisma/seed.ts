@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, AttributeType } from '@prisma/client';
 
 const envPath = path.resolve(process.cwd(), '.env');
 if (fs.existsSync(envPath)) {
@@ -67,9 +67,7 @@ async function seedPermissionsAndRoles() {
     characteristics: [
       'characteristics.view', 'characteristics.create', 'characteristics.edit', 'characteristics.delete',
     ],
-    colors: [
-      'colors.view', 'colors.create', 'colors.edit', 'colors.delete',
-    ],
+
     pos: [
       'pos.access', 'pos.sell', 'pos.discount', 'pos.discount-approve',
       'pos.view-transactions', 'pos.close-session',
@@ -146,7 +144,7 @@ async function seedPermissionsAndRoles() {
     'payments.view',
     'reports.view', 'reports.export',
     'pos.access', 'pos.sell', 'pos.discount', 'pos.view-transactions', 'pos.close-session',
-    'colors.view', 'colors.create', 'colors.edit', 'colors.delete',
+
     'characteristics.view', 'characteristics.create', 'characteristics.edit', 'characteristics.delete',
     'students.view', 'students.approve', 'students.reject',
   ]);
@@ -202,9 +200,90 @@ async function assignAdminRole() {
   console.log(`✓ Rôle "Administrateur" assigné à ${adminUsers.length} utilisateurs`);
 }
 
+async function seedCategoriesAndCharacteristics() {
+  console.log('Début de l\'alimentation des caractéristiques de catégories...');
+  const dataPath = path.resolve(process.cwd(), 'prisma/categories-seed-data.json');
+  const categoriesToSeed = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+
+  for (const catData of categoriesToSeed) {
+    const category = await prisma.category.upsert({
+      where: { name: catData.name },
+      update: { description: catData.description },
+      create: {
+        name: catData.name,
+        description: catData.description,
+        level: 0,
+      },
+    });
+
+    let sortOrder = 0;
+    for (const charData of catData.characteristics) {
+      sortOrder += 10;
+      
+      const characteristic = await prisma.characteristic.upsert({
+        where: { name: charData.name },
+        update: {
+          attributeType: charData.type,
+          displayOrder: sortOrder,
+        },
+        create: {
+          name: charData.name,
+          attributeType: charData.type,
+          displayOrder: sortOrder,
+        },
+      });
+
+      await prisma.categoryCharacteristic.upsert({
+        where: {
+          categoryId_characteristicId: {
+            categoryId: category.id,
+            characteristicId: characteristic.id,
+          },
+        },
+        update: {
+          sortOrder: sortOrder,
+          required: charData.required,
+        },
+        create: {
+          categoryId: category.id,
+          characteristicId: characteristic.id,
+          sortOrder: sortOrder,
+          required: charData.required,
+        },
+      });
+
+      let valOrder = 0;
+      for (const valData of charData.values) {
+        valOrder += 10;
+        await prisma.attributeValue.upsert({
+          where: {
+            characteristicId_value: {
+              characteristicId: characteristic.id,
+              value: valData.value,
+            },
+          },
+          update: {
+            colorCode: valData.colorCode || null,
+            sortOrder: valOrder,
+          },
+          create: {
+            characteristicId: characteristic.id,
+            value: valData.value,
+            colorCode: valData.colorCode || null,
+            sortOrder: valOrder,
+          },
+        });
+      }
+    }
+  }
+
+  console.log('✓ Caractéristiques de catégories alimentées avec succès !');
+}
+
 seedPermissionsAndRoles()
   .then(async () => {
     await assignAdminRole();
+    await seedCategoriesAndCharacteristics();
     await prisma.$disconnect();
   })
   .catch(async (error) => {

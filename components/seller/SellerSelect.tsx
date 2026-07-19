@@ -52,7 +52,7 @@ export default function SellerSelect({
 
       {isOpen ? (
         <div
-          className={`absolute z-30 mt-2 min-w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.3)] ${
+          className={`absolute z-30 mt-2 min-w-full overflow-y-auto max-h-60 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.3)] ${
             align === 'right' ? 'right-0' : 'left-0'
           }`}
         >

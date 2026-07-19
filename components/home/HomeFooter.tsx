@@ -21,7 +21,7 @@ import {
   SiVisa,
 } from 'react-icons/si';
 
-import { footerCategoriesEssential, footerQuickLinks } from './data';
+import { footerCategories, footerQuickLinks } from './data';
 
 const WHATSAPP_NUMBER_DISPLAY = '01 48 23 26 81';
 const WHATSAPP_LINK = 'https://wa.me/2290148232681';
@@ -89,8 +89,12 @@ export default function HomeFooter(): React.ReactElement {
           </div>
 
           <FooterColumn title="Catalogue">
-            {footerCategoriesEssential.map((item) => (
-              <FooterLink key={item} href="/all-products" label={item} />
+            {footerCategories.map((item) => (
+              <FooterLink
+                key={item}
+                href={`/all-products?category=${encodeURIComponent(item)}`}
+                label={item}
+              />
             ))}
             <Link
               href="/all-products"
@@ -246,7 +250,7 @@ function FooterText({ text }: { text: string }): React.ReactElement {
 /* Pastille blanche bordee, comme les badges de paiement Alibaba */
 function PaymentChip({ children }: { children: React.ReactNode }): React.ReactElement {
   return (
-    <span className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-2 shadow-sm">
+    <span className="inline-flex h-8 items-center justify-center rounded-md px-2">
       {children}
     </span>
   );

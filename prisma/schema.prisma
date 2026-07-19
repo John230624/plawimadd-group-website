@@ -481,14 +481,6 @@ model Coupon {
   @@map("coupons")
 }
 
-model Color {
-  id        String   @id @default(uuid()) @db.VarChar(255)
-  name      String   @unique @db.VarChar(255)
-  hex       String   @db.VarChar(7)
-  createdAt DateTime @default(now())
-
-  @@map("colors")
-}
 
 model CmsPage {
   id        String   @id @default(uuid()) @db.VarChar(255)

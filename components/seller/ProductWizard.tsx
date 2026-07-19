@@ -69,9 +69,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
 
-  // Colors (edit page had this, wizard didn't)
-  const [allColors, setAllColors] = useState<{ id: string; name: string; hex: string }[]>([]);
-  const [selectedColorIds, setSelectedColorIds] = useState<Set<string>>(new Set());
+
 
   // Visible toggle
   const [visible, setVisible] = useState(true);
@@ -128,13 +126,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
       .catch(() => {});
   }, [selectedCategoryId]);
 
-  // Load colors for the color picker
-  useEffect(() => {
-    fetch('/api/colors')
-      .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setAllColors(data); })
-      .catch(() => {});
-  }, []);
+
 
   // Load product data in edit mode
   useEffect(() => {
@@ -186,17 +178,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
         // Visible
         setVisible(product.visible !== false);
 
-        // Colors
-        if (product.colorIds && Array.isArray(product.colorIds)) {
-          setSelectedColorIds(new Set(product.colorIds));
-        }
-        // Legacy color field (string)
-        if (!product.colorIds && product.color) {
-          try {
-            const parsed = JSON.parse(product.color);
-            if (Array.isArray(parsed)) setSelectedColorIds(new Set(parsed));
-          } catch {}
-        }
+
 
         // Characteristics values
         try {
@@ -405,7 +387,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
         width: width ? parseFloat(width) : null,
         height: height ? parseFloat(height) : null,
         certifications: selectedCertifications.length > 0 ? selectedCertifications : null,
-        color: JSON.stringify(Array.from(selectedColorIds)) || null,
+        color: null,
       };
 
       if (isEditMode) {
@@ -563,7 +545,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
     for (let i = 0; i < newCount; i++) slots.push({ type: 'new', idx: i });
 
     return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-36">
       <div className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-4">
           <div>
@@ -630,28 +612,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
               </div>
             )}
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Couleur</label>
-            <div className="flex flex-wrap gap-2">
-              {allColors.length === 0 ? (
-                <p className="text-xs text-[var(--text-tertiary)]">Aucune couleur disponible.</p>
-              ) : allColors.map((c) => (
-                <button key={c.id} type="button" onClick={() => setSelectedColorIds(prev => {
-                  const next = new Set(prev);
-                  if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
-                  return next;
-                })}
-                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                    selectedColorIds.has(c.id)
-                      ? 'border-[var(--accent-blue)] bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]'
-                      : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
-                  }`}>
-                  <span className="h-4 w-4 rounded-full border border-[var(--border)]" style={{ backgroundColor: c.hex }} />
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          </div>
+
           <div>
             <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Visibilité</label>
             <div className="flex gap-3">
@@ -817,13 +778,14 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
                 <div key={c.id}>
                   <label className="mb-1 block text-sm font-medium text-[var(--text-primary)]">{c.name}</label>
                   {c.attributeType === 'SELECT' || c.attributeType === 'COLOR' || c.attributeType === 'SIZE' ? (
-                    <select value={characteristicValues[c.id] || ''} onChange={e => setCharacteristicValues(prev => ({ ...prev, [c.id]: e.target.value }))}
-                      className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm outline-none focus:border-[var(--accent-blue)]">
-                      <option value="">Sélectionner...</option>
-                      {c.values.map(v => (
-                        <option key={v.id} value={v.value}>{v.value}</option>
-                      ))}
-                    </select>
+                    <SellerSelect
+                      value={characteristicValues[c.id] || ''}
+                      onChange={val => setCharacteristicValues(prev => ({ ...prev, [c.id]: val }))}
+                      options={[
+                        { value: '', label: 'Sélectionner...' },
+                        ...c.values.map(v => ({ value: v.value, label: v.value }))
+                      ]}
+                    />
                   ) : (
                     <input type="text" value={characteristicValues[c.id] || ''} onChange={e => setCharacteristicValues(prev => ({ ...prev, [c.id]: e.target.value }))}
                       className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm outline-none focus:border-[var(--accent-blue)]"
@@ -922,7 +884,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
   );
 
   const renderShippingStep = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-36">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Poids (kg)</label>
@@ -949,16 +911,20 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
       <div className="rounded-xl bg-[var(--bg-outer)] p-5">
         <h4 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">Délai de livraison</h4>
         <div>
-          <select value={leadTimeRange} onChange={e => setLeadTimeRange(e.target.value)}
-            className="h-11 w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm outline-none focus:border-[var(--accent-blue)]">
-            <option value="1-2 jours">1-2 jours</option>
-            <option value="3-5 jours">3-5 jours</option>
-            <option value="5-7 jours">5-7 jours</option>
-            <option value="7-10 jours">7-10 jours</option>
-            <option value="10-15 jours">10-15 jours</option>
-            <option value="15-20 jours">15-20 jours</option>
-            <option value="20-30 jours">20-30 jours</option>
-          </select>
+          <SellerSelect
+            className="max-w-xs"
+            value={leadTimeRange}
+            onChange={val => setLeadTimeRange(val)}
+            options={[
+              { value: '1-2 jours', label: '1-2 jours' },
+              { value: '3-5 jours', label: '3-5 jours' },
+              { value: '5-7 jours', label: '5-7 jours' },
+              { value: '7-10 jours', label: '7-10 jours' },
+              { value: '10-15 jours', label: '10-15 jours' },
+              { value: '15-20 jours', label: '15-20 jours' },
+              { value: '20-30 jours', label: '20-30 jours' }
+            ]}
+          />
         </div>
       </div>
     </div>

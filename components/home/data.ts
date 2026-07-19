@@ -1,37 +1,10 @@
-// Sélection courte affichée dans le footer (style épuré) ;
-// la liste complète reste disponible sur /all-products.
-export const footerCategoriesEssential = [
-  'Ordinateurs',
-  'Smartphones',
-  'Tablettes',
-  'Télévisions',
-  'Casques audio',
-  'Appareils photo',
-  'Électroménager',
-  'Gadgets & accessoires',
-];
-
 export const footerCategories = [
   'Ordinateurs',
   'Smartphones',
   'Tablettes',
   'Télévisions',
-  'Casques audio',
-  'Écouteurs',
-  'Haut-parleurs & barres de son',
-  'Appareils photo',
-  'Drones',
-  'Montres connectées',
-  'Souris',
-  'Claviers',
-  'Câbles & chargeurs',
-  'Clés USB & stockage',
-  'Imprimantes',
-  'Électroménager',
-  'Cuisine',
-  'Vélos',
-  'Paillassons & tapis d’entrée',
-  'Gadgets & accessoires',
+  'Casques & Écouteurs',
+  'Haut-parleurs',
 ];
 
 export const footerQuickLinks = [

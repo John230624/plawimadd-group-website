@@ -13,9 +13,7 @@ interface FilterSidebarProps {
   onAvailableChange: (v: boolean) => void;
   showOnlyOffers: boolean;
   onOffersChange: (v: boolean) => void;
-  allColors: { id: string; name: string; hex: string }[];
-  selectedColorFilter: Set<string>;
-  onColorFilterChange: (ids: Set<string>) => void;
+
   priceRange: { min: string; max: string };
   onPriceRangeChange: (range: { min: string; max: string }) => void;
   moqMax: string;
@@ -55,9 +53,7 @@ export default function FilterSidebar({
   onAvailableChange,
   showOnlyOffers,
   onOffersChange,
-  allColors,
-  selectedColorFilter,
-  onColorFilterChange,
+
   priceRange,
   onPriceRangeChange,
   moqMax,
@@ -179,36 +175,6 @@ export default function FilterSidebar({
         </div>
       </div>
 
-      {allColors.length > 0 && (
-        <div className={SECTION_CLASS}>
-          <p className={LABEL_CLASS}>Couleur</p>
-          <div className="flex flex-wrap gap-2">
-            {allColors.map((color) => {
-              const isSelected = selectedColorFilter.has(color.id);
-              return (
-                <button
-                  key={color.id}
-                  type="button"
-                  onClick={() => {
-                    const next = new Set(selectedColorFilter);
-                    if (next.has(color.id)) next.delete(color.id);
-                    else next.add(color.id);
-                    onColorFilterChange(next);
-                  }}
-                  className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
-                    isSelected
-                      ? 'border-[#ff6a00] bg-[#fff3e8] text-[#c25100]'
-                      : 'border-transparent bg-[#f7f7f7] text-[#555] hover:bg-[#eee]'
-                  }`}
-                >
-                  <span className="h-3.5 w-3.5 rounded-full border border-[#ddd]" style={{ backgroundColor: color.hex }} />
-                  {color.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       <div className={SECTION_CLASS}>
         <p className={LABEL_CLASS}>Certifications</p>

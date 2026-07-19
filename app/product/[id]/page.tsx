@@ -113,7 +113,7 @@ export default function ProductPage(): React.ReactElement {
   const [productCharacteristics, setProductCharacteristics] = useState<
     { characteristic: { id: string; name: string }; value: string }[]
   >([]);
-  const [allColors, setAllColors] = useState<{ id: string; name: string; hex: string }[]>([]);
+
   const [activeTab, setActiveTab] = useState<Tab>('specifications');
   const [quantity, setQuantity] = useState(1);
 
@@ -149,12 +149,7 @@ export default function ProductPage(): React.ReactElement {
             if (Array.isArray(chars)) setProductCharacteristics(chars);
           })
           .catch(() => {});
-        fetch('/api/colors')
-          .then((res) => res.json())
-          .then((colorData) => {
-            if (Array.isArray(colorData)) setAllColors(colorData);
-          })
-          .catch(() => {});
+
       } catch (error) {
         console.error(error);
         toast.error('Erreur lors du chargement du produit.');
@@ -199,19 +194,7 @@ export default function ProductPage(): React.ReactElement {
       .slice(0, 12);
   }, [productData?.id, products]);
 
-  const productColorIds: string[] = useMemo(() => {
-    if (!productData?.color) return [];
-    try {
-      const parsed = JSON.parse(productData.color);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }, [productData?.color]);
 
-  const productColors = useMemo(() => {
-    return allColors.filter((color) => productColorIds.includes(color.id));
-  }, [allColors, productColorIds]);
 
   const techSpecs = useMemo(() => {
     if (!productData) return [];
@@ -224,13 +207,13 @@ export default function ProductPage(): React.ReactElement {
     return [
       { label: 'Categorie', value: productData.category?.name || 'Catalogue' },
       { label: 'Marque', value: productData.brand || 'Plawimadd' },
-      { label: 'Couleur', value: productColors.map((color) => color.name).join(', ') || 'Standard' },
+
       { label: 'Garantie', value: '12 mois' },
       { label: 'Disponibilite', value: productData.stock > 0 ? 'En stock' : 'Epuise' },
       ...dynamicCharacteristics,
       ...attributes,
     ].filter((spec) => spec.value);
-  }, [productData, productCharacteristics, productColors]);
+  }, [productData, productCharacteristics]);
 
   const displayPrice = useMemo(() => {
     if (!productData) return 0;
@@ -681,25 +664,7 @@ export default function ProductPage(): React.ReactElement {
               <p className="mt-2 text-xs text-[#777]">Prix unitaire, taxes comprises</p>
             </div>
 
-            {productColors.length > 0 ? (
-              <div className="border-b border-[#eee] py-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-bold text-[#222]">Couleur</p>
-                  <span className="text-xs font-semibold text-[#555] underline">Modifier les selections</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {productColors.map((color) => (
-                    <span
-                      key={color.id}
-                      className="inline-flex items-center gap-2 rounded-md border border-[#222] bg-white px-3 py-2 text-sm text-[#333]"
-                    >
-                      <span className="h-5 w-5 rounded-full border border-[#ddd]" style={{ backgroundColor: color.hex }} />
-                      {color.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+
 
             {productData.variants && productData.variants.length > 0 ? (
               <div className="border-b border-[#eee] py-5">

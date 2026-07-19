@@ -82,7 +82,7 @@ const menuSections: MenuSection[] = [
       { name: 'sidebar.brands', path: '/seller/brands', icon: BadgeCheck, permission: 'products.view' },
       { name: 'sidebar.categories', path: '/seller/categories', icon: Layers3, permission: 'categories.view' },
       { name: 'sidebar.characteristics', path: '/seller/characteristics', icon: SlidersHorizontal, permission: 'characteristics.view' },
-      { name: 'sidebar.colors', path: '/seller/colors', icon: Palette, permission: 'colors.view' },
+
       { name: 'sidebar.promotions', path: '/seller/promotions', icon: Tag, permission: 'promotions.view' },
     ],
   },

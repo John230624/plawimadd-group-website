@@ -8,7 +8,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import HomeFooter from '@/components/home/HomeFooter';
 import ProductCarouselSection from '@/components/home/ProductCarouselSection';
 import ProductCard from '@/components/ProductCard';
-import FilterSidebar from '@/components/product/FilterSidebar';
 import { useAppContext } from '@/context/AppContext';
 import type { Product } from '@/lib/types';
 
@@ -289,8 +288,6 @@ function AllProductsPage(): React.ReactElement {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(false);
   const [showOnlyOffers, setShowOnlyOffers] = useState(false);
-  const [allColors, setAllColors] = useState<{ id: string; name: string; hex: string }[]>([]);
-  const [selectedColorFilter, setSelectedColorFilter] = useState<Set<string>>(new Set());
   const [priceRange, setPriceRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
   const [moqMax, setMoqMax] = useState('');
   const [selectedCertifications, setSelectedCertifications] = useState<string[]>([]);
@@ -300,12 +297,7 @@ function AllProductsPage(): React.ReactElement {
     setVisibleCount(12);
   }, [categoryParam, brandParam, searchTerm, sortBy]);
 
-  useEffect(() => {
-    fetch('/api/colors')
-      .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setAllColors(data); })
-      .catch(() => {});
-  }, []);
+
 
   const availableCategories = useMemo(() => {
     const values = new Set(
@@ -391,8 +383,6 @@ function AllProductsPage(): React.ReactElement {
         (product.offerPrice !== null &&
           product.offerPrice !== undefined &&
           product.offerPrice < product.price);
-      const matchesColor = selectedColorFilter.size === 0 ||
-        getProductColorIds(product).some((id) => selectedColorFilter.has(id));
       const matchesPriceMin = !priceRange.min || getDisplayPrice(product) >= parseFloat(priceRange.min);
       const matchesPriceMax = !priceRange.max || getDisplayPrice(product) <= parseFloat(priceRange.max);
       const matchesCert = selectedCertifications.length === 0 ||
@@ -400,7 +390,7 @@ function AllProductsPage(): React.ReactElement {
       const matchesRating = minRating === 0 || (product.rating ?? 0) >= minRating;
       const matchesMoq = !moqMax || (product.moqMin ?? 1) <= parseInt(moqMax, 10);
 
-      return matchesAvailability && matchesOffer && matchesColor && matchesPriceMin && matchesPriceMax && matchesCert && matchesRating && matchesMoq;
+      return matchesAvailability && matchesOffer && matchesPriceMin && matchesPriceMax && matchesCert && matchesRating && matchesMoq;
     });
 
     const sorted = [...filtered].sort((first, second) => {
@@ -414,7 +404,7 @@ function AllProductsPage(): React.ReactElement {
     });
 
     return sorted;
-  }, [brandParam, categoryProducts, showOnlyAvailable, showOnlyOffers, sortBy, selectedColorFilter, priceRange, moqMax, selectedCertifications, minRating]);
+  }, [brandParam, categoryProducts, showOnlyAvailable, showOnlyOffers, sortBy, priceRange, moqMax, selectedCertifications, minRating]);
 
   const paginatedProducts = selectedBrandProducts.slice(0, visibleCount);
   const hasMore = visibleCount < selectedBrandProducts.length;
@@ -450,7 +440,6 @@ function AllProductsPage(): React.ReactElement {
   const hasActiveFilters =
     showOnlyAvailable ||
     showOnlyOffers ||
-    selectedColorFilter.size > 0 ||
     priceRange.min !== '' ||
     priceRange.max !== '' ||
     moqMax !== '' ||
@@ -562,42 +551,7 @@ function AllProductsPage(): React.ReactElement {
                     </div>
                   </FilterPopover>
 
-                  <FilterPopover
-                    label="Couleurs"
-                    active={selectedColorFilter.size > 0}
-                    onReset={() => setSelectedColorFilter(new Set())}
-                  >
-                    <div className="space-y-2">
-                      <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Couleurs</h4>
-                      <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto pr-1">
-                        {allColors.map((color) => {
-                          const isSelected = selectedColorFilter.has(color.name);
-                          return (
-                            <button
-                              key={color.id}
-                              type="button"
-                              onClick={() => {
-                                const newSet = new Set(selectedColorFilter);
-                                if (newSet.has(color.name)) {
-                                  newSet.delete(color.name);
-                                } else {
-                                  newSet.add(color.name);
-                                }
-                                setSelectedColorFilter(newSet);
-                              }}
-                              className={`rounded-lg border px-2 py-1.5 text-[10px] font-bold text-center truncate transition ${
-                                isSelected
-                                  ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
-                                  : 'border-slate-200 bg-slate-50 text-slate-650 hover:bg-slate-100'
-                              }`}
-                            >
-                              {color.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </FilterPopover>
+
 
 
 
@@ -607,7 +561,6 @@ function AllProductsPage(): React.ReactElement {
                       onClick={() => {
                         setShowOnlyAvailable(false);
                         setShowOnlyOffers(false);
-                        setSelectedColorFilter(new Set());
                         setPriceRange({ min: '', max: '' });
                         setMoqMax('');
                         setSelectedCertifications([]);
