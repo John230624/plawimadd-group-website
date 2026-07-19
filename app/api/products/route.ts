@@ -7,7 +7,12 @@ import { logActivity } from '@/lib/logActivity';
 import { productSchema } from '@/lib/validation';
 import { ZodError } from 'zod';
 
-import { Decimal, PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
+
+// Alias via l'API publique : l'import direct de @prisma/client/runtime/library
+// echoue au runtime en prod depuis que le paquet est externalise (serverExternalPackages).
+const Decimal = Prisma.Decimal;
+type Decimal = Prisma.Decimal;
 
 // Nouveau : Définir le type de la catégorie telle qu'elle sera récupérée par Prisma avec un produit
 type CategoryFromPrisma = {

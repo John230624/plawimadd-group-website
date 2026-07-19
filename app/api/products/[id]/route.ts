@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
-import { Decimal, PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 // Importez les types générés par Prisma directement pour une meilleure compatibilité
-import { Product as PrismaProduct, Category } from '@prisma/client';
+import { Prisma, Product as PrismaProduct, Category } from '@prisma/client';
+
+const Decimal = Prisma.Decimal;
+type Decimal = Prisma.Decimal;
 
 interface RouteContext {
     params: Promise<{

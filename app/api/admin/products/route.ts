@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
+
+type Decimal = Prisma.Decimal;
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
     const authResult: AuthResult = await authorizeByPermission(req, 'products.edit');

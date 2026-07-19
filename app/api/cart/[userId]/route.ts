@@ -4,7 +4,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma'; // Assurez-vous que votre client Prisma est correctement importé
 import { authorizeUser, AuthResult } from '@/lib/authUtils'; // Importation de la fonction d'autorisation commune
-import { Decimal } from '@prisma/client/runtime/library'; // Réintroduit car utilisé pour le typage de Prisma.Decimal
+import { Prisma } from '@prisma/client';
+
+type Decimal = Prisma.Decimal;
 
 interface Context {
     params: Promise<{
