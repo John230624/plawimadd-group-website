@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { 
+  ChevronLeft,
   ChevronRight, 
   Box, 
   ArrowRight,
@@ -11,7 +12,6 @@ import {
   X,
   Flame,
   TrendingUp,
-  ShoppingBag,
   ArrowRightCircle
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
@@ -23,6 +23,18 @@ interface CategoryExplorerProps {
   loadingProducts: boolean;
   activeCategoryId: string;
   setActiveCategoryId: (id: string) => void;
+}
+
+interface CustomOffer {
+  id: string;
+  title: string;
+  description: string;
+  badgeText: string;
+  image: string;
+  buttonText: string;
+  buttonUrl: string;
+  isActive: boolean;
+  isStudent: boolean;
 }
 
 export function getCategoryIcon(iconNameOrCatName: string | null): any {
@@ -60,9 +72,11 @@ export default function CategoryExplorer({
 }: CategoryExplorerProps): React.ReactNode {
   const { formatPrice } = useAppContext();
   const router = useRouter();
+  const scrollRef = useRef<HTMLDivElement>(null);
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState<boolean>(true);
+  const [offers, setOffers] = useState<CustomOffer[]>([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
 
   // Fetch categories on mount
@@ -83,44 +97,37 @@ export default function CategoryExplorer({
       });
   }, []);
 
-  // Sort best selling products based on soldCount
-  const topSellingProducts = [...products]
-    .sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0))
-    .slice(0, 3);
-
-  // Marketing banners
-  const banners = [
-    {
-      title: "Ventes Flash d'Été",
-      subtitle: "Jusqu'à -30% sur une large sélection d'ordinateurs",
-      cta: "Découvrir",
-      bgClass: "bg-gradient-to-br from-[#1e3a8a] to-[#3b82f6] text-white",
-      tag: "Promo"
-    },
-    {
-      title: "Paiement par Tranche",
-      subtitle: "Des facilités adaptées aux étudiants et professionnels",
-      cta: "En savoir plus",
-      bgClass: "bg-gradient-to-br from-[#0f766e] to-[#14b8a6] text-white",
-      tag: "Service"
-    },
-    {
-      title: "Livraison Express",
-      subtitle: "Partout au Bénin dans les plus brefs délais",
-      cta: "Acheter",
-      bgClass: "bg-gradient-to-br from-[#7c2d12] to-[#f97316] text-white",
-      tag: "Service"
-    }
-  ];
-
-  // Rotate marketing banners automatically
+  // Fetch real custom offers (offre étudiante, etc.) for the offers slider
   useEffect(() => {
-    if (activeCategoryId) return;
+    fetch('/api/custom-offer')
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        const list: CustomOffer[] = (data?.offers || []).filter((o: CustomOffer) => o.isActive);
+        setOffers(list);
+      })
+      .catch((err) => {
+        console.error('Error fetching custom offers for explorer:', err);
+      });
+  }, []);
+
+  // Sort best selling / highly searched products (up to 14 products)
+  const carouselProducts = [...products]
+    .sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0))
+    .slice(0, 14);
+
+  // Rotate offers automatically (only while the default view is shown)
+  useEffect(() => {
+    if (activeCategoryId || offers.length <= 1) return;
     const interval = setInterval(() => {
-      setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
+      setCurrentBannerIndex((prev) => (prev + 1) % offers.length);
     }, 4500);
     return () => clearInterval(interval);
-  }, [activeCategoryId, banners.length]);
+  }, [activeCategoryId, offers.length]);
+
+  // Keep the active index valid if the offers list changes
+  useEffect(() => {
+    if (currentBannerIndex >= offers.length) setCurrentBannerIndex(0);
+  }, [offers.length, currentBannerIndex]);
 
   const activeCategory = categories.find((c) => c.id === activeCategoryId);
   const activeCategoryProducts = products.filter((p) => p.category.id === activeCategoryId);
@@ -148,6 +155,17 @@ export default function CategoryExplorer({
       setActiveCategoryId(''); // Toggle off
     } else {
       setActiveCategoryId(catId);
+    }
+  };
+
+  // Scroll function for horizontal products carousel
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      const scrollTo = direction === 'left' 
+        ? scrollLeft - clientWidth * 0.75 
+        : scrollLeft + clientWidth * 0.75;
+      scrollRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
     }
   };
 
@@ -180,10 +198,10 @@ export default function CategoryExplorer({
   return (
     <div className="w-full">
       {/* ----------------- DESKTOP LAYOUT (Borderless Panels) ----------------- */}
-      <div className="hidden md:flex gap-4 w-full h-[380px] items-stretch select-none">
+      <div className="hidden md:flex gap-4 w-full h-[320px] items-stretch select-none">
         
         {/* Left Panel Sidebar Card */}
-        <div className="w-[260px] border border-slate-200 bg-white rounded-lg flex flex-col py-4 overflow-y-auto shadow-sm shrink-0">
+        <div className="show-scrollbar w-[260px] border border-slate-200 bg-[#f8f8f8] rounded-lg flex flex-col py-4 overflow-y-auto shadow-sm shrink-0">
           <div className="px-4 mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
             <Sparkles className="h-3.5 w-3.5 text-[#2563eb]" />
             Catégories pour vous
@@ -234,13 +252,26 @@ export default function CategoryExplorer({
           </div>
         </div>
 
-        {/* Right Panel Main Area */}
+        {/* Right Panel Main Area Container */}
         <div className="flex-1 flex gap-4 min-w-0 items-stretch">
-          {activeCategoryId === '' ? (
-            /* ================= VIEW A: DEFAULT (3 best sellers + banner) ================= */
-            <>
-              {/* 3 Best selling cards */}
-              {topSellingProducts.map((product, index) => {
+
+          {/* ================= PRODUCTS CAROUSEL (relative : accueille l'overlay catégorie) ================= */}
+          {/* 1. Products Horizontal Carousel (up to 14 products, transparent container) */}
+          <div className="flex-1 relative group/carousel flex items-stretch min-w-0">
+            {/* Left Scroll Button */}
+            <button
+              onClick={() => scroll('left')}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-white text-slate-800 rounded-full h-9 w-9 shadow-md flex items-center justify-center border border-slate-200/60 z-10 transition opacity-0 group-hover/carousel:opacity-100"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+
+            {/* Carousel Scroll Area */}
+            <div
+              ref={scrollRef}
+              className="flex-1 flex gap-4 overflow-x-auto no-scrollbar scroll-smooth items-stretch py-0.5"
+            >
+              {carouselProducts.map((product, index) => {
                 const img = product.imgUrl?.[0] || '/images/default_product_image.png';
                 const cardTitle = index === 0 ? 'Historique de recherche' : 'Explorez des';
                 const cardSubtitle = product.category.name || 'Sélections';
@@ -248,7 +279,7 @@ export default function CategoryExplorer({
                   <div
                     key={product.id}
                     onClick={() => handleProductClick(product.id)}
-                    className="flex-1 bg-white rounded-xl p-4 shadow-sm flex flex-col justify-between cursor-pointer hover:shadow-md hover:border-blue-500/20 transition-all duration-300 group select-none min-w-[150px] h-full"
+                    className="flex-shrink-0 w-[200px] bg-[#f8f8f8] rounded-xl p-4 shadow-sm flex flex-col justify-between cursor-pointer hover:shadow-md border border-slate-100 transition-all duration-300 group select-none h-full"
                   >
                     <div className="flex flex-col flex-1 justify-between">
                       {/* Top Titles */}
@@ -262,7 +293,7 @@ export default function CategoryExplorer({
                       </div>
 
                       {/* Image and Price Overlay */}
-                      <div className="relative w-full flex-1 min-h-[160px] bg-[#f8f9fa] rounded-xl flex items-center justify-center p-3 overflow-hidden group-hover:bg-[#f1f3f5] transition-colors duration-300">
+                      <div className="relative w-full flex-1 min-h-[160px] bg-white rounded-xl flex items-center justify-center p-3 overflow-hidden group-hover:bg-slate-50 transition-colors duration-300">
                         <Image
                           src={img}
                           alt={product.name}
@@ -271,7 +302,7 @@ export default function CategoryExplorer({
                           className="object-contain p-1.5 transition-transform duration-500 group-hover:scale-105"
                         />
                         
-                        {/* Price Badge Bubble positioned at bottom center of the image container */}
+                        {/* Price Badge Bubble */}
                         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white text-slate-900 font-extrabold text-[12px] px-3.5 py-1 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] border border-slate-100/60 whitespace-nowrap z-10 transition-transform duration-300 group-hover:scale-105">
                           {formatPrice(product.price)}
                         </div>
@@ -280,59 +311,19 @@ export default function CategoryExplorer({
                   </div>
                 );
               })}
+            </div>
 
-              {/* Autoplay Banner Slider Card */}
-              <div className="flex-[1.4] rounded-lg overflow-hidden border border-slate-200 shadow-sm relative group select-none min-w-[240px]">
-                {banners.map((b, index) => {
-                  const isActive = index === currentBannerIndex;
-                  return (
-                    <div
-                      key={index}
-                      className={`absolute inset-0 p-6 flex flex-col justify-between transition-all duration-700 ease-in-out ${b.bgClass} ${
-                        isActive ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 translate-x-4 scale-95 pointer-events-none'
-                      }`}
-                    >
-                      <div>
-                        <span className="inline-block text-[9px] font-extrabold uppercase tracking-widest bg-white/20 px-2.5 py-1 rounded-full mb-3">
-                          {b.tag}
-                        </span>
-                        <h3 className="text-xl font-extrabold leading-tight tracking-tight max-w-[200px]">
-                          {b.title}
-                        </h3>
-                        <p className="mt-2 text-xs text-white/80 font-medium leading-relaxed max-w-[200px]">
-                          {b.subtitle}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <button
-                          onClick={() => router.push('/all-products')}
-                          className="bg-white text-slate-900 text-xs font-bold px-4 py-2 rounded-md hover:bg-slate-50 transition shadow-sm inline-flex items-center gap-1"
-                        >
-                          {b.cta}
-                          <ArrowRightCircle className="h-4 w-4 text-[#2563eb]" />
-                        </button>
-                        
-                        {/* Slide indicators */}
-                        <div className="flex gap-1">
-                          {banners.map((_, dotIdx) => (
-                            <button
-                              key={dotIdx}
-                              onClick={() => setCurrentBannerIndex(dotIdx)}
-                              className={`h-1.5 rounded-full transition-all duration-300 ${
-                                dotIdx === currentBannerIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/40'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            /* ================= VIEW B: ACTIVE CATEGORY PRODUCTS GRID ================= */
-            <div className="flex-1 bg-white border border-slate-200 rounded-lg p-6 shadow-sm flex flex-col overflow-hidden">
+            {/* Right Scroll Button */}
+            <button
+              onClick={() => scroll('right')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-white text-slate-800 rounded-full h-9 w-9 shadow-md flex items-center justify-center border border-slate-200/60 z-10 transition opacity-0 group-hover/carousel:opacity-100"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+
+          {/* ================= PANEL OVERLAY (couvre UNIQUEMENT le carousel, garde le bloc offres visible) ================= */}
+          {activeCategoryId !== '' && (
+            <div className="absolute inset-0 bg-white border border-slate-200 rounded-lg p-6 shadow-md flex flex-col overflow-hidden z-20 animate-fade-in-up">
               {activeCategory && (
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4 shrink-0">
                   <div>
@@ -404,6 +395,76 @@ export default function CategoryExplorer({
               </div>
             </div>
           )}
+          </div>
+          {/* fin du carousel (l'overlay ci-dessus ne couvre que cette zone) */}
+
+          {/* 2. Bandeau des offres personnalisées (offre étudiante, etc.) — toujours visible */}
+          <div className="w-[300px] rounded-lg overflow-hidden border border-slate-200 shadow-sm relative group select-none shrink-0 h-full bg-slate-900">
+            {offers.length === 0 ? (
+              <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
+                <p className="text-xs font-medium text-white/70">Nos offres arrivent bientôt.</p>
+              </div>
+            ) : (
+              offers.map((offer, index) => {
+                const isActive = index === currentBannerIndex;
+                return (
+                  <div
+                    key={offer.id}
+                    className={`absolute inset-0 flex flex-col justify-between transition-all duration-700 ease-in-out ${
+                      isActive ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 translate-x-4 scale-95 pointer-events-none'
+                    }`}
+                  >
+                    {/* Image de fond de l'offre + voile sombre pour lisibilité */}
+                    <Image
+                      src={offer.image || '/images/background_etudiant2.jpg'}
+                      alt={offer.title}
+                      fill
+                      sizes="300px"
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" />
+
+                    <div className="relative p-6">
+                      <span className="inline-block text-[9px] font-extrabold uppercase tracking-widest bg-white/20 text-white px-2.5 py-1 rounded-full mb-3 backdrop-blur-sm">
+                        {offer.badgeText}
+                      </span>
+                      <h3 className="text-xl font-extrabold leading-tight tracking-tight max-w-[220px] text-white">
+                        {offer.title}
+                      </h3>
+                      <p className="mt-2 text-xs text-white/85 font-medium leading-relaxed max-w-[220px] line-clamp-3">
+                        {offer.description}
+                      </p>
+                    </div>
+                    <div className="relative p-6 flex items-center justify-between">
+                      <button
+                        onClick={() => router.push(offer.buttonUrl || '/offer')}
+                        className="bg-white text-slate-900 text-xs font-bold px-4 py-2 rounded-md hover:bg-slate-50 transition shadow-sm inline-flex items-center gap-1"
+                      >
+                        {offer.buttonText}
+                        <ArrowRightCircle className="h-4 w-4 text-[#2563eb]" />
+                      </button>
+
+                      {offers.length > 1 && (
+                        <div className="flex gap-1">
+                          {offers.map((_, dotIdx) => (
+                            <button
+                              key={dotIdx}
+                              onClick={() => setCurrentBannerIndex(dotIdx)}
+                              aria-label={`Offre ${dotIdx + 1}`}
+                              className={`h-1.5 rounded-full transition-all duration-300 ${
+                                dotIdx === currentBannerIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/40'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
         </div>
       </div>
 

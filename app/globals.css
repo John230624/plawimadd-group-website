@@ -69,6 +69,27 @@
   display: none;
 }
 
+/* Réaffiche une barre de défilement fine et visible (la règle globale la cache).
+   Utilisé pour la liste des catégories de l'explorateur. */
+.show-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.show-scrollbar::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+.show-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.show-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+.show-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
 /* Définition de la police par défaut */
 body {
   font-family: 'Poppins', sans-serif;
