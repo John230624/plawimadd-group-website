@@ -242,37 +242,40 @@ export default function CategoryExplorer({
               {/* 3 Best selling cards */}
               {topSellingProducts.map((product, index) => {
                 const img = product.imgUrl?.[0] || '/images/default_product_image.png';
+                const cardTitle = index === 0 ? 'Historique de recherche' : 'Explorez des';
+                const cardSubtitle = product.category.name || 'Sélections';
                 return (
                   <div
                     key={product.id}
                     onClick={() => handleProductClick(product.id)}
-                    className="flex-1 bg-white border border-slate-150 rounded-lg p-4 shadow-sm flex flex-col justify-between cursor-pointer hover:shadow-md hover:border-blue-500/20 transition group select-none min-w-[140px]"
+                    className="flex-1 bg-white rounded-xl p-4 shadow-sm flex flex-col justify-between cursor-pointer hover:shadow-md hover:border-blue-500/20 transition-all duration-300 group select-none min-w-[150px] h-full"
                   >
-                    <div>
-                      <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide text-slate-400 mb-2">
-                        <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
-                        {index === 0 ? 'Top Vente' : index === 1 ? 'Hit de Vente' : 'Populaire'}
+                    <div className="flex flex-col flex-1 justify-between">
+                      {/* Top Titles */}
+                      <div className="mb-2">
+                        <div className="text-[13px] font-extrabold text-slate-900 leading-tight">
+                          {cardTitle}
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                          {cardSubtitle}
+                        </div>
                       </div>
-                      <div className="relative w-full h-32 flex items-center justify-center bg-slate-50 rounded-md overflow-hidden p-2 group-hover:scale-[1.02] transition duration-300">
+
+                      {/* Image and Price Overlay */}
+                      <div className="relative w-full flex-1 min-h-[160px] bg-[#f8f9fa] rounded-xl flex items-center justify-center p-3 overflow-hidden group-hover:bg-[#f1f3f5] transition-colors duration-300">
                         <Image
                           src={img}
                           alt={product.name}
                           fill
                           sizes="180px"
-                          className="object-contain p-1"
+                          className="object-contain p-1.5 transition-transform duration-500 group-hover:scale-105"
                         />
+                        
+                        {/* Price Badge Bubble positioned at bottom center of the image container */}
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white text-slate-900 font-extrabold text-[12px] px-3.5 py-1 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] border border-slate-100/60 whitespace-nowrap z-10 transition-transform duration-300 group-hover:scale-105">
+                          {formatPrice(product.price)}
+                        </div>
                       </div>
-                      <h4 className="mt-3 text-xs font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-blue-600 transition-colors">
-                        {product.name}
-                      </h4>
-                    </div>
-                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-xs font-extrabold text-black">
-                        {formatPrice(product.price)}
-                      </span>
-                      <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full inline-flex items-center gap-0.5">
-                        Acheter <ChevronRight className="h-2.5 w-2.5" />
-                      </span>
                     </div>
                   </div>
                 );
