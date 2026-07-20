@@ -139,24 +139,23 @@ export default function HomeFooter(): React.ReactElement {
             <SecurityBadge icon={<LockKeyhole className="h-4 w-4 text-emerald-600" />} label="Données protégées (SSL)" />
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* MTN MoMo : jaune officiel, texte navy */}
+            {/* MTN MoMo */}
             <PaymentChip>
-              <span className="flex h-full items-center gap-1.5 rounded bg-[#FFCC00] px-2">
-                <span className="text-[11px] font-extrabold tracking-tight text-[#004F71]">MTN</span>
-                <span className="text-[11px] font-bold italic text-[#004F71]">MoMo</span>
-              </span>
+              <div className="relative h-6 w-9 overflow-hidden flex items-center justify-center">
+                <Image src={assets.mtn} alt="MTN MoMo" className="object-contain max-h-full max-w-full" />
+              </div>
             </PaymentChip>
-            {/* Moov Money : bleu et orange officiels */}
+            {/* Moov Money */}
             <PaymentChip>
-              <span className="text-[11px] font-extrabold text-[#0060A9]">
-                moov <span className="text-[#F39200]">money</span>
-              </span>
+              <div className="relative h-6 w-9 overflow-hidden flex items-center justify-center">
+                <Image src={assets.moov} alt="Moov Money" className="object-contain max-h-full max-w-full" />
+              </div>
             </PaymentChip>
             {/* Celtiis Cash */}
             <PaymentChip>
-              <span className="text-[11px] font-extrabold text-[#00A5A8]">
-                celtiis <span className="font-bold text-slate-700">cash</span>
-              </span>
+              <div className="relative h-6 w-9 overflow-hidden flex items-center justify-center">
+                <Image src={assets.celtiis} alt="Celtiis Cash" className="object-contain max-h-full max-w-full" />
+              </div>
             </PaymentChip>
             {/* Visa : marque officielle */}
             <PaymentChip>
