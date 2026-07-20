@@ -46,25 +46,7 @@ export default function HomePage(): React.ReactElement {
 
       {/* Unified Product Catalog Section */}
       <section className="mt-8 mb-12">
-        <div className="mb-6 flex items-center justify-between border-b border-slate-200 pb-4">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
-              {activeCategoryId && displayedProducts.length > 0
-                ? `Notre Sélection : ${displayedProducts[0].category}`
-                : 'Notre Catalogue'}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Découvrez notre sélection tech moderne, claire et accessible.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => router.push('/all-products')}
-            className="text-xs font-bold uppercase tracking-wider text-[#ff6a00] hover:text-[#e65f00] transition"
-          >
-            Voir tout le catalogue &rarr;
-          </button>
-        </div>
+
 
         {loadingProducts ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
