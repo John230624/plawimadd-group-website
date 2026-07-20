@@ -7,6 +7,7 @@ import { authOptions } from '@/lib/authOptions';
 import { logActivity } from '@/lib/logActivity';
 import { recordOrderStockOut } from '@/lib/stock';
 import { verifyKkiapayTransaction } from '@/lib/kkiapay';
+import { sendOrderConfirmationEmail } from '@/lib/email';
 
 // Interface pour le corps de la requête POST de ce endpoint
 interface CreateOrderAfterPaymentPayload {
@@ -231,6 +232,15 @@ export async function POST(req: NextRequest) {
             });
             console.log(`[Create Order After Payment] Panier de l'utilisateur ${user.id} vidé.`);
         });
+
+        // Si le paiement est complété dès la création, on envoie le mail de confirmation
+        if (verifiedCompleted) {
+            try {
+                await sendOrderConfirmationEmail(orderId);
+            } catch (emailError) {
+                console.error("[Create Order After Payment] Erreur envoi email confirmation:", emailError);
+            }
+        }
 
         await logActivity({
           userId,

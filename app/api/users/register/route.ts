@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import { validatePassword } from '@/lib/passwordPolicy';
 import { registerSchema } from '@/lib/validation';
 import { ZodError } from 'zod';
+import { sendWelcomeEmail } from '@/lib/email';
 
 interface RegisterRequestBody {
     email: string;
@@ -69,6 +70,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 phoneNumber: true, // Incluez d'autres champs non sensibles si nécessaire
             }
         });
+
+        // Envoi de l'email de bienvenue
+        try {
+            await sendWelcomeEmail(newUser.email, newUser.firstName || '', newUser.lastName || '');
+        } catch (emailError) {
+            console.error("Erreur lors de l'envoi de l'email de bienvenue:", emailError);
+        }
 
         // 5. Retourner la réponse de succès
         return NextResponse.json(

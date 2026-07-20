@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { recordOrderStockOut, restockOrder } from '@/lib/stock';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
+import { sendOrderConfirmationEmail } from '@/lib/email';
 
 export async function GET(request: NextRequest) {
   console.log("🔄 Kkiapay Callback GET reçu - MODE LIVE");
@@ -116,6 +117,15 @@ export async function GET(request: NextRequest) {
     });
 
     console.log(`✅ Commande ${transactionId} mise à jour - Succès LIVE: ${isSuccess}`);
+
+    const wasCompleted = order.paymentStatus === PaymentStatus.COMPLETED;
+    if (isSuccess && !wasCompleted) {
+      try {
+        await sendOrderConfirmationEmail(transactionId);
+      } catch (emailError) {
+        console.error("❌ Erreur envoi email de confirmation:", emailError);
+      }
+    }
 
     // Redirection
     const redirectUrl = isSuccess

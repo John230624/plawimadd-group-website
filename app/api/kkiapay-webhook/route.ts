@@ -11,6 +11,7 @@ import prisma from '@/lib/prisma';
 import { recordOrderStockOut, restockOrder } from '@/lib/stock';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
+import { sendOrderConfirmationEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   let payload: Record<string, unknown>;
@@ -124,6 +125,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log(
       `[Kkiapay Webhook] Commande ${orderId} traitee via webhook - succes: ${isSuccess} (tx ${kkiapayTransactionId})`
     );
+
+    if (isSuccess && !alreadyCompleted) {
+      try {
+        await sendOrderConfirmationEmail(orderId);
+      } catch (emailError) {
+        console.error('[Kkiapay Webhook] Erreur envoi email confirmation:', emailError);
+      }
+    }
+
     return NextResponse.json({ received: true, processed: true, success: isSuccess });
   } catch (error) {
     console.error('[Kkiapay Webhook] Erreur de traitement:', error);

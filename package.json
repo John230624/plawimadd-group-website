@@ -38,6 +38,7 @@
     "react-dom": "^19.2.7",
     "react-icons": "^5.5.0",
     "react-toastify": "^11.0.5",
+    "resend": "^6.17.2",
     "uuid": "^11.1.0",
     "zod": "^4.4.3"
   },

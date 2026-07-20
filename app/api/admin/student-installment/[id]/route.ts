@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { authorizeByPermission } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { sendEmail } from '@/lib/email';
+import { getStudentInstallmentDecisionTemplate } from '@/lib/emailTemplates';
 
 interface UpdateStudentInstallmentPayload {
   status: 'APPROVED' | 'REJECTED' | 'PENDING';
@@ -56,20 +57,18 @@ export async function PUT(
       details: `Demande etudiante ${id} -> ${body.status}${body.adminNote ? ' : ' + body.adminNote : ''}`,
     });
 
-    if (existing.user?.email) {
-      const statusLabel = body.status === 'APPROVED' ? 'approuvee' : 'rejetee';
-      const noteHtml = body.adminNote
-        ? `<p><strong>Motif :</strong> ${body.adminNote}</p>`
-        : '';
+    if (existing.user?.email && (body.status === 'APPROVED' || body.status === 'REJECTED')) {
+      const statusLabel = body.status === 'APPROVED' ? 'approuvée' : 'rejetée';
+      const html = getStudentInstallmentDecisionTemplate({
+        fullName: existing.fullName,
+        status: body.status,
+        adminNote: body.adminNote,
+      });
 
       await sendEmail({
         to: existing.studentEmail || existing.user.email,
-        subject: `Votre demande de financement a ete ${statusLabel}`,
-        html: `<p>Bonjour ${existing.fullName},</p>
-<p>Votre demande de paiement par tranche a ete <strong>${statusLabel}</strong>.</p>
-${noteHtml}
-${body.status === 'APPROVED' ? '<p>Vous pouvez desormais passer une commande en mode etudiant avec paiement par tranche.</p>' : '<p>Si vous avez des questions, veuillez contacter notre equipe.</p>'}
-<p>Cordialement,<br/>L'equipe Plawimadd Group</p>`,
+        subject: `Votre demande de financement a été ${statusLabel}`,
+        html,
       });
     }
 

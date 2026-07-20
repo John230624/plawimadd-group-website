@@ -388,3 +388,23 @@ export interface AppContextType {
     isInWishlist: (productId: string) => boolean;
     getWishlistCount: () => number;
 }
+
+export interface Category {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  parentId: string | null;
+  level: number;
+  _count?: {
+    products: number;
+  };
+  parent?: {
+    id: string;
+    name: string;
+  } | null;
+  children?: {
+    id: string;
+    name: string;
+  }[];
+}

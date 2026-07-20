@@ -5,20 +5,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma'; // Importez votre client Prisma
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
-
-// Configuration du transporteur Nodemailer
-const transporter = nodemailer.createTransport({
-    service: 'gmail', // Ou tout autre service SMTP
-    auth: {
-        user: process.env.EMAIL_USER!, // Assurez-vous que ces variables sont définies dans .env
-        pass: process.env.EMAIL_PASS!,
-    },
-    // Configuration pour les environnements de développement non sécurisés (si nécessaire, à ne pas utiliser en production)
-    // tls: {
-    //     rejectUnauthorized: false
-    // }
-});
+import { sendEmail } from '@/lib/email';
+import { getPasswordResetTemplate } from '@/lib/emailTemplates';
 
 interface ResetPasswordRequestBody {
     email: string;
@@ -88,17 +76,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         // 5. Envoyer l'e-mail
         try {
-            await transporter.sendMail({
-                from: process.env.EMAIL_USER!,
+            const html = getPasswordResetTemplate(user.firstName || '', resetLink);
+            await sendEmail({
                 to: body.email,
                 subject: 'Réinitialisation de votre mot de passe',
-                html: `
-                    <p>Bonjour ${user.firstName || 'utilisateur'},</p>
-                    <p>Vous avez demandé une réinitialisation de votre mot de passe. Cliquez sur le lien ci-dessous :</p>
-                    <p><a href="${resetLink}">Réinitialiser mon mot de passe</a></p>
-                    <p>Ce lien expirera dans 15 minutes.</p>
-                    <p>Si vous n'avez pas demandé cette réinitialisation, ignorez cet e-mail.</p>
-                `,
+                html,
             });
             console.log(`Email de réinitialisation envoyé à ${body.email}`);
         } catch (_emailError: unknown) { // CORRECTION: Renommé 'emailError' en '_emailError'

@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { contactSchema } from '@/lib/validation';
 import { logActivity } from '@/lib/logActivity';
 import { ZodError } from 'zod';
-// import nodemailer from 'nodemailer'; // À décommenter et configurer si vous voulez envoyer de vrais emails
+import { sendEmail } from '@/lib/email';
+import { getContactMessageTemplate } from '@/lib/emailTemplates';
 
 interface ContactPayload {
     name: string;
@@ -19,34 +20,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const parsed = contactSchema.parse(body);
         const { name, email, subject, message } = parsed;
 
-        // --- Partie à décommenter pour un vrai envoi d'email ---
-        /*
-        const transporter = nodemailer.createTransport({
-            service: 'gmail', // Exemple : Gmail, Outlook, SMTP custom
-            auth: {
-                user: process.env.EMAIL_USER, // Utilisez des variables d'environnement
-                pass: process.env.EMAIL_PASS, // Utilisez des variables d'environnement
-            },
-        });
-
-        const mailOptions = {
-            from: process.env.EMAIL_USER, // Votre adresse email de service
-            to: process.env.CONTACT_RECEIVER_EMAIL, // L'adresse où vous voulez recevoir les messages
-            replyTo: email,
-            subject: `Nouveau message de contact : ${subject} (De ${name})`,
-            html: `
-                <p><strong>Nom :</strong> ${name}</p>
-                <p><strong>Email :</strong> ${email}</p>
-                <p><strong>Sujet :</strong> ${subject}</p>
-                <p><strong>Message :</strong></p>
-                <p>${message}</p>
-            `,
-        };
-
-        await transporter.sendMail(mailOptions);
-        console.log('Email envoyé avec succès !');
-        */
-        // --- Fin de la partie email ---
+        // --- Envoi d'email de contact aux admins ---
+        try {
+            const adminEmail = process.env.CONTACT_RECEIVER_EMAIL || 'admin@plawimaddgroup.com';
+            const html = getContactMessageTemplate({ name, email, subject, message });
+            await sendEmail({
+                to: adminEmail,
+                subject: `Nouveau message de contact : ${subject} (De ${name})`,
+                html,
+            });
+            console.log('Email de contact envoyé aux admins avec succès !');
+        } catch (emailErr) {
+            console.error("Erreur lors de l'envoi de l'email de contact aux admins:", emailErr);
+        }
 
         // Logs en mode développement
         console.log('--- Nouveau Message de Contact ---');

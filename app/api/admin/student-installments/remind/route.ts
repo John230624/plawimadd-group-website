@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { sendEmail } from '@/lib/email';
+import { getStudentInstallmentReminderTemplate } from '@/lib/emailTemplates';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const authResult: AuthResult = await authorizeByPermission(req, 'students.view');
@@ -34,13 +35,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const userEmail = inst.order?.user?.email;
       if (!userEmail) continue;
 
+      const fullName = [inst.order.user?.firstName, inst.order.user?.lastName].filter(Boolean).join(' ') || 'Étudiant';
+      const html = getStudentInstallmentReminderTemplate({
+        fullName,
+        installmentNumber: inst.installmentNumber,
+        amount: Number(inst.amount),
+        dueDate: inst.dueDate,
+      });
+
       const ok = await sendEmail({
         to: userEmail,
-        subject: 'Rappel de paiement echeance',
-        html: `<p>Bonjour ${inst.order.user?.firstName || ''} ${inst.order.user?.lastName || ''},</p>
-<p>Nous vous rappelons que votre echeance de paiement <strong>Tranche #${inst.installmentNumber}</strong> de <strong>${Number(inst.amount).toLocaleString('fr-FR')} FCFA</strong> est arrivee a echeance le ${new Date(inst.dueDate).toLocaleDateString('fr-FR')}.</p>
-<p>Nous vous invitons a regulariser votre situation dans les plus brefs delais.</p>
-<p>Cordialement,<br/>L'equipe Plawimadd Group</p>`,
+        subject: "Rappel de retard de paiement d'échéance",
+        html,
       });
 
       if (ok) {

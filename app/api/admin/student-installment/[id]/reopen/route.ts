@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { authorizeByPermission } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { sendEmail } from '@/lib/email';
+import { getStudentInstallmentReopenTemplate } from '@/lib/emailTemplates';
 
 export async function POST(
   req: NextRequest,
@@ -46,13 +47,11 @@ export async function POST(
     });
 
     if (request.user?.email) {
+      const html = getStudentInstallmentReopenTemplate(request.fullName);
       await sendEmail({
         to: request.studentEmail || request.user.email,
-        subject: 'Reouverture de votre demande de financement',
-        html: `<p>Bonjour ${request.fullName},</p>
-<p>Votre demande de paiement par tranche a ete rouvert par l'equipe Plawimadd Group.</p>
-<p>Vous pouvez desormais soumettre a nouveau votre dossier si necessaire.</p>
-<p>Cordialement,<br/>L'equipe Plawimadd Group</p>`,
+        subject: 'Réouverture de votre demande de financement',
+        html,
       });
     }
 
