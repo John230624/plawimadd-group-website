@@ -100,7 +100,7 @@ export default function CategoryExplorer({
 
   if (loadingCategories) {
     return (
-      <div className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex h-[380px] animate-pulse gap-6">
           <div className="w-[240px] space-y-4 border-r border-slate-100 pr-4">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -127,11 +127,11 @@ export default function CategoryExplorer({
   return (
     <div className="w-full">
       {/* ----------------- DESKTOP LAYOUT (Double Panel) ----------------- */}
-      <div className="hidden md:flex w-full rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden h-[380px]">
+      <div className="hidden md:flex w-full rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden h-[380px]">
         {/* Left Panel: Category Sidebar */}
         <div className="w-[260px] border-r border-slate-100 bg-[#fbfbfb] flex flex-col py-4 overflow-y-auto shrink-0 select-none">
           <div className="px-4 mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
-            <Sparkles className="h-3.5 w-3.5 text-[#ff6a00]" />
+            <Sparkles className="h-3.5 w-3.5 text-[#2563eb]" />
             Catégories pour vous
           </div>
           <div className="flex-1 space-y-0.5 px-2">
@@ -143,18 +143,18 @@ export default function CategoryExplorer({
                   key={cat.id}
                   onMouseEnter={() => setHoveredCategoryId(cat.id)}
                   onClick={() => handleCategoryClick(cat.name)}
-                  className={`group flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+                  className={`group flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium cursor-pointer transition-colors ${
                     isActive 
-                      ? 'bg-white text-[#ff6a00] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100' 
+                      ? 'bg-white text-[#2563eb] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100' 
                       : 'text-slate-700 hover:bg-slate-100/70 hover:text-slate-900'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? 'text-[#ff6a00]' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                    <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? 'text-[#2563eb]' : 'text-slate-400 group-hover:text-slate-600'}`} />
                     <span className="truncate">{cat.name}</span>
                   </div>
                   <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${
-                    isActive ? 'text-[#ff6a00] translate-x-0.5' : 'text-slate-300 group-hover:text-slate-400'
+                    isActive ? 'text-[#2563eb] translate-x-0.5' : 'text-slate-300 group-hover:text-slate-400'
                   }`} />
                 </div>
               );
@@ -176,7 +176,7 @@ export default function CategoryExplorer({
               </div>
               <button
                 onClick={() => handleCategoryClick(activeCategory.name)}
-                className="text-xs font-bold text-[#ff6a00] hover:text-[#e65f00] inline-flex items-center gap-1 transition"
+                className="text-xs font-bold text-[#2563eb] hover:text-[#1d4ed8] inline-flex items-center gap-1 transition"
               >
                 Parcourir les sélections en vedette
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -187,7 +187,7 @@ export default function CategoryExplorer({
           {/* Dynamic grid of circular items */}
           <div className="flex-1 overflow-y-auto pr-1">
             {activeCategoryProducts.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
                 <Box className="h-10 w-10 text-slate-300 mb-2" />
                 <p className="text-sm font-medium text-slate-600">Aucun produit dans cette catégorie pour le moment.</p>
                 <p className="text-xs text-slate-400 mt-1">Revenez bientôt ou parcourez le catalogue général.</p>
@@ -203,7 +203,7 @@ export default function CategoryExplorer({
                       className="group flex flex-col items-center cursor-pointer select-none text-center"
                     >
                       {/* Round image container like Alibaba */}
-                      <div className="relative w-18 h-18 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center p-2.5 overflow-hidden transition shadow-sm group-hover:shadow group-hover:border-[#ff6a00]/30 group-hover:scale-105">
+                      <div className="relative w-18 h-18 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center p-2.5 overflow-hidden transition shadow-sm group-hover:shadow group-hover:border-[#2563eb]/30 group-hover:scale-105">
                         <Image
                           src={img}
                           alt={product.name}
@@ -212,7 +212,7 @@ export default function CategoryExplorer({
                           className="object-contain p-1 transition duration-500"
                         />
                       </div>
-                      <span className="mt-2 text-xs font-semibold text-slate-800 line-clamp-1 max-w-[120px] transition-colors group-hover:text-[#ff6a00]">
+                      <span className="mt-2 text-xs font-semibold text-slate-800 line-clamp-1 max-w-[120px] transition-colors group-hover:text-[#2563eb]">
                         {product.name}
                       </span>
                       <span className="text-[11px] font-extrabold text-black mt-0.5">
@@ -242,13 +242,13 @@ export default function CategoryExplorer({
               >
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center transition border ${
                   isActive 
-                    ? 'bg-[#ff6a00] border-[#ff6a00] text-white shadow-sm' 
+                    ? 'bg-[#2563eb] border-[#2563eb] text-white shadow-sm' 
                     : 'bg-white border-slate-200 text-slate-500'
                 }`}>
                   <Icon className="h-5 w-5" />
                 </div>
                 <span className={`text-[10px] font-bold max-w-[70px] truncate text-center ${
-                  isActive ? 'text-[#ff6a00]' : 'text-slate-600'
+                  isActive ? 'text-[#2563eb]' : 'text-slate-600'
                 }`}>
                   {cat.name}
                 </span>
@@ -265,7 +265,7 @@ export default function CategoryExplorer({
             </span>
             <button
               onClick={() => mobileActiveCategory && handleCategoryClick(mobileActiveCategory.name)}
-              className="text-[10px] font-bold text-[#ff6a00] flex items-center gap-0.5"
+              className="text-[10px] font-bold text-[#2563eb] flex items-center gap-0.5"
             >
               Voir tout
               <ChevronRight className="h-3 w-3" />
