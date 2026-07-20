@@ -560,12 +560,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)] focus:ring-4 focus:ring-[var(--accent-blue)]/20"
               placeholder="Description détaillée du produit..." />
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Marque</label>
-            <input type="text" value={brand} onChange={e => setBrand(e.target.value)}
-              className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)]"
-              placeholder="Apple, Samsung, HP..." />
-          </div>
+
           <div>
             <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Vidéo de présentation (optionnel)</label>
             <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm transition hover:border-[var(--accent-blue)] hover:bg-[var(--bg-hover)] ${uploadingVideo ? 'pointer-events-none opacity-60' : ''}`}>
@@ -974,7 +969,6 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
           <h4 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Informations</h4>
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between"><dt className="text-[var(--text-tertiary)]">Nom</dt><dd>{name || '—'}</dd></div>
-            <div className="flex justify-between"><dt className="text-[var(--text-tertiary)]">Marque</dt><dd>{brand || '—'}</dd></div>
             <div className="flex justify-between"><dt className="text-[var(--text-tertiary)]">Catégorie</dt><dd>{categories.find(c => c.id === selectedCategoryId)?.name || '—'}</dd></div>
             <div className="flex justify-between"><dt className="text-[var(--text-tertiary)]">Prix</dt><dd>{price ? `${parseFloat(price).toLocaleString()} CFA` : '—'}</dd></div>
             <div className="flex justify-between"><dt className="text-[var(--text-tertiary)]">Stock</dt><dd>{stock || '0'}</dd></div>

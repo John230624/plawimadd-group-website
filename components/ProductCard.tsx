@@ -94,7 +94,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   return (
     <article
       onClick={handleCardClick}
-      className="group flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-lg border border-transparent bg-white p-2.5 shadow-none transition duration-300 lg:h-[348px]"
+      className="group flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-lg border border-transparent bg-white p-2.5 shadow-none transition duration-300 lg:h-[370px]"
     >
       <div className="relative aspect-square w-full overflow-hidden rounded-md bg-[#f7f7f7]">
         <Image
@@ -147,21 +147,26 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       </div>
 
         <div className="flex flex-1 flex-col pt-2.5">
-        <h3 className="h-10 overflow-hidden text-[13px] font-medium leading-5 text-[#222] line-clamp-2">
+        <h3 className="h-9 overflow-hidden text-[13px] font-semibold leading-4.5 text-[#222] line-clamp-2">
           {product.name}
         </h3>
 
-        <div className="mt-auto pt-2">
+        {product.description ? (
+          <p className="mt-1 h-8 overflow-hidden text-[11px] leading-4 text-[#777] line-clamp-2">
+            {product.description}
+          </p>
+        ) : (
+          <div className="mt-1 h-8" />
+        )}
+
+        <div className="mt-auto pt-1">
           <div>
-            <p className="text-[17px] font-bold leading-tight text-[#222]">
+            <p className="text-[16px] font-extrabold leading-tight text-[#e60012]">
               {formatPrice(displayPrice)}
             </p>
-            {discountPercent ? (
-              <p className="text-[11px] leading-4 text-[#999] line-through">{formatPrice(product.price)}</p>
-            ) : null}
           </div>
 
-          <div className="mt-2 flex items-center gap-2 text-[11px] text-[#666]">
+          <div className="mt-1.5 flex items-center gap-2 text-[11px] text-[#666]">
             <span className="truncate">MOQ: 1 piece{soldCount ? ` - ${soldCount} vendus` : ''}</span>
           </div>
 

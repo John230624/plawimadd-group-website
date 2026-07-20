@@ -12,6 +12,9 @@ import header_ordi_hp_probook_image from '../public/images/header_ordi_hp_proboo
 import header_tv_image from '../public/images/header_tv_image.png';
 import logo from '../public/images/seller-logo.svg';
 import my_location_image from '../public/images/my_location_image.svg';
+import celtiis from './celtiis.jpg';
+import moov from './moov.png';
+import mtn from './mtn.png';
 
 export const assets = {
     arrow_icon,
@@ -24,4 +27,7 @@ export const assets = {
     header_tv_image,
     logo,
     my_location_image,
+    celtiis,
+    moov,
+    mtn,
 };

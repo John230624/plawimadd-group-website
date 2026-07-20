@@ -28,6 +28,7 @@ import { useSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
 
 import { ProductDetailSkeleton } from '@/components/Skeleton';
+import { assets } from '@/assets/assets';
 import HomeFooter from '@/components/home/HomeFooter';
 import ProductCarouselSection from '@/components/home/ProductCarouselSection';
 import VariantSelector from '@/components/product/VariantSelector';
@@ -653,12 +654,9 @@ export default function ProductPage(): React.ReactElement {
                   {formatPrice(displayPrice)}
                 </p>
                 {hasDiscount ? (
-                  <>
-                    <p className="pb-0.5 text-lg text-[#999] line-through">{formatPrice(productData.price)}</p>
-                    <span className="rounded bg-[#ffe9e9] px-2 py-1 text-xs font-bold text-[#e60012]">
-                      -{discountPercent}%
-                    </span>
-                  </>
+                  <span className="rounded bg-[#ffe9e9] px-2 py-1 text-xs font-bold text-[#e60012]">
+                    -{discountPercent}%
+                  </span>
                 ) : null}
               </div>
               <p className="mt-2 text-xs text-[#777]">Prix unitaire, taxes comprises</p>
@@ -697,6 +695,36 @@ export default function ProductPage(): React.ReactElement {
                   <div>
                     <p className="text-sm font-bold text-[#222]">{item.title}</p>
                     <p className="mt-1 text-xs leading-5 text-[#666]">{item.body}</p>
+                    {item.title === 'Paiements securises' && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        {/* MTN */}
+                        <div className="relative h-6 w-9 overflow-hidden rounded border border-slate-150 flex items-center justify-center bg-white px-1 py-0.5">
+                          <Image src={assets.mtn} alt="MTN MoMo" className="object-contain max-h-full max-w-full" />
+                        </div>
+                        {/* Moov */}
+                        <div className="relative h-6 w-9 overflow-hidden rounded border border-slate-150 flex items-center justify-center bg-white px-1 py-0.5">
+                          <Image src={assets.moov} alt="Moov Money" className="object-contain max-h-full max-w-full" />
+                        </div>
+                        {/* Celtiis */}
+                        <div className="relative h-6 w-9 overflow-hidden rounded border border-slate-150 flex items-center justify-center bg-white px-1 py-0.5">
+                          <Image src={assets.celtiis} alt="Celtiis Cash" className="object-contain max-h-full max-w-full" />
+                        </div>
+                        {/* Visa */}
+                        <div className="relative h-6 w-9 overflow-hidden rounded border border-slate-150 flex items-center justify-center bg-white px-1 py-0.5 text-[#1A1F71]">
+                          <svg viewBox="0 0 24 15" className="h-4 w-7" fill="currentColor">
+                            <path d="M8.8 13.5l1.6-9.7h2.6l-1.6 9.7H8.8zm8.6-9.3c-.4-.5-1.1-.7-2-.7-1.6 0-3 1-3.6 2.3h-.1c.3-1.4.3-2 .3-2.3h-2.5l-1.7 9.7h2.6l1-5.7c.3-.8.9-1.5 1.7-1.5.8 0 1.2.4 1 1.5l-1 5.7h2.6l1.6-9.7h-2.5l.3-.7zm-15 0L1 6.5C.8 5.7.5 5.5 0 5.2V5h4.2c.5 0 .9.3 1 .9l1 5.1 2.5-6.8H6.1l-3.7 9.3h2.6l4.2-9.7h-3.6z" />
+                          </svg>
+                        </div>
+                        {/* Mastercard */}
+                        <div className="relative h-6 w-9 overflow-hidden rounded border border-slate-150 flex items-center justify-center bg-white px-1 py-0.5">
+                          <svg viewBox="0 0 36 22" className="h-4 w-7" role="img">
+                            <circle cx="13" cy="11" r="10" fill="#EB001B" />
+                            <circle cx="23" cy="11" r="10" fill="#F79E1B" />
+                            <path d="M18 3.2a10 10 0 0 1 0 15.6 10 10 0 0 1 0-15.6z" fill="#FF5F00" />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
