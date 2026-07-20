@@ -23,8 +23,8 @@ import {
 
 import { footerCategories, footerQuickLinks } from './data';
 
-const WHATSAPP_NUMBER_DISPLAY = '01 48 23 26 81';
-const WHATSAPP_LINK = 'https://wa.me/2290148232681';
+const WHATSAPP_NUMBER_DISPLAY = '01 97 74 71 78';
+const WHATSAPP_LINK = 'https://wa.me/2290197747178';
 
 export default function HomeFooter(): React.ReactElement {
   return (

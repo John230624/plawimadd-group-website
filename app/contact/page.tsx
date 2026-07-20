@@ -31,21 +31,25 @@ const contactCards = [
     icon: MapPin,
     title: 'Adresse',
     value: 'Abomey-Calavi, en face du Collège Sainte Bakhita, Bénin',
+    link: 'https://maps.app.goo.gl/9AQTrkay7GJqoGgMA',
   },
   {
     icon: Phone,
     title: 'Téléphone / WhatsApp',
-    value: '+229 01 48 23 26 81',
+    value: '+229 01 97 74 71 78',
+    link: 'https://wa.me/2290197747178',
   },
   {
     icon: Mail,
     title: 'Email',
     value: 'plawimaddgroup1beninbranch@gmail.com',
+    link: 'mailto:plawimaddgroup1beninbranch@gmail.com',
   },
   {
     icon: Clock3,
     title: 'Horaires',
     value: 'Lundi - Samedi, 09h - 21h',
+    link: undefined,
   },
 ];
 
@@ -197,7 +201,18 @@ export default function ContactPage(): React.ReactElement {
                             {item.title}
                           </h3>
                           <p className="mt-1 text-sm font-semibold text-slate-900 leading-normal">
-                            {item.value}
+                            {item.link ? (
+                              <a
+                                href={item.link}
+                                target={item.link.startsWith('mailto:') ? undefined : '_blank'}
+                                rel={item.link.startsWith('mailto:') ? undefined : 'noopener noreferrer'}
+                                className="hover:underline transition"
+                              >
+                                {item.value}
+                              </a>
+                            ) : (
+                              item.value
+                            )}
                           </p>
                         </div>
                       </div>
@@ -213,7 +228,7 @@ export default function ContactPage(): React.ReactElement {
                 </h2>
                 <div className="overflow-hidden rounded-lg border border-slate-100 shadow-sm bg-white p-1">
                   <iframe
-                    src="https://maps.google.com/maps?q=6.436463954610858,2.3396186215547394&z=16&output=embed"
+                    src="https://maps.google.com/maps?q=6.4363227,2.3394416&z=16&output=embed"
                     width="100%"
                     height="280"
                     className="rounded-md border-0 block"
