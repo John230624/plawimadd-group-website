@@ -114,13 +114,38 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }): Promise<Session> {
       const nextToken = token as CustomJWT;
 
-      if (session.user) {
-        session.user.id = nextToken.id;
-        session.user.role = nextToken.role;
-        session.user.firstName = nextToken.firstName;
-        session.user.lastName = nextToken.lastName;
-        session.user.name = nextToken.name;
-        session.user.email = nextToken.email;
+      try {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: nextToken.id },
+          select: { id: true, role: true, banned: true, firstName: true, lastName: true, email: true },
+        });
+
+        if (!dbUser || dbUser.banned) {
+          return {
+            ...session,
+            user: undefined as unknown as CustomUser,
+            expires: new Date(0).toISOString(),
+          };
+        }
+
+        if (session.user) {
+          session.user.id = dbUser.id;
+          session.user.role = (dbUser.role as UserRole) || 'USER';
+          session.user.firstName = dbUser.firstName ?? '';
+          session.user.lastName = dbUser.lastName ?? '';
+          session.user.name = `${dbUser.firstName ?? ''} ${dbUser.lastName ?? ''}`.trim() || dbUser.email;
+          session.user.email = dbUser.email;
+        }
+      } catch (error) {
+        console.error('[NextAuth] Error verifying session with database:', error);
+        if (session.user) {
+          session.user.id = nextToken.id;
+          session.user.role = nextToken.role;
+          session.user.firstName = nextToken.firstName;
+          session.user.lastName = nextToken.lastName;
+          session.user.name = nextToken.name;
+          session.user.email = nextToken.email;
+        }
       }
 
       return session;

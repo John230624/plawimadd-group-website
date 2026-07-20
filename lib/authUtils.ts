@@ -149,3 +149,25 @@ export async function authorizeByPermission(req: NextRequest, permissionSlug: st
   const role = session.user.role === 'ADMIN' ? 'ADMIN' : session.user.role === 'SELLER' ? 'SELLER' : 'USER';
   return { authorized: true, userId: session.user.id, userRole: role };
 }
+
+/**
+ * Recupere l'ID de l'administrateur supreme (le createur/proprietaire initial du systeme).
+ * Il s'agit en priorite de l'email defini dans SUPREME_ADMIN_EMAIL, ou par defaut du premier administrateur cree.
+ */
+export async function getSupremeAdminId(): Promise<string | null> {
+  const prisma = (await import('@/lib/prisma')).default;
+  const envEmail = process.env.SUPREME_ADMIN_EMAIL;
+  if (envEmail) {
+    const u = await prisma.user.findUnique({
+      where: { email: envEmail.toLowerCase() },
+      select: { id: true }
+    });
+    if (u) return u.id;
+  }
+  const oldestAdmin = await prisma.user.findFirst({
+    where: { role: 'ADMIN' },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true }
+  });
+  return oldestAdmin?.id || null;
+}

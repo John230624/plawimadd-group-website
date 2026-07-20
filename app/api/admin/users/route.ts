@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeAdminRequest, AuthResult } from '@/lib/authUtils';
+import { authorizeAdminRequest, AuthResult, getSupremeAdminId } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -89,6 +89,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const legacyRole = (upperRole || 'USER') as 'ADMIN' | 'SELLER' | 'USER';
+
+    const supremeAdminId = await getSupremeAdminId();
+    if (legacyRole === 'ADMIN' && authResult.userId !== supremeAdminId) {
+      return NextResponse.json({ success: false, message: "Seul l'administrateur suprême peut créer de nouveaux administrateurs." }, { status: 403 });
+    }
+
     const newUser = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const created = await tx.user.create({
         data: {
@@ -130,6 +136,33 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ success: false, message: 'ID utilisateur valide est requis.' }, { status: 400 });
+    }
+
+    const supremeAdminId = await getSupremeAdminId();
+
+    // Empêcher de bannir ou de modifier le rôle de l'administrateur suprême
+    if (id === supremeAdminId) {
+      if (fields.role !== undefined && fields.role.toUpperCase() !== 'ADMIN') {
+        return NextResponse.json({ success: false, message: "Impossible de modifier le rôle de l'administrateur suprême." }, { status: 403 });
+      }
+      if (fields.banned === true) {
+        return NextResponse.json({ success: false, message: "Impossible de bannir l'administrateur suprême." }, { status: 403 });
+      }
+    }
+
+    // Un administrateur non-suprême ne peut pas bannir son propre compte ni toucher aux administrateurs
+    if (authResult.userId !== supremeAdminId) {
+      if (fields.banned !== undefined && id === authResult.userId) {
+        return NextResponse.json({ success: false, message: 'Vous ne pouvez pas bannir votre propre compte.' }, { status: 400 });
+      }
+
+      const targetUser = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+      const isTargetAdmin = targetUser?.role === 'ADMIN';
+      const isPromotingToAdmin = fields.role !== undefined && fields.role.toUpperCase() === 'ADMIN';
+
+      if (isTargetAdmin || isPromotingToAdmin) {
+        return NextResponse.json({ success: false, message: "Seul l'administrateur suprême peut modifier ou créer d'autres administrateurs." }, { status: 403 });
+      }
     }
 
     const data: Prisma.UserUpdateInput = {};
@@ -209,6 +242,23 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ success: false, message: 'ID utilisateur (chaîne) valide est requis pour la suppression.' }, { status: 400 });
+    }
+
+    const supremeAdminId = await getSupremeAdminId();
+
+    if (id === supremeAdminId) {
+      return NextResponse.json({ success: false, message: "Impossible de supprimer l'administrateur suprême." }, { status: 403 });
+    }
+
+    if (id === authResult.userId) {
+      return NextResponse.json({ success: false, message: 'Vous ne pouvez pas supprimer votre propre compte.' }, { status: 400 });
+    }
+
+    if (authResult.userId !== supremeAdminId) {
+      const targetUser = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+      if (targetUser?.role === 'ADMIN') {
+        return NextResponse.json({ success: false, message: "Seul l'administrateur suprême peut supprimer d'autres administrateurs." }, { status: 403 });
+      }
     }
 
     const deleteResult: Prisma.BatchPayload = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {

@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authorizeLoggedInUser, AuthResult } from '@/lib/authUtils';
+import { authorizeLoggedInUser, AuthResult, getSupremeAdminId } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import bcrypt from 'bcryptjs';
 import { validatePassword } from '@/lib/passwordPolicy';
@@ -158,6 +158,11 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
         return authResult.response!;
     }
     const userId = authResult.userId!;
+
+    const supremeAdminId = await getSupremeAdminId();
+    if (userId === supremeAdminId) {
+        return NextResponse.json({ success: false, message: "L'administrateur suprême ne peut pas supprimer son propre compte." }, { status: 403 });
+    }
 
     try {
         // Vérifier si des entités empêchent une suppression physique (clés étrangères sans cascade)
