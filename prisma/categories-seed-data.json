@@ -37,7 +37,7 @@
         "type": "SELECT",
         "required": true,
         "values": [
-          { "value": "256 Go SSD" }, { "value": "512 Go SSD" }, { "value": "1 To SSD" }, { "value": "2 To SSD" }
+          { "value": "500 Go HDD" }, { "value": "1 To HDD" }, { "value": "256 Go SSD" }, { "value": "512 Go SSD" }, { "value": "1 To SSD" }, { "value": "2 To SSD" }
         ]
       },
       {
