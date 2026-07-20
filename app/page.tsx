@@ -4,6 +4,7 @@ import React from 'react';
 
 import HomeFooter from '@/components/home/HomeFooter';
 import HomeHero from '@/components/home/HomeHero';
+import StudentOfferPopup from '@/components/home/StudentOfferPopup';
 import ProductCard from '@/components/ProductCard';
 import { useAppContext } from '@/context/AppContext';
 
@@ -20,6 +21,8 @@ export default function HomePage(): React.ReactElement {
 
   return (
     <main className="mx-auto flex w-full max-w-[1440px] flex-col bg-[#f5f5f5] px-4 pb-0 pt-4 md:px-6 lg:px-8">
+      <StudentOfferPopup onExploreOffer={() => router.push('/offer')} />
+
       <HomeHero
         onBrowseCatalog={handleBrowseCatalog}
         onContact={() => router.push('/contact')}
@@ -48,7 +51,7 @@ export default function HomePage(): React.ReactElement {
         {loadingProducts ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="animate-pulse rounded-lg bg-white p-3 h-[370px]">
+              <div key={i} className="animate-pulse rounded-lg bg-white p-3 h-[360px]">
                 <div className="aspect-square w-full rounded bg-slate-100" />
                 <div className="mt-3 h-4 w-3/4 rounded bg-slate-100" />
                 <div className="mt-2 h-3 w-1/2 rounded bg-slate-100" />

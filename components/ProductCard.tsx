@@ -94,7 +94,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   return (
     <article
       onClick={handleCardClick}
-      className="group flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-lg border border-transparent bg-white p-2.5 shadow-none transition duration-300 lg:h-[370px]"
+      className="group flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-lg border border-transparent bg-white p-2.5 shadow-none transition duration-300 lg:h-[360px]"
     >
       <div className="relative aspect-square w-full overflow-hidden rounded-md bg-[#f7f7f7]">
         <Image
@@ -146,8 +146,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
       </div>
 
-        <div className="flex flex-1 flex-col pt-2.5">
-        <h3 className="h-9 overflow-hidden text-[13px] font-semibold leading-4.5 text-[#222] line-clamp-2">
+        <div className="flex flex-1 flex-col pt-2">
+        <h3 className="h-5 overflow-hidden text-[13px] font-semibold leading-5 text-[#222] line-clamp-1 truncate" title={product.name}>
           {product.name}
         </h3>
 
@@ -161,7 +161,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
         <div className="mt-auto pt-1">
           <div>
-            <p className="text-[16px] font-extrabold leading-tight text-[#e60012]">
+            <p className="text-[16px] font-extrabold leading-tight text-black">
               {formatPrice(displayPrice)}
             </p>
           </div>
