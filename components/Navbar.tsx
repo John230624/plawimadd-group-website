@@ -937,7 +937,21 @@ export default function Navbar(): React.ReactElement {
                 }`}
                 aria-label="Compte"
               >
-                <User className="h-[18px] w-[18px]" />
+                {isLoggedIn ? (
+                  session?.user?.image ? (
+                    <img
+                      src={session.user.image}
+                      alt={userLabel}
+                      className="h-6 w-6 rounded-full object-cover shadow-sm ring-1 ring-[var(--brand-300)]/30"
+                    />
+                  ) : (
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--brand-600)] text-[10px] font-bold text-white shadow-sm ring-1 ring-[var(--brand-300)]/30">
+                      {userLabel.charAt(0).toUpperCase()}
+                    </span>
+                  )
+                ) : (
+                  <User className="h-[18px] w-[18px]" />
+                )}
               </button>
 
               {isAccountOpen ? (

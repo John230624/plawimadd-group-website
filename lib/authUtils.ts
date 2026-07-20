@@ -156,7 +156,7 @@ export async function authorizeByPermission(req: NextRequest, permissionSlug: st
  */
 export async function getSupremeAdminId(): Promise<string | null> {
   const prisma = (await import('@/lib/prisma')).default;
-  const envEmail = process.env.SUPREME_ADMIN_EMAIL;
+  const envEmail = process.env.SUPREME_ADMIN_EMAIL || 'jbladeleboladji@gmail.com';
   if (envEmail) {
     const u = await prisma.user.findUnique({
       where: { email: envEmail.toLowerCase() },

@@ -612,24 +612,28 @@ export default function UserManagementPage(): React.ReactElement {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button
-                            onClick={() => openConfirm(user.banned ? 'unban' : 'ban', user)}
-                            className={`inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-500 transition-all duration-300 hover:shadow-lg ${
-                              user.banned
-                                ? 'bg-gradient-to-r from-green-500/20 to-emerald-600/20 text-green-400 hover:from-green-500/30 hover:to-emerald-600/30'
-                                : 'bg-gradient-to-r from-red-500/20 to-rose-600/20 text-red-400 hover:from-red-500/30 hover:to-rose-600/30'
-                            }`}
-                            title={user.banned ? 'Débannir' : 'Bannir'}
-                          >
-                            {user.banned ? <CheckCircle className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
-                          </button>
-                          <button
-                            onClick={() => openConfirm('delete', user)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-transparent bg-gradient-to-r from-gray-500/20 to-slate-600/20 px-2.5 py-1.5 text-xs font-500 text-gray-400 transition-all duration-300 hover:from-gray-500/30 hover:to-slate-600/30 hover:shadow-lg"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {user.email !== 'jbladeleboladji@gmail.com' && (
+                            <>
+                              <button
+                                onClick={() => openConfirm(user.banned ? 'unban' : 'ban', user)}
+                                className={`inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-500 transition-all duration-300 hover:shadow-lg ${
+                                  user.banned
+                                    ? 'bg-gradient-to-r from-green-500/20 to-emerald-600/20 text-green-400 hover:from-green-500/30 hover:to-emerald-600/30'
+                                    : 'bg-gradient-to-r from-red-500/20 to-rose-600/20 text-red-400 hover:from-red-500/30 hover:to-rose-600/30'
+                                }`}
+                                title={user.banned ? 'Débannir' : 'Bannir'}
+                              >
+                                {user.banned ? <CheckCircle className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                              </button>
+                              <button
+                                onClick={() => openConfirm('delete', user)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-transparent bg-gradient-to-r from-gray-500/20 to-slate-600/20 px-2.5 py-1.5 text-xs font-500 text-gray-400 transition-all duration-300 hover:from-gray-500/30 hover:to-slate-600/30 hover:shadow-lg"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

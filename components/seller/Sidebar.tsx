@@ -31,7 +31,6 @@ import {
   ChevronUp,
   ChevronDown,
   Languages,
-  User,
   Receipt,
   FileCheck2,
   ShoppingBasket,
@@ -300,7 +299,9 @@ export default function Sidebar(): React.ReactElement {
                 {user.image ? (
                   <img src={user.image} alt={user.name || ''} className="h-full w-full object-cover" />
                 ) : (
-                  <User className="h-5 w-5 text-[var(--text-tertiary)]" />
+                  <span className="text-sm font-bold text-[var(--text-primary)]">
+                    {(user.name || user.email || 'U').charAt(0).toUpperCase()}
+                  </span>
                 )}
               </div>
               <div className="min-w-0 flex-1">
@@ -361,7 +362,9 @@ export default function Sidebar(): React.ReactElement {
             {user.image ? (
               <img src={user.image} alt={user.name || ''} className="h-full w-full object-cover" />
             ) : (
-              <User className="h-4 w-4 text-[var(--text-tertiary)]" />
+              <span className="text-xs font-bold text-[var(--text-primary)]">
+                {(user.name || user.email || 'U').charAt(0).toUpperCase()}
+              </span>
             )}
           </div>
           <div className="min-w-0 flex-1 text-left">
