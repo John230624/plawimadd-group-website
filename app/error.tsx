@@ -104,15 +104,15 @@ export default function ErrorPage({ error, reset }: ErrorPageProps): React.React
             Réessayer l&apos;action
           </motion.button>
 
-          <Link href="/" passHref legacyBehavior>
-            <motion.a
+          <Link href="/">
+            <motion.div
               whileHover={{ scale: 1.02, translateY: -2 }}
               whileTap={{ scale: 0.98 }}
               className="flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-zinc-300 hover:text-white font-medium border border-white/10 hover:border-white/20 bg-white/[0.02] hover:bg-white/[0.05] transition-all cursor-pointer"
             >
               <Home className="w-4 h-4" />
               Retour à l&apos;accueil
-            </motion.a>
+            </motion.div>
           </Link>
         </motion.div>
 

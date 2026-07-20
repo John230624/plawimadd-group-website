@@ -91,26 +91,26 @@ export default function NotFound(): React.ReactElement {
           variants={itemVariants}
           className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md p-6 rounded-2xl border border-white/5 bg-white/[0.02] backdrop-blur-md shadow-2xl"
         >
-          <Link href="/" id="btn-back-home" passHref legacyBehavior>
-            <motion.a
+          <Link href="/" id="btn-back-home">
+            <motion.div
               whileHover={{ scale: 1.02, translateY: -2 }}
               whileTap={{ scale: 0.98 }}
               className="flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-white font-medium bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-[0_4px_20px_rgba(124,58,237,0.25)] transition-all cursor-pointer"
             >
               <Home className="w-4 h-4" />
               Retour à l&apos;accueil
-            </motion.a>
+            </motion.div>
           </Link>
 
-          <Link href="/all-products" id="btn-browse-products" passHref legacyBehavior>
-            <motion.a
+          <Link href="/all-products" id="btn-browse-products">
+            <motion.div
               whileHover={{ scale: 1.02, translateY: -2 }}
               whileTap={{ scale: 0.98 }}
               className="flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-zinc-300 hover:text-white font-medium border border-white/10 hover:border-white/20 bg-white/[0.02] hover:bg-white/[0.05] transition-all cursor-pointer"
             >
               <ShoppingCart className="w-4 h-4" />
               Voir la boutique
-            </motion.a>
+            </motion.div>
           </Link>
         </motion.div>
 
