@@ -18,6 +18,7 @@ enum UserRole {
   USER // Utilisateur standard
   SELLER // Vendeur (espace de travail dédié)
   ADMIN // Administrateur
+  ADMINSUPRA // Administrateur Suprême
 
   @@map("role") // Nom de l'enum en base de données (si différent)
 }

@@ -28,7 +28,7 @@ export interface AuthResult {
     authorized: boolean;
     response?: NextResponse; // Optionnel : une réponse HTTP à retourner si l'autorisation échoue
     userId?: string;         // L'ID de l'utilisateur autorisé (si autorisé)
-    userRole?: 'USER' | 'ADMIN' | 'SELLER'; // Le rôle de l'utilisateur (si autorisé)
+    userRole?: string; // Le rôle de l'utilisateur (si autorisé)
 }
 
 /**
@@ -83,10 +83,10 @@ export async function authorizeAdminRequest(req: NextRequest): Promise<AuthResul
         return { authorized: false, response: NextResponse.json({ message: 'Non authentifié.' }, { status: 401 }) };
     }
 
-    if (session.user.role === 'ADMIN') {
-        console.log("Accès ADMIN autorisé via la session NextAuth.");
+    if (session.user.role === 'ADMIN' || session.user.role === 'ADMINSUPRA') {
+        console.log(`Accès ADMIN autorisé via la session NextAuth (Rôle: ${session.user.role}).`);
         req.user = session.user as User;
-        return { authorized: true, userId: session.user.id, userRole: 'ADMIN' };
+        return { authorized: true, userId: session.user.id, userRole: session.user.role };
     }
 
     console.warn(`Accès non autorisé à une API d'administration par ${session.user.id} (Rôle: ${session.user.role || 'Aucun'})`);
@@ -114,7 +114,7 @@ export async function authorizeLoggedInUser(req: NextRequest): Promise<AuthResul
         return {
             authorized: true,
             userId: session.user.id,
-            userRole: session.user.role === 'ADMIN' ? 'ADMIN' : session.user.role === 'SELLER' ? 'SELLER' : 'USER',
+            userRole: session.user.role,
         };
     }
 
@@ -146,7 +146,7 @@ export async function authorizeByPermission(req: NextRequest, permissionSlug: st
   }
 
   req.user = session.user as User;
-  const role = session.user.role === 'ADMIN' ? 'ADMIN' : session.user.role === 'SELLER' ? 'SELLER' : 'USER';
+  const role = session.user.role;
   return { authorized: true, userId: session.user.id, userRole: role };
 }
 
@@ -156,7 +156,13 @@ export async function authorizeByPermission(req: NextRequest, permissionSlug: st
  */
 export async function getSupremeAdminId(): Promise<string | null> {
   const prisma = (await import('@/lib/prisma')).default;
-  const envEmail = process.env.SUPREME_ADMIN_EMAIL || 'jbladeleboladji@gmail.com';
+  const supraAdmin = await prisma.user.findFirst({
+    where: { role: 'ADMINSUPRA' },
+    select: { id: true }
+  });
+  if (supraAdmin) return supraAdmin.id;
+
+  const envEmail = process.env.SUPREME_ADMIN_EMAIL;
   if (envEmail) {
     const u = await prisma.user.findUnique({
       where: { email: envEmail.toLowerCase() },

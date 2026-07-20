@@ -31,6 +31,7 @@ export enum UserRole {
     USER = 'USER',
     ADMIN = 'ADMIN',
     SELLER = 'SELLER',
+    ADMINSUPRA = 'ADMINSUPRA',
 }
 
 export enum StudentInstallmentRequestStatus {

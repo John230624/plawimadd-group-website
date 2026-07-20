@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult, getSupremeAdminId } from '@/lib/authUtils';
+import { hasPermission } from '@/lib/authorize';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth: AuthResult = await authorizeAdminRequest(req);
@@ -28,9 +29,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const { userId, roleId } = await req.json();
     if (!userId || !roleId) return NextResponse.json({ message: 'userId et roleId requis' }, { status: 400 });
 
+    const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    const isSupra = auth.userRole === 'ADMINSUPRA';
+
+    if (!targetUser || (targetUser.role === 'ADMINSUPRA' && !isSupra)) {
+      return NextResponse.json({ message: 'Utilisateur non trouvé.' }, { status: 404 });
+    }
+
     const supremeAdminId = await getSupremeAdminId();
 
-    // Empecher de modifier l'administrateur supreme
     if (userId === supremeAdminId) {
       return NextResponse.json({ message: "Impossible de modifier les rôles de l'administrateur suprême." }, { status: 403 });
     }
@@ -38,14 +45,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const adminRole = await prisma.role.findFirst({ where: { name: 'Administrateur' } });
     const isAssigningAdminRole = roleId === adminRole?.id;
 
-    if (auth.userId !== supremeAdminId) {
-      if (isAssigningAdminRole) {
-        return NextResponse.json({ message: "Seul l'administrateur suprême peut accorder le rôle d'administrateur." }, { status: 403 });
-      }
-
-      const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-      if (targetUser?.role === 'ADMIN') {
-        return NextResponse.json({ message: "Seul l'administrateur suprême peut modifier les rôles d'un administrateur." }, { status: 403 });
+    if (!isSupra) {
+      if (isAssigningAdminRole || targetUser.role === 'ADMIN') {
+        const hasAdminsEdit = await hasPermission(auth.userId!, 'admins.edit');
+        if (!hasAdminsEdit) {
+          return NextResponse.json({ message: "Vous n'avez pas la permission de modifier les rôles d'un administrateur." }, { status: 403 });
+        }
+      } else {
+        const hasUsersEdit = await hasPermission(auth.userId!, 'users.edit');
+        if (!hasUsersEdit) {
+          return NextResponse.json({ message: "Vous n'avez pas la permission de modifier les rôles d'un utilisateur." }, { status: 403 });
+        }
       }
     }
 
@@ -63,6 +73,13 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ message: 'userId et roleIds requis' }, { status: 400 });
     }
 
+    const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    const isSupra = auth.userRole === 'ADMINSUPRA';
+
+    if (!targetUser || (targetUser.role === 'ADMINSUPRA' && !isSupra)) {
+      return NextResponse.json({ message: 'Utilisateur non trouvé.' }, { status: 404 });
+    }
+
     const supremeAdminId = await getSupremeAdminId();
 
     if (userId === supremeAdminId) {
@@ -72,14 +89,17 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     const adminRole = await prisma.role.findFirst({ where: { name: 'Administrateur' } });
     const isAdminRoleInPlay = roleIds.includes(adminRole?.id);
 
-    if (auth.userId !== supremeAdminId) {
-      if (isAdminRoleInPlay) {
-        return NextResponse.json({ message: "Seul l'administrateur suprême peut accorder le rôle d'administrateur." }, { status: 403 });
-      }
-
-      const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-      if (targetUser?.role === 'ADMIN') {
-        return NextResponse.json({ message: "Seul l'administrateur suprême peut modifier les rôles ou permissions d'un administrateur." }, { status: 403 });
+    if (!isSupra) {
+      if (isAdminRoleInPlay || targetUser.role === 'ADMIN') {
+        const hasAdminsEdit = await hasPermission(auth.userId!, 'admins.edit');
+        if (!hasAdminsEdit) {
+          return NextResponse.json({ message: "Vous n'avez pas la permission de modifier les rôles ou permissions d'un administrateur." }, { status: 403 });
+        }
+      } else {
+        const hasUsersEdit = await hasPermission(auth.userId!, 'users.edit');
+        if (!hasUsersEdit) {
+          return NextResponse.json({ message: "Vous n'avez pas la permission de modifier les rôles ou permissions d'un utilisateur." }, { status: 403 });
+        }
       }
     }
 
@@ -124,16 +144,30 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   try {
     const { userId, roleId } = await req.json();
 
+    const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    const isSupra = auth.userRole === 'ADMINSUPRA';
+
+    if (!targetUser || (targetUser.role === 'ADMINSUPRA' && !isSupra)) {
+      return NextResponse.json({ message: 'Utilisateur non trouvé.' }, { status: 404 });
+    }
+
     const supremeAdminId = await getSupremeAdminId();
 
     if (userId === supremeAdminId) {
       return NextResponse.json({ message: "Impossible de retirer des rôles de l'administrateur suprême." }, { status: 403 });
     }
 
-    if (auth.userId !== supremeAdminId) {
-      const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-      if (targetUser?.role === 'ADMIN') {
-        return NextResponse.json({ message: "Seul l'administrateur suprême peut retirer des rôles d'un administrateur." }, { status: 403 });
+    if (!isSupra) {
+      if (targetUser.role === 'ADMIN') {
+        const hasAdminsEdit = await hasPermission(auth.userId!, 'admins.edit');
+        if (!hasAdminsEdit) {
+          return NextResponse.json({ message: "Vous n'avez pas la permission de modifier les rôles d'un administrateur." }, { status: 403 });
+        }
+      } else {
+        const hasUsersEdit = await hasPermission(auth.userId!, 'users.edit');
+        if (!hasUsersEdit) {
+          return NextResponse.json({ message: "Vous n'avez pas la permission de modifier les rôles d'un utilisateur." }, { status: 403 });
+        }
       }
     }
 

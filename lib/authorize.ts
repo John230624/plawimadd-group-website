@@ -52,7 +52,7 @@ export async function hasPermission(userId: string, permissionSlug: string): Pro
   // Fallback: legacy User.role values still map to the matching system role
   // when no granular role link has been assigned yet.
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-  if (user?.role === 'ADMIN') return true;
+  if (user?.role === 'ADMINSUPRA') return true;
 
   if (user?.role && userRoles.length === 0) {
     const systemRole = await prisma.role.findUnique({
@@ -124,7 +124,7 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
 
   // Legacy role fallback
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-  if (user?.role === 'ADMIN') {
+  if (user?.role === 'ADMINSUPRA') {
     const all = await prisma.permission.findMany({ select: { slug: true } });
     return all.map((p) => p.slug).filter((slug) => !deniedSlugs.has(slug));
   }

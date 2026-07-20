@@ -145,7 +145,7 @@ export function useSellerMenuSections(): MenuSection[] {
   const [permissionSlugs, setPermissionSlugs] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (status !== 'authenticated' || session?.user?.role === 'ADMIN') return;
+    if (status !== 'authenticated' || session?.user?.role === 'ADMIN' || session?.user?.role === 'ADMINSUPRA') return;
 
     let cancelled = false;
     fetch('/api/auth/permissions')
@@ -167,7 +167,7 @@ export function useSellerMenuSections(): MenuSection[] {
       return menuSections;
     }
 
-    const isAdmin = status === 'authenticated' && session?.user?.role === 'ADMIN';
+    const isAdmin = status === 'authenticated' && (session?.user?.role === 'ADMIN' || session?.user?.role === 'ADMINSUPRA');
 
     return menuSections
       .map((section) => ({

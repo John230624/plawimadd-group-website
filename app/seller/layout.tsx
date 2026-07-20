@@ -15,7 +15,7 @@ export default function Layout({ children }: LayoutProps): React.ReactElement {
   const router = useRouter();
   const { data: session, status } = useSession();
 
-  const isStaff = session?.user?.role === 'ADMIN' || session?.user?.role === 'SELLER';
+  const isStaff = session?.user?.role === 'ADMIN' || session?.user?.role === 'ADMINSUPRA' || session?.user?.role === 'SELLER';
 
   useEffect(() => {
     if (status === 'loading') return;

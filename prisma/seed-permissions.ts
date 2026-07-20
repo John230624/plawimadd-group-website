@@ -18,6 +18,9 @@ async function main() {
     users: [
       'users.view', 'users.create', 'users.edit', 'users.delete', 'users.ban',
     ],
+    admins: [
+      'admins.view', 'admins.create', 'admins.edit', 'admins.delete',
+    ],
     promotions: [
       'promotions.view', 'promotions.create', 'promotions.edit', 'promotions.delete',
     ],
@@ -139,6 +142,7 @@ async function main() {
     ADMIN: adminRole.id,
     SELLER: sellerRole.id,
     USER: userRole.id,
+    ADMINSUPRA: adminRole.id,
   } as const;
   const systemRoleIds = Object.values(systemRoleByLegacyRole);
   const users = await prisma.user.findMany({ select: { id: true, role: true } });

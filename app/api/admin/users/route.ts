@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeAdminRequest, AuthResult, getSupremeAdminId } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
-import { Prisma } from '@prisma/client';
+import { hasPermission } from '@/lib/authorize';
+import { Prisma, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { syncUserSystemRole } from '@/lib/roleSync';
 
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const roleFilter = searchParams.get('role');
     const statusFilter = searchParams.get('status');
 
+    const isSupra = authResult.userRole === 'ADMINSUPRA';
     const whereClause: Prisma.UserWhereInput = {};
 
     if (roleFilter?.toUpperCase() === 'USER') {
@@ -38,6 +40,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       whereClause.role = 'SELLER';
     } else if (roleFilter?.toUpperCase() === 'ADMIN') {
       whereClause.role = 'ADMIN';
+    }
+
+    if (!isSupra) {
+      if (roleFilter?.toUpperCase() === 'ADMINSUPRA') {
+        return NextResponse.json([], { status: 200 });
+      }
+      whereClause.role = { not: 'ADMINSUPRA' };
     }
 
     if (statusFilter === 'active') {
@@ -84,15 +93,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const upperRole = role?.toUpperCase();
+    if (upperRole === 'ADMINSUPRA') {
+      return NextResponse.json({ success: false, message: "Impossible de créer un administrateur suprême." }, { status: 403 });
+    }
     if (upperRole && upperRole !== 'ADMIN' && upperRole !== 'SELLER' && upperRole !== 'USER') {
-      return NextResponse.json({ success: false, message: 'Role invalide. Les roles autorises sont ADMIN, SELLER ou USER.' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Rôle invalide. Les rôles autorisés sont ADMIN, SELLER ou USER.' }, { status: 400 });
     }
 
     const legacyRole = (upperRole || 'USER') as 'ADMIN' | 'SELLER' | 'USER';
 
-    const supremeAdminId = await getSupremeAdminId();
-    if (legacyRole === 'ADMIN' && authResult.userId !== supremeAdminId) {
-      return NextResponse.json({ success: false, message: "Seul l'administrateur suprême peut créer de nouveaux administrateurs." }, { status: 403 });
+    const isSupra = authResult.userRole === 'ADMINSUPRA';
+    if (legacyRole === 'ADMIN') {
+      const hasAdminsCreate = isSupra || await hasPermission(authResult.userId!, 'admins.create');
+      if (!hasAdminsCreate) {
+        return NextResponse.json({ success: false, message: "Vous n'avez pas la permission de créer un administrateur." }, { status: 403 });
+      }
+    } else {
+      const hasUsersCreate = isSupra || await hasPermission(authResult.userId!, 'users.create');
+      if (!hasUsersCreate) {
+        return NextResponse.json({ success: false, message: "Vous n'avez pas la permission de créer un utilisateur." }, { status: 403 });
+      }
     }
 
     const newUser = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -107,7 +127,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         },
         select: userSelect,
       });
-      await syncUserSystemRole(tx, created.id, legacyRole);
+      await syncUserSystemRole(tx, created.id, legacyRole as UserRole);
       return created;
     });
 
@@ -138,11 +158,18 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, message: 'ID utilisateur valide est requis.' }, { status: 400 });
     }
 
+    const targetUser = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+    const isSupra = authResult.userRole === 'ADMINSUPRA';
+
+    if (!targetUser || (targetUser.role === 'ADMINSUPRA' && !isSupra)) {
+      return NextResponse.json({ success: false, message: 'Utilisateur non trouvé.' }, { status: 404 });
+    }
+
     const supremeAdminId = await getSupremeAdminId();
 
     // Empêcher de bannir ou de modifier le rôle de l'administrateur suprême
     if (id === supremeAdminId) {
-      if (fields.role !== undefined && fields.role.toUpperCase() !== 'ADMIN') {
+      if (fields.role !== undefined && fields.role.toUpperCase() !== 'ADMINSUPRA') {
         return NextResponse.json({ success: false, message: "Impossible de modifier le rôle de l'administrateur suprême." }, { status: 403 });
       }
       if (fields.banned === true) {
@@ -150,18 +177,28 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // Un administrateur non-suprême ne peut pas bannir son propre compte ni toucher aux administrateurs
-    if (authResult.userId !== supremeAdminId) {
-      if (fields.banned !== undefined && id === authResult.userId) {
-        return NextResponse.json({ success: false, message: 'Vous ne pouvez pas bannir votre propre compte.' }, { status: 400 });
-      }
+    if (fields.role !== undefined && fields.role.toUpperCase() === 'ADMINSUPRA') {
+      return NextResponse.json({ success: false, message: "Impossible d'attribuer le rôle d'administrateur suprême." }, { status: 403 });
+    }
 
-      const targetUser = await prisma.user.findUnique({ where: { id }, select: { role: true } });
-      const isTargetAdmin = targetUser?.role === 'ADMIN';
+    if (fields.banned !== undefined && id === authResult.userId) {
+      return NextResponse.json({ success: false, message: 'Vous ne pouvez pas bannir votre propre compte.' }, { status: 400 });
+    }
+
+    if (!isSupra) {
+      const isTargetAdmin = targetUser.role === 'ADMIN';
       const isPromotingToAdmin = fields.role !== undefined && fields.role.toUpperCase() === 'ADMIN';
 
-      if (isTargetAdmin || isPromotingToAdmin) {
-        return NextResponse.json({ success: false, message: "Seul l'administrateur suprême peut modifier ou créer d'autres administrateurs." }, { status: 403 });
+      if (isTargetAdmin || isPromotingToAdmin || fields.banned !== undefined) {
+        const hasAdminsEdit = await hasPermission(authResult.userId!, 'admins.edit');
+        if (!hasAdminsEdit) {
+          return NextResponse.json({ success: false, message: "Vous n'avez pas la permission de modifier un administrateur." }, { status: 403 });
+        }
+      } else {
+        const hasUsersEdit = await hasPermission(authResult.userId!, 'users.edit');
+        if (!hasUsersEdit) {
+          return NextResponse.json({ success: false, message: "Vous n'avez pas la permission de modifier un utilisateur." }, { status: 403 });
+        }
       }
     }
 
@@ -203,7 +240,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       });
       if (result.count === 0) throw new Error('Utilisateur non trouvé.');
       if (typeof data.role === 'string') {
-        await syncUserSystemRole(tx, id, data.role as 'ADMIN' | 'SELLER' | 'USER');
+        await syncUserSystemRole(tx, id, data.role as UserRole);
       }
       return tx.user.findUnique({ where: { id }, select: userSelect });
     });
@@ -244,6 +281,13 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, message: 'ID utilisateur (chaîne) valide est requis pour la suppression.' }, { status: 400 });
     }
 
+    const targetUser = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+    const isSupra = authResult.userRole === 'ADMINSUPRA';
+
+    if (!targetUser || (targetUser.role === 'ADMINSUPRA' && !isSupra)) {
+      return NextResponse.json({ success: false, message: 'Utilisateur non trouvé.' }, { status: 404 });
+    }
+
     const supremeAdminId = await getSupremeAdminId();
 
     if (id === supremeAdminId) {
@@ -254,10 +298,17 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, message: 'Vous ne pouvez pas supprimer votre propre compte.' }, { status: 400 });
     }
 
-    if (authResult.userId !== supremeAdminId) {
-      const targetUser = await prisma.user.findUnique({ where: { id }, select: { role: true } });
-      if (targetUser?.role === 'ADMIN') {
-        return NextResponse.json({ success: false, message: "Seul l'administrateur suprême peut supprimer d'autres administrateurs." }, { status: 403 });
+    if (!isSupra) {
+      if (targetUser.role === 'ADMIN') {
+        const hasAdminsDelete = await hasPermission(authResult.userId!, 'admins.delete');
+        if (!hasAdminsDelete) {
+          return NextResponse.json({ success: false, message: "Vous n'avez pas la permission de supprimer un administrateur." }, { status: 403 });
+        }
+      } else {
+        const hasUsersDelete = await hasPermission(authResult.userId!, 'users.delete');
+        if (!hasUsersDelete) {
+          return NextResponse.json({ success: false, message: "Vous n'avez pas la permission de supprimer un utilisateur." }, { status: 403 });
+        }
       }
     }
 

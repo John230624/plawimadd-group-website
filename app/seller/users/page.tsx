@@ -166,7 +166,7 @@ export default function UserManagementPage(): React.ReactElement {
   const [permissionOverrides, setPermissionOverrides] = useState<Record<string, 'default' | 'grant' | 'deny'>>({});
 
   const fetchUsers = useCallback(async () => {
-    if (status !== 'authenticated' || session?.user?.role !== UserRole.ADMIN) {
+    if (status !== 'authenticated' || (session?.user?.role !== UserRole.ADMIN && session?.user?.role !== UserRole.ADMINSUPRA)) {
       setLoading(false);
       return;
     }
@@ -219,7 +219,7 @@ export default function UserManagementPage(): React.ReactElement {
     [users]
   );
   const adminCount = useMemo(
-    () => users.filter((u) => (u.role || '').toUpperCase() === 'ADMIN').length,
+    () => users.filter((u) => ['ADMIN', 'ADMINSUPRA'].includes((u.role || '').toUpperCase())).length,
     [users]
   );
   const sellerCount = useMemo(
@@ -570,7 +570,7 @@ export default function UserManagementPage(): React.ReactElement {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-500 ${
-                          role === 'ADMIN'
+                          role === 'ADMIN' || role === 'ADMINSUPRA'
                             ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-400'
                             : role === 'SELLER'
                             ? 'bg-gradient-to-r from-amber-500/20 to-orange-600/20 text-amber-400'
@@ -612,7 +612,7 @@ export default function UserManagementPage(): React.ReactElement {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          {user.email !== 'jbladeleboladji@gmail.com' && (
+                          {user.role !== 'ADMINSUPRA' && (
                             <>
                               <button
                                 onClick={() => openConfirm(user.banned ? 'unban' : 'ban', user)}
@@ -878,7 +878,7 @@ export default function UserManagementPage(): React.ReactElement {
                           </div>
                         </div>
                         {review.comment && (
-                          <p className="mt-1 italic text-[var(--text-secondary)]">"{review.comment}"</p>
+                          <p className="mt-1 italic text-[var(--text-secondary)]">&quot;{review.comment}&quot;</p>
                         )}
                         <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">
                           {new Date(review.createdAt).toLocaleDateString('fr-FR')}

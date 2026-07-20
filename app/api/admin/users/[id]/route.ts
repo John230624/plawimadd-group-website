@@ -119,7 +119,7 @@ export async function GET(
       },
     });
 
-    if (!user) {
+    if (!user || (user.role === 'ADMINSUPRA' && authResult.userRole !== 'ADMINSUPRA')) {
       return NextResponse.json({ message: 'Utilisateur non trouvé.' }, { status: 404 });
     }
 

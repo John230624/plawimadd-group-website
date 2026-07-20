@@ -4,11 +4,18 @@ export const SYSTEM_ROLE_NAMES: Record<UserRole, string> = {
   USER: 'Utilisateur',
   SELLER: 'Vendeur',
   ADMIN: 'Administrateur',
+  ADMINSUPRA: 'Administrateur',
 };
 
 export async function ensureSystemRoles(tx: Prisma.TransactionClient) {
+  const uniqueNames = {
+    USER: 'Utilisateur',
+    SELLER: 'Vendeur',
+    ADMIN: 'Administrateur',
+  };
+
   const roles = await Promise.all(
-    Object.entries(SYSTEM_ROLE_NAMES).map(([legacyRole, name]) =>
+    Object.entries(uniqueNames).map(([legacyRole, name]) =>
       tx.role.upsert({
         where: { name },
         update: { isSystem: true },
@@ -26,12 +33,16 @@ export async function ensureSystemRoles(tx: Prisma.TransactionClient) {
     )
   );
 
-  return Object.fromEntries(
+  const mappedRoles = Object.fromEntries(
     roles.map((role) => {
-      const legacyRole = Object.entries(SYSTEM_ROLE_NAMES).find(([, name]) => name === role.name)?.[0];
+      const legacyRole = Object.entries(uniqueNames).find(([, name]) => name === role.name)?.[0];
       return [legacyRole, role];
     })
-  ) as Record<UserRole, { id: string; name: string }>;
+  );
+
+  mappedRoles['ADMINSUPRA'] = mappedRoles['ADMIN'];
+
+  return mappedRoles as Record<UserRole, { id: string; name: string }>;
 }
 
 export async function syncUserSystemRole(tx: Prisma.TransactionClient, userId: string, legacyRole: UserRole) {
