@@ -329,6 +329,10 @@ const OrderSummary = () => {
                         amount: totalAmountToPay,
                         api_key: KKIAPAY_PUBLIC_API_KEY as string,
                         callback: `${window.location.origin}/api/kkiapay-callback?transactionId=${transactionIdForKkiapay}`,
+                        // Restitué dans `state` par l'API Kkiapay : permet au webhook
+                        // serveur-à-serveur de retrouver la commande même si le
+                        // client ferme son navigateur avant le callback.
+                        data: transactionIdForKkiapay,
                         email: currentUser?.email ?? '',
                         phone: selectedAddress?.phoneNumber ?? '',
                         position: "center",
