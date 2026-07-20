@@ -6,6 +6,7 @@ import { getServerSession } from 'next-auth'; // Pour l'authentification de l'ut
 import { authOptions } from '@/lib/authOptions';
 import { logActivity } from '@/lib/logActivity';
 import { recordOrderStockOut } from '@/lib/stock';
+import { verifyKkiapayTransaction } from '@/lib/kkiapay';
 
 // Interface pour le corps de la requête POST de ce endpoint
 interface CreateOrderAfterPaymentPayload {
@@ -63,9 +64,9 @@ export async function POST(req: NextRequest) {
             userPhoneNumber,
             currency,
             kkiapayTransactionId,
-            kkiapayPaymentMethod,
-            kkiapayAmount,
-            kkiapayStatus, // Récupération du statut Kkiapay pour la logique
+            // kkiapayPaymentMethod / kkiapayAmount / kkiapayStatus du payload sont
+            // volontairement ignorés : seules les données re-vérifiées via l'API
+            // Kkiapay font foi (voir bloc SÉCURITÉ ci-dessous).
         } = body;
 
         // Vérifications de base
@@ -84,16 +85,92 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, message: 'Utilisateur non trouvé' }, { status: 404 });
         }
 
+        // ─── SÉCURITÉ : rien de ce qui touche à l'argent ne vient du client ───
+        // 1) Prix et total recalculés depuis la base ; les prix du payload sont ignorés.
+        const productIds = [...new Set(items.map((item) => item.productId))];
+        const dbProducts = await prisma.product.findMany({
+            where: { id: { in: productIds }, deletedAt: null },
+            select: { id: true, price: true, offerPrice: true },
+        });
+        if (dbProducts.length !== productIds.length) {
+            return NextResponse.json(
+                { success: false, message: 'Un des produits de la commande est introuvable.' },
+                { status: 400 }
+            );
+        }
+        const priceById = new Map(
+            dbProducts.map((p) => [p.id, Number(p.offerPrice ?? p.price)])
+        );
+        const serverItems = items.map((item) => ({
+            productId: item.productId,
+            quantity: Math.max(1, Math.floor(Number(item.quantity) || 1)),
+            unitPrice: priceById.get(item.productId)!,
+        }));
+        const serverTotal = serverItems.reduce(
+            (sum, item) => sum + item.unitPrice * item.quantity,
+            0
+        );
+
+        // 2) Le statut COMPLETED n'est accordé qu'après vérification RÉELLE de la
+        //    transaction auprès de l'API Kkiapay (clé privée). Le kkiapayStatus
+        //    envoyé par le navigateur n'est jamais cru sur parole.
+        let verifiedCompleted = false;
+        let verifiedMethod: string | null = null;
+        let verifiedAmount: number | null = null;
+        let verifiedCurrency: string | null = null;
+
+        if (kkiapayTransactionId) {
+            // Anti-rejeu : une transaction Kkiapay ne peut financer qu'une seule commande.
+            const existingPayment = await prisma.payment.findUnique({
+                where: { transactionId: kkiapayTransactionId },
+                select: { orderId: true },
+            });
+            if (existingPayment && existingPayment.orderId !== orderId) {
+                console.error(
+                    `[Create Order After Payment] Transaction ${kkiapayTransactionId} déjà utilisée pour la commande ${existingPayment.orderId}.`
+                );
+                return NextResponse.json(
+                    { success: false, message: 'Transaction déjà utilisée.' },
+                    { status: 409 }
+                );
+            }
+
+            try {
+                const verification = await verifyKkiapayTransaction(kkiapayTransactionId);
+                // `state` porte notre orderId (champ data du widget) quand il est présent.
+                const stateMatches =
+                    !verification.state || String(verification.state) === orderId;
+                const amountIsValid = verification.amount + 1 >= serverTotal;
+                verifiedCompleted =
+                    verification.status === 'SUCCESS' && amountIsValid && stateMatches;
+                if (verifiedCompleted) {
+                    verifiedMethod = verification.paymentMethod;
+                    verifiedAmount = verification.amount;
+                    verifiedCurrency = verification.currency;
+                } else {
+                    console.warn(
+                        `[Create Order After Payment] Vérification Kkiapay non concluante pour ${kkiapayTransactionId}: status=${verification.status}, amount=${verification.amount}/${serverTotal}, stateMatch=${stateMatches}. Commande créée en PENDING.`
+                    );
+                }
+            } catch (verifyError) {
+                // API indisponible : on ne bloque pas la commande, mais elle reste
+                // PENDING — le callback ou le webhook la confirmeront.
+                console.warn(
+                    '[Create Order After Payment] Vérification Kkiapay indisponible, commande en PENDING:',
+                    verifyError
+                );
+            }
+        }
+
         await prisma.$transaction(async (prismaTx) => {
-            // Déterminer le statut de paiement initial de la commande
-            const initialPaymentStatusForOrder = kkiapayStatus === 'SUCCESS' ? PaymentStatus.COMPLETED : PaymentStatus.PENDING;
+            const initialPaymentStatusForOrder = verifiedCompleted ? PaymentStatus.COMPLETED : PaymentStatus.PENDING;
 
             // Créer la commande
             const newOrder = await prismaTx.order.create({
                 data: {
                     id: orderId, // Utilise l'UUID généré côté client
                     userId: user.id,
-                    totalAmount: new Prisma.Decimal(totalAmount),
+                    totalAmount: new Prisma.Decimal(serverTotal),
                     status: OrderStatus.PENDING, // Le statut de la commande reste PENDING comme demandé
                     paymentStatus: initialPaymentStatusForOrder, // Statut de paiement dynamique basé sur Kkiapay
                     currency: currency,
@@ -110,10 +187,10 @@ export async function POST(req: NextRequest) {
                     createdAt: new Date(),
                     updatedAt: new Date(),
                     orderItems: {
-                        create: items.map(item => ({
+                        create: serverItems.map(item => ({
                             productId: item.productId,
                             quantity: item.quantity,
-                            priceAtOrder: new Prisma.Decimal(item.price),
+                            priceAtOrder: new Prisma.Decimal(item.unitPrice),
                         })),
                     },
                 },
@@ -124,10 +201,12 @@ export async function POST(req: NextRequest) {
             await prismaTx.payment.create({
                 data: {
                     orderId: newOrder.id,
-                    paymentMethod: kkiapayPaymentMethod || paymentMethod,
-                    transactionId: kkiapayTransactionId || null, // L'ID de transaction Kkiapay peut être null si non fourni
-                    amount: new Prisma.Decimal(kkiapayAmount || totalAmount), // Utilise le montant Kkiapay si dispo, sinon totalAmount
-                    currency: currency,
+                    // Valeurs issues de la vérification serveur uniquement ; à défaut,
+                    // montant recalculé en base (jamais le montant déclaré par le client).
+                    paymentMethod: verifiedMethod || paymentMethod,
+                    transactionId: kkiapayTransactionId || null,
+                    amount: new Prisma.Decimal(verifiedAmount ?? serverTotal),
+                    currency: verifiedCurrency || currency,
                     status: initialPaymentStatusForOrder, // Statut du paiement dans la table Payment
                     paymentDate: new Date(),
                     createdAt: new Date(),
@@ -141,7 +220,7 @@ export async function POST(req: NextRequest) {
             if (initialPaymentStatusForOrder === PaymentStatus.COMPLETED) {
                 await recordOrderStockOut(prismaTx, {
                     orderId: newOrder.id,
-                    items: items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+                    items: serverItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
                     userId: user.id,
                 });
             }
