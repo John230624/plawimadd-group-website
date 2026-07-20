@@ -5,19 +5,11 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { 
   ChevronRight, 
-  Folder, 
-  Laptop, 
-  Smartphone, 
-  Tablet, 
-  Tv, 
-  Headphones, 
-  Volume2, 
-  Camera, 
-  Layers, 
   Box, 
   ArrowRight,
   Sparkles
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import type { Product, Category } from '@/lib/types';
 import { useAppContext } from '@/context/AppContext';
 
@@ -28,19 +20,31 @@ interface CategoryExplorerProps {
   setActiveCategoryId: (id: string) => void;
 }
 
-const categoryIcons: Record<string, any> = {
-  'Ordinateurs': Laptop,
-  'Smartphones': Smartphone,
-  'Tablettes': Tablet,
-  'Télévisions': Tv,
-  'Casques & Écouteurs': Headphones,
-  'Haut-parleurs': Volume2,
-  'Appareils photo': Camera,
-  'Électroménager': Layers,
-};
-
-function getCategoryIcon(name: string) {
-  return categoryIcons[name] || Folder;
+export function getCategoryIcon(iconNameOrCatName: string | null): any {
+  if (!iconNameOrCatName) return LucideIcons.Folder;
+  
+  const IconComponent = (LucideIcons as Record<string, any>)[iconNameOrCatName];
+  if (IconComponent) return IconComponent;
+  
+  const norm = iconNameOrCatName.toLowerCase();
+  if (norm.includes('ordinateur') || norm.includes('laptop') || norm.includes('pc')) return LucideIcons.Laptop;
+  if (norm.includes('phone') || norm.includes('smart')) return LucideIcons.Smartphone;
+  if (norm.includes('tablet')) return LucideIcons.Tablet;
+  if (norm.includes('tv') || norm.includes('télé') || norm.includes('televis')) return LucideIcons.Tv;
+  if (norm.includes('casque') || norm.includes('écouteur') || norm.includes('audio')) return LucideIcons.Headphones;
+  if (norm.includes('haut-parleur') || norm.includes('volume') || norm.includes('son')) return LucideIcons.Volume2;
+  if (norm.includes('photo') || norm.includes('camera')) return LucideIcons.Camera;
+  if (norm.includes('caf') || norm.includes('machi') || norm.includes('électro')) return LucideIcons.Layers;
+  if (norm.includes('câble') || norm.includes('charge')) return LucideIcons.Zap;
+  if (norm.includes('clavier') || norm.includes('keyboard')) return LucideIcons.Keyboard;
+  if (norm.includes('usb') || norm.includes('stock') || norm.includes('drive') || norm.includes('disque')) return LucideIcons.HardDrive;
+  if (norm.includes('drone')) return LucideIcons.Plane;
+  if (norm.includes('gadget') || norm.includes('accessoire') || norm.includes('cadeau')) return LucideIcons.Gift;
+  if (norm.includes('imprim')) return LucideIcons.Printer;
+  if (norm.includes('montre') || norm.includes('watch')) return LucideIcons.Watch;
+  if (norm.includes('vélo') || norm.includes('transport') || norm.includes('véhicule')) return LucideIcons.Car;
+  
+  return LucideIcons.Folder;
 }
 
 export default function CategoryExplorer({ 
@@ -136,8 +140,8 @@ export default function CategoryExplorer({
           </div>
           <div className="flex-1 space-y-0.5 px-2">
             {categories.map((cat) => {
-              const Icon = getCategoryIcon(cat.name);
               const isActive = cat.id === hoveredCategoryId;
+              const Icon = getCategoryIcon(cat.imageUrl || cat.name);
               return (
                 <div
                   key={cat.id}
@@ -232,8 +236,8 @@ export default function CategoryExplorer({
         {/* Horizontal Category Pills Carousel */}
         <div className="flex overflow-x-auto gap-3 py-3 px-1 no-scrollbar shrink-0">
           {categories.map((cat) => {
-            const Icon = getCategoryIcon(cat.name);
             const isActive = cat.id === activeCategoryId;
+            const Icon = getCategoryIcon(cat.imageUrl || cat.name);
             return (
               <button
                 key={cat.id}
@@ -243,7 +247,7 @@ export default function CategoryExplorer({
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center transition border ${
                   isActive 
                     ? 'bg-[#2563eb] border-[#2563eb] text-white shadow-sm' 
-                    : 'bg-white border-slate-200 text-slate-500'
+                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700'
                 }`}>
                   <Icon className="h-5 w-5" />
                 </div>

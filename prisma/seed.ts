@@ -208,10 +208,14 @@ async function seedCategoriesAndCharacteristics() {
   for (const catData of categoriesToSeed) {
     const category = await prisma.category.upsert({
       where: { name: catData.name },
-      update: { description: catData.description },
+      update: { 
+        description: catData.description,
+        imageUrl: catData.imageUrl || null,
+      },
       create: {
         name: catData.name,
         description: catData.description,
+        imageUrl: catData.imageUrl || null,
         level: 0,
       },
     });

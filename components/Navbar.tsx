@@ -24,6 +24,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { assets } from "@/assets/assets";
 import Image from "next/image";
@@ -117,6 +118,37 @@ const getCategoryFallbackImage = (name: string): string => {
   if (norm.includes('caf') || norm.includes('machi') || norm.includes('électro')) return '/images/catalog/catalog-coffee-machine.jpg';
   if (norm.includes('montre') || norm.includes('watch')) return '/images/catalog/catalog-smartwatch.jpg';
   return '/images/catalog/catalog-smartphone.jpg';
+};
+
+const isLucideIcon = (src: string) => {
+  return !src.startsWith('/') && !src.startsWith('http');
+};
+
+const getCategoryIcon = (iconNameOrCatName: string | null): any => {
+  if (!iconNameOrCatName) return LucideIcons.Folder;
+  
+  const IconComponent = (LucideIcons as Record<string, any>)[iconNameOrCatName];
+  if (IconComponent) return IconComponent;
+  
+  const norm = iconNameOrCatName.toLowerCase();
+  if (norm.includes('ordinateur') || norm.includes('laptop') || norm.includes('pc')) return LucideIcons.Laptop;
+  if (norm.includes('phone') || norm.includes('smart')) return LucideIcons.Smartphone;
+  if (norm.includes('tablet')) return LucideIcons.Tablet;
+  if (norm.includes('tv') || norm.includes('télé') || norm.includes('televis')) return LucideIcons.Tv;
+  if (norm.includes('casque') || norm.includes('écouteur') || norm.includes('audio')) return LucideIcons.Headphones;
+  if (norm.includes('haut-parleur') || norm.includes('volume') || norm.includes('son')) return LucideIcons.Volume2;
+  if (norm.includes('photo') || norm.includes('camera')) return LucideIcons.Camera;
+  if (norm.includes('caf') || norm.includes('machi') || norm.includes('électro')) return LucideIcons.Layers;
+  if (norm.includes('câble') || norm.includes('charge')) return LucideIcons.Zap;
+  if (norm.includes('clavier') || norm.includes('keyboard')) return LucideIcons.Keyboard;
+  if (norm.includes('usb') || norm.includes('stock') || norm.includes('drive') || norm.includes('disque')) return LucideIcons.HardDrive;
+  if (norm.includes('drone')) return LucideIcons.Plane;
+  if (norm.includes('gadget') || norm.includes('accessoire') || norm.includes('cadeau')) return LucideIcons.Gift;
+  if (norm.includes('imprim')) return LucideIcons.Printer;
+  if (norm.includes('montre') || norm.includes('watch')) return LucideIcons.Watch;
+  if (norm.includes('vélo') || norm.includes('transport') || norm.includes('véhicule')) return LucideIcons.Car;
+  
+  return LucideIcons.Folder;
 };
 
 export default function Navbar(): React.ReactElement {
@@ -391,15 +423,22 @@ export default function Navbar(): React.ReactElement {
                           {/* Circle container for the Image */}
                           <div className="relative flex h-[105px] w-[105px] items-center justify-center rounded-full bg-[#f4f4f5] transition-all duration-300 group-hover:bg-[#e4e4e7] group-hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] shadow-[0_4px_10px_rgba(0,0,0,0.02)]">
                             {/* Product Image inside Circle */}
-                            <div className="relative h-[65%] w-[65%] flex items-center justify-center overflow-hidden">
-                              <Image
-                                src={item.image}
-                                alt={item.title}
-                                fill
-                                sizes="100px"
-                                className="object-contain scale-100 group-hover:scale-110 transition-transform duration-500 ease-out"
-                                priority
-                              />
+                            <div className="relative h-[65%] w-[65%] flex items-center justify-center overflow-hidden text-slate-700">
+                              {isLucideIcon(item.image) ? (
+                                (() => {
+                                  const IconComponent = getCategoryIcon(item.image);
+                                  return <IconComponent className="h-10 w-10 transition-transform duration-500 ease-out group-hover:scale-110" />;
+                                })()
+                              ) : (
+                                <Image
+                                  src={item.image}
+                                  alt={item.title}
+                                  fill
+                                  sizes="100px"
+                                  className="object-contain scale-100 group-hover:scale-110 transition-transform duration-500 ease-out"
+                                  priority
+                                />
+                              )}
                             </div>
 
                             {/* Small blue top-right arrow badge */}

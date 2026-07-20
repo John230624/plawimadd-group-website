@@ -1,6 +1,7 @@
 [
   {
     "name": "Ordinateurs",
+    "imageUrl": "Laptop",
     "description": "Ordinateurs portables, ordinateurs de bureau et stations de travail.",
     "characteristics": [
       {
@@ -81,6 +82,7 @@
   },
   {
     "name": "Smartphones",
+    "imageUrl": "Smartphone",
     "description": "Téléphones portables intelligents et mobiles.",
     "characteristics": [
       {
@@ -156,6 +158,7 @@
   },
   {
     "name": "Tablettes",
+    "imageUrl": "Tablet",
     "description": "Tablettes tactiles et liseuses électroniques.",
     "characteristics": [
       {
@@ -222,6 +225,7 @@
   },
   {
     "name": "Télévisions",
+    "imageUrl": "Tv",
     "description": "Téléviseurs, dalles et écrans de salon.",
     "characteristics": [
       {
@@ -280,6 +284,7 @@
   },
   {
     "name": "Casques & Écouteurs",
+    "imageUrl": "Headphones",
     "description": "Casques audio, écouteurs sans fil, kit mains libres et matériel audio personnel.",
     "characteristics": [
       {
@@ -340,6 +345,7 @@
   },
   {
     "name": "Haut-parleurs",
+    "imageUrl": "Volume2",
     "description": "Enceintes portables, barres de son TV et systèmes sonores.",
     "characteristics": [
       {
@@ -409,6 +415,7 @@
   },
   {
     "name": "Appareils photo",
+    "imageUrl": "Camera",
     "description": "Appareils photo numériques reflex, hybrides, compacts et objectifs.",
     "characteristics": [
       {
@@ -467,6 +474,7 @@
   },
   {
     "name": "Drones",
+    "imageUrl": "Plane",
     "description": "Drones de prise de vue aérienne et accessoires.",
     "characteristics": [
       {
@@ -521,6 +529,7 @@
   },
   {
     "name": "Montres connectées",
+    "imageUrl": "Watch",
     "description": "Montres et bracelets connectés sport et quotidien.",
     "characteristics": [
       {
@@ -579,6 +588,7 @@
   },
   {
     "name": "Souris",
+    "imageUrl": "Mouse",
     "description": "Souris d'ordinateur bureautique et gaming.",
     "characteristics": [
       {
@@ -635,6 +645,7 @@
   },
   {
     "name": "Claviers",
+    "imageUrl": "Keyboard",
     "description": "Claviers d'ordinateur mécaniques, à membrane ou ergonomiques.",
     "characteristics": [
       {
@@ -683,6 +694,7 @@
   },
   {
     "name": "Câbles & chargeurs",
+    "imageUrl": "Zap",
     "description": "Câbles USB, chargeurs secteur rapides, adaptateurs et connectique.",
     "characteristics": [
       {
@@ -724,6 +736,7 @@
   },
   {
     "name": "Clés USB & stockage",
+    "imageUrl": "HardDrive",
     "description": "Disques durs externes, SSD portables, clés USB et cartes mémoire.",
     "characteristics": [
       {
@@ -765,6 +778,7 @@
   },
   {
     "name": "Imprimantes",
+    "imageUrl": "Printer",
     "description": "Imprimantes laser, jet d'encre, multifonctions et consommables.",
     "characteristics": [
       {
@@ -813,6 +827,7 @@
   },
   {
     "name": "Électroménager",
+    "imageUrl": "Layers",
     "description": "Gros et petit électroménager pour la maison et la cuisine.",
     "characteristics": [
       {
@@ -855,6 +870,7 @@
   },
   {
     "name": "Vélos",
+    "imageUrl": "Bike",
     "description": "Vélos tout terrain, vélos de ville, électriques et accessoires de mobilité.",
     "characteristics": [
       {
@@ -904,6 +920,7 @@
   },
   {
     "name": "Paillassons & tapis d’entrée",
+    "imageUrl": "Home",
     "description": "Paillassons, tapis et revêtements d'entrée.",
     "characteristics": [
       {
@@ -944,6 +961,7 @@
   },
   {
     "name": "Gadgets & accessoires",
+    "imageUrl": "Gift",
     "description": "Gadgets électroniques, anneaux lumineux, trépieds et divers accessoires tech.",
     "characteristics": [
       {
