@@ -17,7 +17,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, message: 'orderId requis.' }, { status: 400 });
     }
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SELLER';
+    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'ADMINSUPRA' || session.user.role === 'SELLER';
 
     const order = await prisma.order.findFirst({
       where: isAdmin ? { id: orderId } : { id: orderId, userId: session.user.id },

@@ -57,7 +57,7 @@ export async function authorizeUser(req: NextRequest, context: Context): Promise
         return { authorized: false, response: NextResponse.json({ message: 'Non authentifié.' }, { status: 401 }) };
     }
 
-    if (session.user.id === userIdFromParams || session.user.role === 'ADMIN') {
+    if (session.user.id === userIdFromParams || session.user.role === 'ADMIN' || session.user.role === 'ADMINSUPRA') {
         console.log("Autorisation réussie via la session NextAuth.");
         req.user = session.user as User;
         return { authorized: true, userId: session.user.id, userRole: session.user.role as 'USER' | 'ADMIN' | 'SELLER' };

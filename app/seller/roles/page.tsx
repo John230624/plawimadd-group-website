@@ -138,7 +138,7 @@ export default function RolesPage(): React.ReactElement {
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   const [permSearch, setPermSearch] = useState('');
-  const isAdmin = status === 'authenticated' && session?.user?.role === 'ADMIN';
+  const isAdmin = status === 'authenticated' && (session?.user?.role === 'ADMIN' || session?.user?.role === 'ADMINSUPRA');
 
   const fetchRoles = useCallback(async () => {
     if (!isAdmin) {

@@ -42,7 +42,7 @@ export default function LoginPage(): React.ReactElement {
                 setCurrentUser(userFromSession);
             }
             const role = session.user?.role;
-            router.replace(role === 'ADMIN' || role === 'SELLER' ? '/seller' : '/');
+            router.replace(role === 'ADMIN' || role === 'ADMINSUPRA' || role === 'SELLER' ? '/seller' : '/');
         }
     }, [session, status, router, setCurrentUser]);
 

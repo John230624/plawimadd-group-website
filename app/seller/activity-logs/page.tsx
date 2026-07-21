@@ -120,7 +120,7 @@ export default function ActivityLogsPage(): React.ReactElement {
   const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
-  const isAdmin = status === 'authenticated' && session?.user?.role === 'ADMIN';
+  const isAdmin = status === 'authenticated' && (session?.user?.role === 'ADMIN' || session?.user?.role === 'ADMINSUPRA');
 
   const fetchLogs = useCallback(async () => {
     if (!isAdmin) {

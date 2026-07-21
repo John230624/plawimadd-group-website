@@ -41,7 +41,7 @@ export async function GET(
 ): Promise<NextResponse> {
   const authResult: AuthResult = await authorizeByPermission(req, 'pos.view-transactions');
   if (!authResult.authorized) return authResult.response!;
-  const isAdmin = authResult.userRole === 'ADMIN';
+  const isAdmin = authResult.userRole === 'ADMIN' || authResult.userRole === 'ADMINSUPRA';
 
   const { transactionId } = await params;
   const { transaction, error } = await loadOwnedTransaction(transactionId, authResult.userId!, isAdmin);
@@ -91,7 +91,7 @@ export async function POST(
 ): Promise<NextResponse> {
   const authResult: AuthResult = await authorizeByPermission(req, 'pos.sell');
   if (!authResult.authorized) return authResult.response!;
-  const isAdmin = authResult.userRole === 'ADMIN';
+  const isAdmin = authResult.userRole === 'ADMIN' || authResult.userRole === 'ADMINSUPRA';
   const userId = authResult.userId!;
 
   const { transactionId } = await params;

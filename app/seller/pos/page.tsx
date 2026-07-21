@@ -103,7 +103,7 @@ export default function AdminPosPage(): React.ReactElement {
     if (status !== 'authenticated') return;
     setLoading(true);
     try {
-      if (session?.user?.role === 'ADMIN') {
+      if (session?.user?.role === 'ADMIN' || session?.user?.role === 'ADMINSUPRA') {
         const res = await fetch('/api/admin/pos/transactions');
         const result: AdminPosResponse = await res.json();
         if (!res.ok || !result.success) throw new Error(result.message || 'Chargement impossible');

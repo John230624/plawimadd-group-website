@@ -6,7 +6,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const authResult: AuthResult = await authorizeByPermission(req, 'pos.view-transactions');
   if (!authResult.authorized) return authResult.response!;
   const userId = authResult.userId!;
-  const isAdmin = authResult.userRole === 'ADMIN';
+  const isAdmin = authResult.userRole === 'ADMIN' || authResult.userRole === 'ADMINSUPRA';
 
   try {
     const { searchParams } = new URL(req.url);

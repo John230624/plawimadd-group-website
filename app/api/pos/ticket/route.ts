@@ -10,7 +10,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth: AuthResult = await authorizeByPermission(req, 'pos.view-transactions');
   if (!auth.authorized) return auth.response!;
   const userId = auth.userId!;
-  const isAdmin = auth.userRole === 'ADMIN';
+  const isAdmin = auth.userRole === 'ADMIN' || auth.userRole === 'ADMINSUPRA';
 
   const { searchParams } = new URL(req.url);
   const transactionId = searchParams.get('transactionId');

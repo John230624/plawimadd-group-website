@@ -192,7 +192,7 @@ export default function Navbar(): React.ReactElement {
 
   const isLoggedIn = status === 'authenticated';
   const canAccessDashboard = Boolean(
-    isLoggedIn && (session?.user?.role === 'ADMIN' || session?.user?.role === 'SELLER')
+    isLoggedIn && (session?.user?.role === 'ADMIN' || session?.user?.role === 'ADMINSUPRA' || session?.user?.role === 'SELLER')
   );
   const cartCount = mounted ? getCartCount() : 0;
   const wishlistCount = mounted ? getWishlistCount() : 0;
