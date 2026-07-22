@@ -60,6 +60,8 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
   // Step 2: Product Info
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [shortDescription, setShortDescription] = useState('');
+  const [warranty, setWarranty] = useState('');
   const [brand, setBrand] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [uploadingVideo, setUploadingVideo] = useState(false);
@@ -105,9 +107,14 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
 
   // Characteristics managed via state instead of DOM
   const [characteristicValues, setCharacteristicValues] = useState<Record<string, string>>({});
+  const loadedCategoryIdRef = useRef<string | null>(null);
+  const loadedProductIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!selectedCategoryId) { setCharacteristics([]); return; }
+    if (loadedCategoryIdRef.current && selectedCategoryId === loadedCategoryIdRef.current) {
+      return;
+    }
     fetch(`/api/categories/${selectedCategoryId}/attributes`)
       .then(r => r.json())
       .then(data => {
@@ -126,19 +133,25 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
       .catch(() => {});
   }, [selectedCategoryId]);
 
-
-
   // Load product data in edit mode
   useEffect(() => {
     if (!productId) return;
+    if (loadedProductIdRef.current === productId) return;
+
     const loadProduct = async () => {
+      setInitialLoading(true);
       try {
         const res = await fetch(`/api/products/${productId}`);
         if (!res.ok) throw new Error('Failed to load product');
-        const product = await res.json();
+        const json = await res.json();
+        const product = json.product || json;
+
+        loadedProductIdRef.current = productId;
 
         setName(product.name || '');
         setDescription(product.description || '');
+        setShortDescription(product.shortDescription || '');
+        setWarranty(product.warranty || '');
         setBrand(product.brand || '');
         setVideoUrl(product.videoUrl || '');
 
@@ -146,85 +159,109 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
         const urls: string[] = Array.isArray(product.imgUrl) ? product.imgUrl : (product.imgUrl ? [product.imgUrl] : []);
         setExistingImageUrls(urls);
 
-        // Category
-        if (product.categoryId) {
-          setSelectedCategoryId(product.categoryId);
-        } else if (product.category) {
-          const cat = categories.find(c => c.name === product.category);
-          if (cat) setSelectedCategoryId(cat.id);
-        }
-
         // Pricing
-        setPrice(product.price?.toString() || '');
-        setOfferPrice(product.offerPrice?.toString() || '');
-        setCostPrice(product.costPrice?.toString() || '');
-        setStock(product.stock?.toString() || '');
-        setMoqMin(product.moqMin?.toString() || '1');
-        setMoqMax(product.moqMax?.toString() || '');
+        setPrice(product.price !== undefined && product.price !== null ? product.price.toString() : '');
+        setOfferPrice(product.offerPrice !== undefined && product.offerPrice !== null ? product.offerPrice.toString() : '');
+        setCostPrice(product.costPrice !== undefined && product.costPrice !== null ? product.costPrice.toString() : '');
+        setStock(product.stock !== undefined && product.stock !== null ? product.stock.toString() : '');
+        setMoqMin(product.moqMin !== undefined && product.moqMin !== null ? product.moqMin.toString() : '1');
+        setMoqMax(product.moqMax !== undefined && product.moqMax !== null ? product.moqMax.toString() : '');
 
         // Shipping
-        setWeight(product.weight?.toString() || '');
-        setLength(product.length?.toString() || '');
-        setWidth(product.width?.toString() || '');
-        setHeight(product.height?.toString() || '');
+        setWeight(product.weight !== undefined && product.weight !== null ? product.weight.toString() : '');
+        setLength(product.length !== undefined && product.length !== null ? product.length.toString() : '');
+        setWidth(product.width !== undefined && product.width !== null ? product.width.toString() : '');
+        setHeight(product.height !== undefined && product.height !== null ? product.height.toString() : '');
         setLeadTimeRange(product.leadTimeRange || '3-5 jours');
 
-        // Certifications
-        setSelectedCertifications(product.certifications || []);
-
-        // Tags
-        setTags(product.tags || []);
-
-        // Visible
+        // Certifications & Tags & Visible
+        setSelectedCertifications(Array.isArray(product.certifications) ? product.certifications : []);
+        setTags(Array.isArray(product.tags) ? product.tags : []);
         setVisible(product.visible !== false);
 
+        // Category ID
+        const catId = product.categoryId || (typeof product.category === 'object' && product.category?.id ? product.category.id : null);
+        if (catId) {
+          setSelectedCategoryId(catId);
+          loadedCategoryIdRef.current = catId;
 
+          try {
+            const attrRes = await fetch(`/api/categories/${catId}/attributes`);
+            if (attrRes.ok) {
+              const attrData = await attrRes.json();
+              if (Array.isArray(attrData)) {
+                setCharacteristics(attrData);
+
+                const variantsList = product.variants || [];
+                const variantAttrs = attrData.filter((c: Characteristic) => c.isVariant);
+                const configs: VariantConfig[] = variantAttrs.map((c: Characteristic) => {
+                  const selectedValIds = new Set<string>();
+                  const modifications: Record<string, { priceModifier: number; stockAdjustment: number }> = {};
+
+                  variantsList.forEach((v: any) => {
+                    (v.attributes || []).forEach((a: any) => {
+                      if (a.attributeId === c.id) {
+                        if (a.attributeValueId) selectedValIds.add(a.attributeValueId);
+                        if (a.priceModifier) {
+                          modifications[a.attributeValueId] = {
+                            priceModifier: a.priceModifier,
+                            stockAdjustment: 0,
+                          };
+                        }
+                      }
+                    });
+                  });
+
+                  return {
+                    id: c.id,
+                    attributeId: c.id,
+                    attributeName: c.name,
+                    attributeType: c.attributeType,
+                    selectedValues: Array.from(selectedValIds),
+                    modifications,
+                  };
+                });
+                setVariantConfigs(configs);
+
+                if (Array.isArray(variantsList) && variantsList.length > 0) {
+                  const gVariants: GeneratedVariant[] = variantsList.map((v: any) => ({
+                    sku: v.sku || '',
+                    variantName: v.variantName || '',
+                    price: typeof v.price === 'number' ? v.price : parseFloat(v.price || '0'),
+                    stock: typeof v.stock === 'number' ? v.stock : parseInt(v.stock || '0', 10),
+                    attributes: (v.attributes || []).map((a: any) => ({
+                      attributeId: a.attributeId,
+                      attributeValueId: a.attributeValueId,
+                      priceModifier: a.priceModifier || 0,
+                      stockAdjustment: a.stockAdjustment || 0,
+                    })),
+                  }));
+                  setGeneratedVariants(gVariants);
+                }
+              }
+            }
+          } catch (attrErr) {
+            console.error('Erreur chargement attributs catégorie:', attrErr);
+          }
+        }
 
         // Characteristics values
         try {
           const charsRes = await fetch(`/api/product-characteristics?productId=${productId}`);
-          const charsData = await charsRes.json();
-          if (Array.isArray(charsData)) {
-            const values: Record<string, string> = {};
-            charsData.forEach((pc: { characteristicId: string; value: string }) => {
-              values[pc.characteristicId] = pc.value;
-            });
-            setCharacteristicValues(values);
-          }
-        } catch {}
-
-        // Load existing variants
-        try {
-          const vRes = await fetch(`/api/products/${productId}/variants`);
-          if (vRes.ok) {
-            const variants = await vRes.json();
-            if (Array.isArray(variants) && variants.length > 0) {
-              const gVariants: GeneratedVariant[] = variants.map((v: { sku: string; variantName: string; price: number; stock: number; attributes: { attributeId: string; attributeValueId: string; priceModifier: number | null; stockAdjustment: number | null; }[]; }) => ({
-                sku: v.sku,
-                variantName: v.variantName,
-                price: v.price,
-                stock: v.stock,
-                attributes: v.attributes || [],
-              }));
-              setGeneratedVariants(gVariants);
-
-              // Pre-select variant attribute values in variantConfigs
-              const attrValueIds = new Set<string>();
-              variants.forEach((v: { attributes: { attributeValueId: string }[] }) => {
-                (v.attributes || []).forEach(a => attrValueIds.add(a.attributeValueId));
+          if (charsRes.ok) {
+            const charsData = await charsRes.json();
+            if (Array.isArray(charsData)) {
+              const values: Record<string, string> = {};
+              charsData.forEach((pc: { characteristicId: string; value: string }) => {
+                values[pc.characteristicId] = pc.value;
               });
-              setVariantConfigs(prev => prev.map(config => {
-                const idsForAttr = new Set<string>();
-                variants.forEach((v: { attributes: { attributeId: string; attributeValueId: string }[] }) => {
-                  (v.attributes || []).forEach(a => {
-                    if (a.attributeId === config.attributeId) idsForAttr.add(a.attributeValueId);
-                  });
-                });
-                return { ...config, selectedValues: Array.from(idsForAttr) };
-              }));
+              setCharacteristicValues(values);
             }
           }
-        } catch {}
+        } catch (charsErr) {
+          console.error('Erreur chargement caractéristiques:', charsErr);
+        }
+
       } catch (err) {
         toast.error('Erreur chargement produit');
       } finally {
@@ -232,7 +269,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
       }
     };
     loadProduct();
-  }, [productId, categories]);
+  }, [productId]);
 
   const previews = useMemo(() => imageFiles.map(f => (f ? URL.createObjectURL(f) : null)), [imageFiles]);
   useEffect(() => () => previews.forEach(p => { if (p) URL.revokeObjectURL(p); }), [previews]);
@@ -369,6 +406,8 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
       const body: Record<string, unknown> = {
         name: name.trim(),
         description: description.trim(),
+        shortDescription: shortDescription.trim() || null,
+        warranty: warranty.trim() || null,
         categoryId: selectedCategoryId,
         price: parseFloat(price),
         offerPrice: offerPrice ? parseFloat(offerPrice) : null,
@@ -555,10 +594,31 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
               placeholder="Ex: MacBook Air 13 pouces M2 2024" />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Description *</label>
+            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Description simple (courte / affichée sous le titre & carte produit)</label>
+            <textarea rows={2} value={shortDescription} onChange={e => setShortDescription(e.target.value)}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)] focus:ring-4 focus:ring-[var(--accent-blue)]/20"
+              placeholder="Ex: TV 55'' 4K UHD, Google TV, Dolby Vision-Atmos..." />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Description détaillée (onglet Détails du produit) *</label>
             <textarea rows={4} value={description} onChange={e => setDescription(e.target.value)}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)] focus:ring-4 focus:ring-[var(--accent-blue)]/20"
-              placeholder="Description détaillée du produit..." />
+              placeholder="Description détaillée complète du produit..." />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Marque (optionnel)</label>
+              <input type="text" value={brand} onChange={e => setBrand(e.target.value)}
+                className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)]"
+                placeholder="Ex: Samsung, Apple, Sony..." />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Garantie (optionnel)</label>
+              <input type="text" value={warranty} onChange={e => setWarranty(e.target.value)}
+                className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)]"
+                placeholder="Ex: 12 mois, 2 ans, Sans garantie..." />
+            </div>
           </div>
 
           <div>
@@ -1062,9 +1122,13 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
       <div className="flex items-center gap-1">
         {STEPS.map(s => (
           <React.Fragment key={s.num}>
-            <div className={`flex items-center gap-2 ${
-              s.num === step ? 'text-[var(--accent-blue)]' : s.num < step ? 'text-[var(--accent-green)]' : 'text-[var(--text-tertiary)]'
-            }`}>
+            <button
+              type="button"
+              onClick={() => setStep(s.num)}
+              className={`flex items-center gap-2 transition hover:opacity-80 ${
+                s.num === step ? 'text-[var(--accent-blue)]' : s.num < step ? 'text-[var(--accent-green)]' : 'text-[var(--text-tertiary)]'
+              }`}
+            >
               <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition ${
                 s.num === step ? 'bg-[var(--accent-blue)] text-white' :
                 s.num < step ? 'bg-[var(--accent-green)] text-white' :
@@ -1073,7 +1137,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
                 {s.num < step ? <Check className="h-4 w-4" /> : s.num}
               </div>
               <span className="hidden text-xs font-medium sm:inline">{s.label}</span>
-            </div>
+            </button>
             {s.num < 7 && <div className={`h-0.5 flex-1 rounded-full ${
               s.num < step ? 'bg-[var(--accent-green)]' : 'bg-[var(--border)]'
             }`} />}

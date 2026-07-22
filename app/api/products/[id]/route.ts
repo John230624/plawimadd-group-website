@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
-// Importez les types générés par Prisma directement pour une meilleure compatibilité
 import { Prisma, Product as PrismaProduct, Category } from '@prisma/client';
 
 const Decimal = Prisma.Decimal;
@@ -15,16 +14,14 @@ interface RouteContext {
     }>;
 }
 
-// Définir le type du produit tel qu'il est retourné par Prisma avec la catégorie incluse
 type ProductWithCategory = PrismaProduct & { category: Category };
 
-// Define the type for the product as it will be returned in the API response
-// This omits Prisma's specific types (Decimal, raw JSON string for imgUrl)
-// and ensures client-friendly types (number, string[])
 type ApiResponseProduct = {
     id: string;
     name: string;
     description: string | null;
+    shortDescription?: string | null;
+    warranty?: string | null;
     price: number;
     offerPrice: number | null;
     stock: number;
@@ -89,7 +86,6 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
     }
 
     try {
-        // Le type de 'product' ici est ProductWithCategory grâce à 'include: { category: true }'
         const product = await prisma.product.findUnique({
             where: { id: id },
             include: {
@@ -131,16 +127,18 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
         }
 
         const parsedAttributesJson = product.attributesJson
-            ? (() => { try { return JSON.parse(product.attributesJson); } catch { return null; } })()
+            ? (() => { try { return JSON.parse(product.attributesJson!); } catch { return null; } })()
             : null;
         const parsedCertifications = product.certifications
-            ? (() => { try { const c = JSON.parse(product.certifications); return Array.isArray(c) ? c : null; } catch { return null; } })()
+            ? (() => { try { const c = JSON.parse(product.certifications!); return Array.isArray(c) ? c : null; } catch { return null; } })()
             : null;
 
         const responseProduct: ApiResponseProduct = {
             id: product.id,
             name: product.name,
             description: product.description,
+            shortDescription: product.shortDescription,
+            warranty: product.warranty,
             price: parseFloat(product.price.toString()),
             offerPrice: product.offerPrice ? parseFloat(product.offerPrice.toString()) : null,
             stock: product.stock,
@@ -195,7 +193,7 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
 
     const { id } = await context.params;
     const body = await req.json() as Record<string, unknown>;
-    const { name, description, categoryId, imgUrl, brand, color, attributesJson, moqMin, moqMax, leadTimeRange, certifications } = body;
+    const { name, description, shortDescription, warranty, categoryId, imgUrl, brand, color, attributesJson, moqMin, moqMax, leadTimeRange, certifications } = body;
     const price = body.price as number;
     const offerPrice = body.offerPrice as number | undefined | null;
     const stock = body.stock as number;
@@ -203,7 +201,6 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
     if (!id) {
         return NextResponse.json({ success: false, message: 'ID du produit manquant pour la mise à jour.' }, { status: 400 });
     }
-    // Validate required fields
     if (!name || !description || !categoryId || price === undefined || stock === undefined || !imgUrl) {
         return NextResponse.json({ success: false, message: 'Champs obligatoires manquants pour la mise à jour.' }, { status: 400 });
     }
@@ -221,6 +218,8 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
         const updateData: Record<string, unknown> = {
             name: name as string,
             description: description as string,
+            shortDescription: shortDescription as string | undefined | null,
+            warranty: warranty as string | undefined | null,
             price: new Decimal(price),
             offerPrice: finalOfferPrice,
             stock: stock,
@@ -289,6 +288,8 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
             id: updatedProduct.id,
             name: updatedProduct.name,
             description: updatedProduct.description,
+            shortDescription: updatedProduct.shortDescription,
+            warranty: updatedProduct.warranty,
             price: parseFloat(updatedProduct.price.toString()),
             offerPrice: updatedProduct.offerPrice ? parseFloat(updatedProduct.offerPrice.toString()) : null,
             stock: updatedProduct.stock,
@@ -327,7 +328,6 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
             if (err.code === 'P2025') {
                 return NextResponse.json({ success: false, message: 'Produit non trouvé pour la mise à jour.' }, { status: 404 });
             }
-            // Gérer la violation de contrainte unique, par exemple, si le nom du produit doit être unique
             if (err.code === 'P2002') {
                 return NextResponse.json({ success: false, message: 'Un produit avec ce nom existe déjà.' }, { status: 409 });
             }
@@ -411,6 +411,8 @@ export async function PATCH(req: NextRequest, context: RouteContext): Promise<Ne
             id: updatedProduct.id,
             name: updatedProduct.name,
             description: updatedProduct.description,
+            shortDescription: updatedProduct.shortDescription,
+            warranty: updatedProduct.warranty,
             price: parseFloat(updatedProduct.price.toString()),
             offerPrice: updatedProduct.offerPrice ? parseFloat(updatedProduct.offerPrice.toString()) : null,
             stock: updatedProduct.stock,

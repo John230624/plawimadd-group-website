@@ -220,7 +220,8 @@ export default function CategoriesPage(): React.ReactElement {
     event.preventDefault();
     if (!validateForm()) return;
 
-    if (status !== 'authenticated' || session?.user?.role !== UserRole.ADMIN) {
+    const isStaffAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'ADMINSUPRA';
+    if (status !== 'authenticated' || !isStaffAdmin) {
       toast.error('Acces admin requis.');
       return;
     }

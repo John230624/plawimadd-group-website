@@ -165,62 +165,87 @@ export async function POST(req: NextRequest) {
 
         await prisma.$transaction(async (prismaTx) => {
             const initialPaymentStatusForOrder = verifiedCompleted ? PaymentStatus.COMPLETED : PaymentStatus.PENDING;
+            const initialOrderStatus = verifiedCompleted ? OrderStatus.PROCESSING : OrderStatus.PENDING;
 
-            // Créer la commande
-            const newOrder = await prismaTx.order.create({
-                data: {
-                    id: orderId, // Utilise l'UUID généré côté client
-                    userId: user.id,
-                    totalAmount: new Prisma.Decimal(serverTotal),
-                    status: OrderStatus.PENDING, // Le statut de la commande reste PENDING comme demandé
-                    paymentStatus: initialPaymentStatusForOrder, // Statut de paiement dynamique basé sur Kkiapay
-                    currency: currency,
-                    shippingAddressLine1: shippingAddress.street ?? '', 
-                    shippingAddressLine2: shippingAddress.area,
-                    shippingCity: shippingAddress.city,
-                    shippingState: shippingAddress.state,
-                    shippingZipCode: shippingAddress.pincode,
-                    shippingCountry: shippingAddress.country,
-                    shippingAddressId: shippingAddress.id || null, // Peut être null si nouvelle adresse
-                    userEmail: userEmail,
-                    userPhoneNumber: userPhoneNumber,
-                    orderDate: new Date(),
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                    orderItems: {
-                        create: serverItems.map(item => ({
-                            productId: item.productId,
-                            quantity: item.quantity,
-                            priceAtOrder: new Prisma.Decimal(item.unitPrice),
-                        })),
-                    },
-                },
+            // Vérifier si la commande existe déjà (ex: créée par callback ou webhook simultané)
+            const existingOrder = await prismaTx.order.findUnique({
+                where: { id: orderId },
             });
-            console.log(`[Create Order After Payment] Commande ${newOrder.id} créée avec statut PENDING et paiement ${initialPaymentStatusForOrder}.`);
 
-            // Créer l'enregistrement de paiement initial
-            await prismaTx.payment.create({
-                data: {
-                    orderId: newOrder.id,
-                    // Valeurs issues de la vérification serveur uniquement ; à défaut,
-                    // montant recalculé en base (jamais le montant déclaré par le client).
+            if (existingOrder) {
+                console.log(`[Create Order After Payment] Commande ${orderId} existante trouvée. Mise à jour des statuts.`);
+                await prismaTx.order.update({
+                    where: { id: orderId },
+                    data: {
+                        status: initialOrderStatus,
+                        paymentStatus: initialPaymentStatusForOrder,
+                        updatedAt: new Date(),
+                    },
+                });
+            } else {
+                // Créer la commande
+                await prismaTx.order.create({
+                    data: {
+                        id: orderId, // Utilise l'UUID généré côté client
+                        userId: user.id,
+                        totalAmount: new Prisma.Decimal(serverTotal),
+                        status: initialOrderStatus,
+                        paymentStatus: initialPaymentStatusForOrder,
+                        currency: currency,
+                        shippingAddressLine1: shippingAddress.street ?? '', 
+                        shippingAddressLine2: shippingAddress.area,
+                        shippingCity: shippingAddress.city,
+                        shippingState: shippingAddress.state,
+                        shippingZipCode: shippingAddress.pincode,
+                        shippingCountry: shippingAddress.country,
+                        shippingAddressId: shippingAddress.id || null,
+                        userEmail: userEmail,
+                        userPhoneNumber: userPhoneNumber,
+                        orderDate: new Date(),
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        orderItems: {
+                            create: serverItems.map(item => ({
+                                productId: item.productId,
+                                quantity: item.quantity,
+                                priceAtOrder: new Prisma.Decimal(item.unitPrice),
+                            })),
+                        },
+                    },
+                });
+                console.log(`[Create Order After Payment] Commande ${orderId} créée avec statut ${initialOrderStatus} et paiement ${initialPaymentStatusForOrder}.`);
+            }
+
+            // Enregistrer ou mettre à jour le paiement
+            await prismaTx.payment.upsert({
+                where: { orderId: orderId },
+                update: {
                     paymentMethod: verifiedMethod || paymentMethod,
                     transactionId: kkiapayTransactionId || null,
                     amount: new Prisma.Decimal(verifiedAmount ?? serverTotal),
                     currency: verifiedCurrency || currency,
-                    status: initialPaymentStatusForOrder, // Statut du paiement dans la table Payment
+                    status: initialPaymentStatusForOrder,
+                    paymentDate: new Date(),
+                    updatedAt: new Date(),
+                },
+                create: {
+                    orderId: orderId,
+                    paymentMethod: verifiedMethod || paymentMethod,
+                    transactionId: kkiapayTransactionId || null,
+                    amount: new Prisma.Decimal(verifiedAmount ?? serverTotal),
+                    currency: verifiedCurrency || currency,
+                    status: initialPaymentStatusForOrder,
                     paymentDate: new Date(),
                     createdAt: new Date(),
                     updatedAt: new Date(),
                 },
             });
-            console.log(`[Create Order After Payment] Enregistrement de paiement initial créé pour commande ${newOrder.id}.`);
+            console.log(`[Create Order After Payment] Enregistrement de paiement géré pour commande ${orderId}.`);
 
-            // Inventaire : sortie de stock si le paiement est déjà confirmé
-            // (sinon le callback Kkiapay s'en chargera à la confirmation).
+            // Inventaire : sortie de stock si le paiement est confirmé
             if (initialPaymentStatusForOrder === PaymentStatus.COMPLETED) {
                 await recordOrderStockOut(prismaTx, {
-                    orderId: newOrder.id,
+                    orderId: orderId,
                     items: serverItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
                     userId: user.id,
                 });

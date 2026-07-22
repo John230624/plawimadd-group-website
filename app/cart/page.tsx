@@ -417,7 +417,7 @@ export default function CartPage(): React.ReactElement {
     window.openKkiapayWidget({
       amount: subtotal,
       api_key: KKIAPAY_PUBLIC_API_KEY,
-      callback: `${window.location.origin}/api/kkiapay-callback?transactionId=${transactionIdForKkiapay}`,
+      callback: `${window.location.origin}/api/kkiapay-callback?orderId=${transactionIdForKkiapay}`,
       email: currentUser.email,
       phone: selectedAddress.phoneNumber || '',
       position: 'center',

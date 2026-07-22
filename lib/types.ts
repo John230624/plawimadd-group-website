@@ -106,6 +106,8 @@ export interface Product {
     id: string;
     name: string;
     description: string | null;
+    shortDescription?: string | null;
+    warranty?: string | null;
     price: number;
     offerPrice: number | null;
     stock: number;

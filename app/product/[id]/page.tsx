@@ -207,9 +207,8 @@ export default function ProductPage(): React.ReactElement {
 
     return [
       { label: 'Categorie', value: productData.category?.name || 'Catalogue' },
-      { label: 'Marque', value: productData.brand || 'Plawimadd' },
-
-      { label: 'Garantie', value: '12 mois' },
+      { label: 'Marque', value: productData.brand || undefined },
+      { label: 'Garantie', value: productData.warranty || undefined },
       { label: 'Disponibilite', value: productData.stock > 0 ? 'En stock' : 'Epuise' },
       ...dynamicCharacteristics,
       ...attributes,
@@ -485,6 +484,11 @@ export default function ProductPage(): React.ReactElement {
               <h1 className="text-[20px] font-bold leading-7 text-[#222] md:text-[22px]">
                 {productData.name}
               </h1>
+              {productData.shortDescription && (
+                <p className="mt-2 text-sm leading-6 text-[#666]">
+                  {productData.shortDescription}
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-[#666]">
                 <span className="flex items-center gap-0.5 text-[#ff6a00]">
                   {Array.from({ length: 5 }).map((_, index) => (

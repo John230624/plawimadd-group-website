@@ -6,15 +6,11 @@ import { authorizeByPermission, AuthResult } from '@/lib/authUtils';
 import { logActivity } from '@/lib/logActivity';
 import { productSchema } from '@/lib/validation';
 import { ZodError } from 'zod';
-
 import { Prisma } from '@prisma/client';
 
-// Alias via l'API publique : l'import direct de @prisma/client/runtime/library
-// echoue au runtime en prod depuis que le paquet est externalise (serverExternalPackages).
 const Decimal = Prisma.Decimal;
 type Decimal = Prisma.Decimal;
 
-// Nouveau : Définir le type de la catégorie telle qu'elle sera récupérée par Prisma avec un produit
 type CategoryFromPrisma = {
     id: string;
     name: string;
@@ -24,11 +20,12 @@ type CategoryFromPrisma = {
     updatedAt: Date;
 };
 
-// Type direct de ce que Prisma renvoie pour un produit avec sa catégorie et ses reviews incluses
 type ProductWithRelations = {
     id: string;
     name: string;
     description: string | null;
+    shortDescription: string | null;
+    warranty: string | null;
     price: Decimal;
     stock: number;
     lowStockThreshold: number | null;
@@ -72,6 +69,8 @@ type ProductWithRelations = {
 interface ProductRequest {
     name: string;
     description: string;
+    shortDescription?: string | null;
+    warranty?: string | null;
     category: string;
     price: number;
     offerPrice?: number | null;
@@ -88,7 +87,6 @@ interface ProductRequest {
     metaTitle?: string | null;
     metaDescription?: string | null;
     tags?: string[] | null;
-    // Nouveaux champs attributs dynamiques
     attributesJson?: Record<string, unknown> | null;
     moqMin?: number | null;
     moqMax?: number | null;
@@ -100,6 +98,8 @@ type ApiResponseProduct = {
     id: string;
     name: string;
     description: string | null;
+    shortDescription?: string | null;
+    warranty?: string | null;
     price: number;
     offerPrice: number | null;
     stock: number;
@@ -141,9 +141,6 @@ type ApiResponseProduct = {
     }[];
 };
 
-
-// --- Helper function to parse imgUrl string into a string array ---
-// Cette fonction est cruciale pour décoder les chaînes potentiellement doublement/triplement encodées
 function parseImgUrl(imgUrlString: string | null): string[] {
     if (!imgUrlString) {
         return [];
@@ -151,7 +148,48 @@ function parseImgUrl(imgUrlString: string | null): string[] {
 
     let currentString = imgUrlString;
 
-    // Tenter de parser la chaîne plusieurs fois pour gérer la double (ou triple) sérialisation
+    for (let i = 0; i < 5; i++) {
+        try {
+            const parsed = JSON.parse(currentString);
+
+            if (Array.isArray(parsed)) {
+                // Si c'est un tableau, vérifiez si ses éléments sont des chaînes JSON encodées
+                if (parsed.length > 0 && typeof parsed[0] === 'string' && parsed[0].startsWith('[') && parsed[0].endsWith(']')) {
+                    currentString = parsed[0]; // C'est un tableau stringifié à l'intérieur d'un tableau
+                } else if (parsed.length > 0 && typeof parsed[0] === 'string' && (parsed[0].startsWith('"') || parsed[0].startsWith('{'))) {
+                    // C'est un tableau de chaînes qui sont elles-mêmes stringifiées ou des objets JSON
+                    try {
+                        const reParsed = JSON.parse(parsed[0]);
+                        if (Array.isArray(reParsed) && typeof reParsed[0] === 'string') {
+                            return reParsed; // C'est le tableau final d'URLs
+                        } else if (typeof reParsed === 'string') {
+                            return [reParsed]; // C'est une seule URL stringifiée
+                        }
+                    } catch {
+                        // Si le re-parsing échoue, c'est probablement un tableau de chaînes déjà propres
+                        return parsed.filter((item): item is string => typeof item === 'string');
+                    }
+                }
+                else {
+                    // C'est un tableau de chaînes déjà propres
+                    return parsed.filter((item): item is string => typeof item === 'string');
+                }
+            } else if (typeof parsed === 'string') {
+                currentString = parsed; // C'est une chaîne stringifiée, continuer le parsing
+            } else {
+                // Ce n'est ni un tableau, ni une chaîne stringifiée, ni une chaîne simple.
+                return [];
+            }
+        } catch (e) {
+            // Si JSON.parse échoue, c'est probablement une chaîne simple non JSON
+            if (typeof currentString === 'string') {
+                return [currentString]; // Retourne la chaîne simple dans un tableau
+            } else {
+                return [];
+            }
+        }
+    }
+
     for (let i = 0; i < 5; i++) {
         try {
             const parsed = JSON.parse(currentString);
@@ -211,7 +249,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const body = await req.json() as ProductRequest;
         const parsed = productSchema.omit({ categoryId: true }).parse(body);
         const { name, description, price, offerPrice, stock, imgUrl, videoUrl, brand, color } = parsed;
-        const { category, visible, weight, length: dimLength, width, height, costPrice, metaTitle, metaDescription, tags, attributesJson, moqMin, moqMax, leadTimeRange, certifications } = body;
+        const { category, shortDescription, warranty, visible, weight, length: dimLength, width, height, costPrice, metaTitle, metaDescription, tags, attributesJson, moqMin, moqMax, leadTimeRange, certifications } = body;
         const bodyCategoryId = (body as unknown as Record<string, unknown>).categoryId as string | undefined;
 
         const finalOfferPrice =
@@ -248,6 +286,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             data: {
                 name,
                 description,
+                shortDescription: shortDescription || null,
+                warranty: warranty || null,
                 category: { connect: { id: categoryId } },
                 price: new Decimal(price),
                 offerPrice: finalOfferPrice,
@@ -275,7 +315,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         });
 
         await logActivity({
-            userId: req.user?.id || null,
+            userId: (req as any).user?.id || null,
             action: 'CREATE',
             entity: 'PRODUCT',
             entityId: newProduct.id,
@@ -291,6 +331,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             id: newProduct.id,
             name: newProduct.name,
             description: newProduct.description,
+            shortDescription: newProduct.shortDescription,
+            warranty: newProduct.warranty,
             price: parseFloat(newProduct.price.toString()),
             offerPrice: newProduct.offerPrice ? parseFloat(newProduct.offerPrice.toString()) : null,
             stock: newProduct.stock,
@@ -319,20 +361,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             certifications: parsedCertifications,
             soldCount: newProduct.soldCount,
             reviewCount: newProduct.reviewCount,
+            variants: [],
         };
-
-        return NextResponse.json(
-            { message: 'Produit ajouté avec succès.', product: responseNewProduct },
-            { status: 201 }
-        );
-
+        return NextResponse.json({ success: true, data: responseNewProduct }, { status: 201 });
     } catch (error: unknown) {
-        if (error instanceof ZodError) {
-            return NextResponse.json(
-                { message: error.issues[0].message },
-                { status: 400 }
-            );
-        }
         console.error('Erreur lors de l\'ajout du produit:', error);
         const err = error as any;
         if (err && typeof err === 'object') {
@@ -391,6 +423,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                 id: product.id,
                 name: product.name,
                 description: product.description,
+                shortDescription: product.shortDescription,
+                warranty: product.warranty,
                 stock: product.stock,
                 createdAt: product.createdAt,
                 updatedAt: product.updatedAt,
@@ -427,7 +461,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             return formattedProduct;
         });
 
-        // Enveloppez la réponse dans un objet { success: true, data: ... }
         return NextResponse.json({ success: true, data: formattedProducts }, { status: 200 });
 
     } catch (error: unknown) {

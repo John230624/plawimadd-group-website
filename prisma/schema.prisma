@@ -254,7 +254,9 @@ model OrderPayment {
 model Product {
   id              String   @id @default(uuid()) @db.VarChar(255) // Clé primaire UUID
   name            String   @db.VarChar(255) // Nom du produit
-  description     String?  @db.Text // Description du produit (optionnel)
+  description     String?  @db.Text // Description détaillée du produit (optionnel)
+  shortDescription String? @map("shortDescription") @db.Text // Description simple / courte (optionnel)
+  warranty        String?  @map("warranty") @db.VarChar(255) // Garantie (optionnel)
   price           Decimal  @db.Decimal(10, 2) // Prix du produit (base)
   stock           Int // Quantité en stock total
   lowStockThreshold Int?   @default(5) // Seuil d'alerte de stock bas (par produit)

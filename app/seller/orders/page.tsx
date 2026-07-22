@@ -157,10 +157,14 @@ export default function OrdersPage(): React.ReactElement {
     }
   };
 
+  const isStaffRole = Boolean(
+    session?.user?.role && ['ADMIN', 'ADMINSUPRA', 'SELLER'].includes(session.user.role)
+  );
+
   const fetchAllOrders = useCallback(async () => {
-    if (status !== 'authenticated' || session?.user?.role !== UserRole.ADMIN) {
+    if (status !== 'authenticated' || !isStaffRole) {
       setLoading(false);
-      setError("Accès refusé. Vous devez être connecté en tant qu'administrateur.");
+      setError("Accès refusé. Vous devez être connecté en tant qu'administrateur ou vendeur.");
       return;
     }
     setLoading(true);
@@ -178,15 +182,15 @@ export default function OrdersPage(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [session?.user?.role, status]);
+  }, [isStaffRole, status]);
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role === UserRole.ADMIN) {
+    if (status === 'authenticated' && isStaffRole) {
       fetchAllOrders();
       return;
     }
     if (status === 'unauthenticated') router.push('/login');
-  }, [fetchAllOrders, router, session?.user?.role, status]);
+  }, [fetchAllOrders, isStaffRole, router, status]);
 
   useEffect(() => {
     fetch('/api/colors')

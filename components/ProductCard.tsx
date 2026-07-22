@@ -151,9 +151,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           {product.name}
         </h3>
 
-        {product.description ? (
+        {product.shortDescription ? (
           <p className="mt-1 h-8 overflow-hidden text-[11px] leading-4 text-[#777] line-clamp-2">
-            {product.description}
+            {product.shortDescription}
           </p>
         ) : (
           <div className="mt-1 h-8" />
