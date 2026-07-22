@@ -366,6 +366,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ success: true, data: responseNewProduct }, { status: 201 });
     } catch (error: unknown) {
         console.error('Erreur lors de l\'ajout du produit:', error);
+        if (error instanceof ZodError) {
+            const firstError = error.issues[0]?.message || 'Données du produit invalides.';
+            return NextResponse.json({ success: false, message: firstError }, { status: 400 });
+        }
         const err = error as any;
         if (err && typeof err === 'object') {
             if (err.code === 'P2002') {
@@ -373,7 +377,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             }
         }
         return NextResponse.json(
-            { message: "Erreur serveur. Veuillez réessayer plus tard." },
+            { success: false, message: "Erreur serveur lors de la création du produit." },
             { status: 500 }
         );
     }

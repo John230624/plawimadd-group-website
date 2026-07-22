@@ -18,7 +18,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, message: 'orderId requis.' }, { status: 400 });
     }
 
-    const canViewOrders = await hasPermission(session.user.id, 'orders.view');
+    const isSellerOrAdmin = session.user.role === 'ADMIN' || session.user.role === 'ADMINSUPRA' || session.user.role === 'SELLER';
+    const canViewOrders = isSellerOrAdmin || await hasPermission(session.user.id, 'orders.view') || await hasPermission(session.user.id, 'seller.orders');
 
     const order = await prisma.order.findFirst({
       where: canViewOrders ? { id: orderId } : { id: orderId, userId: session.user.id },

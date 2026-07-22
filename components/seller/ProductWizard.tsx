@@ -606,21 +606,6 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
               placeholder="Description détaillée complète du produit..." />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Marque (optionnel)</label>
-              <input type="text" value={brand} onChange={e => setBrand(e.target.value)}
-                className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)]"
-                placeholder="Ex: Samsung, Apple, Sony..." />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Garantie (optionnel)</label>
-              <input type="text" value={warranty} onChange={e => setWarranty(e.target.value)}
-                className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)]"
-                placeholder="Ex: 12 mois, 2 ans, Sans garantie..." />
-            </div>
-          </div>
-
           <div>
             <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Vidéo de présentation (optionnel)</label>
             <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm transition hover:border-[var(--accent-blue)] hover:bg-[var(--bg-hover)] ${uploadingVideo ? 'pointer-events-none opacity-60' : ''}`}>
