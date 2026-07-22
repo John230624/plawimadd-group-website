@@ -31,7 +31,10 @@ export const contactSchema = z.object({
 
 export const productSchema = z.object({
   name: z.string().min(1, 'Le nom du produit est requis.').max(255),
-  description: z.string().max(5000).optional().nullable(),
+  // Markdown : la mise en forme (titres, listes, tableaux) consomme des
+  // caracteres en plus du texte utile. La colonne est un TEXT MySQL (65535
+  // octets), 20000 caracteres laissent de la marge meme avec des accents.
+  description: z.string().max(20000).optional().nullable(),
   price: z.number().positive('Le prix doit être positif.'),
   stock: z.number().int().nonnegative('Le stock doit être un nombre positif ou nul.'),
   categoryId: z.string().uuid('Catégorie invalide.'),

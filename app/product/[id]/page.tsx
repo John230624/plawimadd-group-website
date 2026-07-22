@@ -35,6 +35,7 @@ import VariantSelector from '@/components/product/VariantSelector';
 import { useAppContext } from '@/context/AppContext';
 import type { Product, ProductVariant } from '@/lib/types';
 import MiniCustomOfferWidget from '@/components/MiniCustomOfferWidget';
+import Markdown from '@/components/Markdown';
 
 type ProductReview = {
   id: string;
@@ -562,9 +563,13 @@ export default function ProductPage(): React.ReactElement {
                   <div className="grid gap-5 xl:grid-cols-[1fr_260px]">
                     <div>
                       <h2 className="text-xl font-bold text-[#222]">Description du produit</h2>
-                      <p className="mt-4 text-sm leading-8 text-[#555]">
-                        {productData.description || 'Aucune description disponible pour ce produit.'}
-                      </p>
+                      {productData.description?.trim() ? (
+                        <Markdown content={productData.description} className="mt-4 leading-8" />
+                      ) : (
+                        <p className="mt-4 text-sm leading-8 text-[#555]">
+                          Aucune description disponible pour ce produit.
+                        </p>
+                      )}
                     </div>
                     <div className="rounded-lg bg-[#f7f7f7] p-4">
                       <h3 className="text-sm font-bold text-[#222]">Capacite de personnalisation</h3>

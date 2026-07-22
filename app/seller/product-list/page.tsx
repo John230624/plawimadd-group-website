@@ -38,6 +38,7 @@ import {
   SellerTableRow,
 } from '@/components/seller/SellerTable';
 import Loading from '@/components/Loading';
+import Markdown from '@/components/Markdown';
 import { useAppContext } from '@/context/AppContext';
 import type { Product } from '@/lib/types';
 
@@ -756,7 +757,11 @@ export default function ProductListPage(): React.ReactElement {
             <div className="grid gap-3 text-sm">
               <div className="rounded-[10px] bg-[var(--bg-outer)] p-4">
                 <p className="text-[var(--text-secondary)]">Description</p>
-                <p className="mt-2 leading-6 text-[var(--text-primary)]">{selectedProduct.description || 'Aucune description'}</p>
+                {selectedProduct.description?.trim() ? (
+                  <Markdown content={selectedProduct.description} className="mt-2 leading-6" />
+                ) : (
+                  <p className="mt-2 leading-6 text-[var(--text-primary)]">Aucune description</p>
+                )}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-[10px] bg-[var(--bg-outer)] p-4">

@@ -12,6 +12,7 @@ import { useAppContext } from '@/context/AppContext';
 import SellerButton from '@/components/seller/SellerButton';
 import SellerPanel from '@/components/seller/SellerPanel';
 import SellerSelect from '@/components/seller/SellerSelect';
+import Markdown from '@/components/Markdown';
 
 interface Category { id: string; name: string; level: number; }
 interface CharValue { id: string; value: string; valueSlug: string | null; colorCode: string | null; imageUrl: string | null; sortOrder: number; }
@@ -60,6 +61,7 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
   // Step 2: Product Info
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [descriptionPreview, setDescriptionPreview] = useState(false);
   const [shortDescription, setShortDescription] = useState('');
   const [warranty, setWarranty] = useState('');
   const [brand, setBrand] = useState('');
@@ -602,10 +604,36 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
               placeholder="Ex: TV 55'' 4K UHD, Google TV, Dolby Vision-Atmos..." />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Description détaillée (onglet Détails du produit) *</label>
-            <textarea rows={4} value={description} onChange={e => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)] focus:ring-4 focus:ring-[var(--accent-blue)]/20"
-              placeholder="Description détaillée complète du produit..." />
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+              <label className="block text-sm font-medium text-[var(--text-primary)]">Description détaillée (onglet Détails du produit) *</label>
+              <button
+                type="button"
+                onClick={() => setDescriptionPreview(v => !v)}
+                className="shrink-0 rounded-md px-2.5 py-1 text-xs font-medium text-[var(--accent-blue)] transition hover:bg-[var(--bg-hover)]"
+              >
+                {descriptionPreview ? 'Modifier' : 'Aperçu'}
+              </button>
+            </div>
+
+            {descriptionPreview ? (
+              <div className="min-h-[220px] rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3">
+                {description.trim() ? (
+                  <Markdown content={description} />
+                ) : (
+                  <p className="text-sm text-[var(--text-tertiary)]">Rien à prévisualiser pour le moment.</p>
+                )}
+              </div>
+            ) : (
+              <textarea rows={10} value={description} onChange={e => setDescription(e.target.value)}
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 font-mono text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)] focus:ring-4 focus:ring-[var(--accent-blue)]/20"
+                placeholder={"## Points forts\n\n- Ecran 4K UHD\n- Son **Dolby Atmos**\n\n### Dans la boite\n\n1. Televiseur\n2. Telecommande\n3. Cable HDMI"} />
+            )}
+
+            <p className="mt-1.5 text-xs text-[var(--text-tertiary)]">
+              Mise en forme Markdown : <code>## Titre</code>, <code>**gras**</code>, <code>*italique*</code>,
+              <code> - liste</code>, <code>[lien](https://...)</code>, <code>| tableau |</code>.
+              Le HTML n&apos;est pas interprété.
+            </p>
           </div>
 
           <div>
