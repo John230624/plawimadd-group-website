@@ -100,13 +100,36 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user }): Promise<CustomJWT> {
       if (user) {
-        const nextUser = user as CustomUser;
-        token.id = nextUser.id;
-        token.role = nextUser.role;
-        token.firstName = nextUser.firstName;
-        token.lastName = nextUser.lastName;
-        token.name = nextUser.name ?? '';
-        token.email = nextUser.email ?? '';
+        const email = user.email?.toLowerCase();
+        let dbUser = null;
+
+        if (email) {
+          try {
+            dbUser = await prisma.user.findUnique({
+              where: { email },
+              select: { id: true, role: true, firstName: true, lastName: true, email: true },
+            });
+          } catch (error) {
+            console.error('[NextAuth] Error fetching user in jwt callback:', error);
+          }
+        }
+
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = (dbUser.role as UserRole) || 'USER';
+          token.firstName = dbUser.firstName ?? '';
+          token.lastName = dbUser.lastName ?? '';
+          token.name = `${dbUser.firstName ?? ''} ${dbUser.lastName ?? ''}`.trim() || dbUser.email;
+          token.email = dbUser.email;
+        } else {
+          const nextUser = user as CustomUser;
+          token.id = nextUser.id;
+          token.role = nextUser.role || 'USER';
+          token.firstName = nextUser.firstName ?? '';
+          token.lastName = nextUser.lastName ?? '';
+          token.name = nextUser.name ?? '';
+          token.email = nextUser.email ?? '';
+        }
       }
 
       return token as CustomJWT;
@@ -115,10 +138,24 @@ export const authOptions: NextAuthOptions = {
       const nextToken = token as CustomJWT;
 
       try {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: nextToken.id },
-          select: { id: true, role: true, banned: true, firstName: true, lastName: true, email: true },
-        });
+        let dbUser = null;
+        if (nextToken.id) {
+          dbUser = await prisma.user.findUnique({
+            where: { id: nextToken.id },
+            select: { id: true, role: true, banned: true, firstName: true, lastName: true, email: true },
+          });
+        }
+
+        // Fallback: si dbUser non trouvé via id, essayer par email (cas des tokens Google créés précédemment)
+        if (!dbUser && nextToken.email) {
+          dbUser = await prisma.user.findUnique({
+            where: { email: nextToken.email.toLowerCase() },
+            select: { id: true, role: true, banned: true, firstName: true, lastName: true, email: true },
+          });
+          if (dbUser) {
+            nextToken.id = dbUser.id;
+          }
+        }
 
         if (!dbUser || dbUser.banned) {
           return {
