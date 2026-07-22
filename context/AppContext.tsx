@@ -89,14 +89,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const [deliveryFee, setDeliveryFee] = useState(0);
 
-    const [colors, setColors] = useState<{ id: string; name: string; hex: string }[]>([]);
-
-    useEffect(() => {
-      fetch('/api/colors')
-        .then((r) => r.json())
-        .then((data) => { if (Array.isArray(data)) setColors(data); })
-        .catch(() => {});
-    }, []);
+    // Le modèle Color a été supprimé (migration 20260719222456_remove_color_model).
+    // On conserve la valeur dans le contexte pour ne pas casser les consommateurs :
+    // les couleurs sont désormais stockées en clair sur le produit.
+    const [colors] = useState<{ id: string; name: string; hex: string }[]>([]);
 
     const formatPriceInFCFA = useCallback((price: number): string => {
         return new Intl.NumberFormat('fr-FR', {

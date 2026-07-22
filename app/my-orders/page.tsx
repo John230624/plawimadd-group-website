@@ -137,25 +137,11 @@ export default function MyOrdersPage(): React.ReactElement {
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState<boolean>(false);
   
   // États de couleur
-  const [colorMap, setColorMap] = useState<Record<string, { name: string; hex: string }>>({});
-  
+  // Le modèle Color a été supprimé : la table de correspondance reste vide.
+  const [colorMap] = useState<Record<string, { name: string; hex: string }>>({});
+
   // État du modal de suivi de colis
   const [trackingOrder, setTrackingOrder] = useState<any | null>(null);
-
-  useEffect(() => {
-    fetch('/api/colors')
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          const map: Record<string, { name: string; hex: string }> = {};
-          data.forEach((c: { id: string; name: string; hex: string }) => {
-            map[c.id] = { name: c.name, hex: c.hex };
-          });
-          setColorMap(map);
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (isLoggedIn && currentUser?.id) {

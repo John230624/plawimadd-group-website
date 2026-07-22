@@ -63,20 +63,9 @@ export default function CartPage(): React.ReactElement {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [modalInitialMode, setModalInitialMode] = useState<'select' | 'create'>('select');
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
-  const [colorMap, setColorMap] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    fetch('/api/colors')
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          const map: Record<string, string> = {};
-          data.forEach((c: { id: string; name: string }) => { map[c.id] = c.name; });
-          setColorMap(map);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  // Le modèle Color a été supprimé : la table de correspondance reste vide et
+  // getColorDisplay retombe sur la valeur brute stockée sur le produit.
+  const [colorMap] = useState<Record<string, string>>({});
   const [savedItems, setSavedItems] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       try {

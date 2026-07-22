@@ -75,7 +75,8 @@ export default function StocksPage(): React.ReactElement {
   const [threshold, setThreshold] = useState(5);
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'stock', dir: 'asc' });
-  const [colorMap, setColorMap] = useState<Record<string, { name: string; hex: string }>>({});
+  // Le modèle Color a été supprimé : la table de correspondance reste vide.
+  const [colorMap] = useState<Record<string, { name: string; hex: string }>>({});
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const editRef = useRef<HTMLDivElement>(null);
 
@@ -85,16 +86,6 @@ export default function StocksPage(): React.ReactElement {
   const [batchValue, setBatchValue] = useState('');
 
   useEffect(() => {
-    fetch('/api/colors')
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          const map: Record<string, { name: string; hex: string }> = {};
-          data.forEach((c: { id: string; name: string; hex: string }) => { map[c.id] = { name: c.name, hex: c.hex }; });
-          setColorMap(map);
-        }
-      })
-      .catch(() => {});
     fetch('/api/categories')
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setCategories(data); })

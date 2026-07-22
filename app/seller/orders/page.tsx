@@ -85,7 +85,8 @@ export default function OrdersPage(): React.ReactElement {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [colorMap, setColorMap] = useState<Record<string, { name: string; hex: string }>>({});
+  // Le modèle Color a été supprimé : la table de correspondance reste vide.
+  const [colorMap] = useState<Record<string, { name: string; hex: string }>>({});
 
   const [sortKey, setSortKey] = useState<SortKey>('orderDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -191,19 +192,6 @@ export default function OrdersPage(): React.ReactElement {
     }
     if (status === 'unauthenticated') router.push('/login');
   }, [fetchAllOrders, isStaffRole, router, status]);
-
-  useEffect(() => {
-    fetch('/api/colors')
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          const map: Record<string, { name: string; hex: string }> = {};
-          data.forEach((c: { id: string; name: string; hex: string }) => { map[c.id] = { name: c.name, hex: c.hex }; });
-          setColorMap(map);
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => { setPage(1); }, [searchTerm, statusFilter, paymentFilter, rangeStart, rangeEnd]);
 

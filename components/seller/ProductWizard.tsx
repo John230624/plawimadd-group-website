@@ -476,8 +476,10 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
           body: JSON.stringify(body),
         });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Erreur création produit');
-        const newProductId = data.product?.id;
+        if (!response.ok) {
+          throw new Error([data.message, data.detail].filter(Boolean).join(' — ') || 'Erreur création produit');
+        }
+        const newProductId = data.product?.id ?? data.data?.id;
         if (!newProductId) throw new Error('ID produit manquant');
 
         // Save characteristics

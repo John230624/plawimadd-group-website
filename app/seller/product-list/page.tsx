@@ -94,20 +94,8 @@ export default function ProductListPage(): React.ReactElement {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchAction, setBatchAction] = useState('');
-  const [colorMap, setColorMap] = useState<Record<string, { name: string; hex: string }>>({});
-
-  useEffect(() => {
-    fetch('/api/colors')
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          const map: Record<string, { name: string; hex: string }> = {};
-          data.forEach((c: { id: string; name: string; hex: string }) => { map[c.id] = { name: c.name, hex: c.hex }; });
-          setColorMap(map);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  // Le modèle Color a été supprimé : la table de correspondance reste vide.
+  const [colorMap] = useState<Record<string, { name: string; hex: string }>>({});
   const [batchValue, setBatchValue] = useState('');
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
 

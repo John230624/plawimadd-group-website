@@ -240,7 +240,23 @@ function parseImgUrl(imgUrlString: string | null): string[] {
 
 // --- POST (Créer un nouveau produit) ---
 export async function POST(req: NextRequest): Promise<NextResponse> {
-    const authResult: AuthResult = await authorizeByPermission(req, 'products.create');
+    let authResult: AuthResult;
+    try {
+        authResult = await authorizeByPermission(req, 'products.create');
+    } catch (error: unknown) {
+        // Sans ce garde, une erreur de session/BDD ici produit un 500 opaque sans corps JSON.
+        console.error('Erreur lors de la vérification des permissions produit:', error);
+        const err = error as { code?: string; message?: string };
+        return NextResponse.json(
+            {
+                success: false,
+                message: "Erreur serveur lors de la vérification des permissions.",
+                code: err?.code ?? null,
+                detail: (err?.message ?? String(error)).slice(0, 500),
+            },
+            { status: 500 }
+        );
+    }
     if (!authResult.authorized) {
         return authResult.response!;
     }
@@ -263,6 +279,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         let categoryId: string;
         if (bodyCategoryId) {
             categoryId = bodyCategoryId;
+        } else if (!category) {
+            return NextResponse.json({ success: false, message: 'La catégorie du produit est requise.' }, { status: 400 });
         } else {
             let existingCategory = await prisma.category.findUnique({
                 where: { name: category },
@@ -363,21 +381,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             reviewCount: newProduct.reviewCount,
             variants: [],
         };
-        return NextResponse.json({ success: true, data: responseNewProduct }, { status: 201 });
+        // `product` est la clé utilisée par le reste de l'API produits (et par le wizard).
+        // `data` est conservée pour les anciens appelants.
+        return NextResponse.json(
+            { success: true, product: responseNewProduct, data: responseNewProduct },
+            { status: 201 }
+        );
     } catch (error: unknown) {
         console.error('Erreur lors de l\'ajout du produit:', error);
         if (error instanceof ZodError) {
             const firstError = error.issues[0]?.message || 'Données du produit invalides.';
             return NextResponse.json({ success: false, message: firstError }, { status: 400 });
         }
-        const err = error as any;
-        if (err && typeof err === 'object') {
-            if (err.code === 'P2002') {
-                return NextResponse.json({ success: false, message: 'Un produit avec ces caractéristiques existe déjà.' }, { status: 409 });
-            }
+        const err = error as { code?: string; message?: string };
+        if (err?.code === 'P2002') {
+            return NextResponse.json({ success: false, message: 'Un produit avec ces caractéristiques existe déjà.' }, { status: 409 });
         }
+        if (err?.code === 'P2003' || err?.code === 'P2025') {
+            return NextResponse.json({ success: false, message: 'Catégorie introuvable. Sélectionnez à nouveau la catégorie.' }, { status: 400 });
+        }
+        // La route est protégée par la permission products.create : on peut renvoyer
+        // le détail au vendeur pour rendre l'erreur diagnosticable en production.
         return NextResponse.json(
-            { success: false, message: "Erreur serveur lors de la création du produit." },
+            {
+                success: false,
+                message: "Erreur serveur lors de la création du produit.",
+                code: err?.code ?? null,
+                detail: (err?.message ?? String(error)).slice(0, 500),
+            },
             { status: 500 }
         );
     }
