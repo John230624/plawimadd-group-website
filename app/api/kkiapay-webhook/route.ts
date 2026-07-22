@@ -31,11 +31,17 @@ function secretMatches(received: string, expected: string): boolean {
  * configure dans le tableau de bord (en-tete `x-kkiapay-secret`).
  */
 function isAuthenticCall(request: NextRequest): boolean {
-  const expected =
-    process.env.KKIAPAY_WEBHOOK_SECRET?.trim() || process.env.KKIAPAY_SECRET?.trim() || '';
+  // Le hash secret est choisi par le marchand a la creation du webhook
+  // (tableau de bord > Developpeurs > Cles API > Webhook). Il n'a aucun rapport
+  // avec KKIAPAY_SECRET : pas de repli sur cette valeur, il ne matcherait
+  // jamais et masquerait une configuration absente derriere un rejet silencieux.
+  const expected = process.env.KKIAPAY_WEBHOOK_SECRET?.trim() || '';
 
   if (!expected) {
-    console.error('[WEBHOOK] Aucun secret configure : appel refuse.');
+    console.error(
+      '[WEBHOOK] KKIAPAY_WEBHOOK_SECRET absent : tous les appels sont refuses. ' +
+        'Renseignez la meme valeur que le champ "Hash Secret" du tableau de bord Kkiapay.'
+    );
     return false;
   }
 
