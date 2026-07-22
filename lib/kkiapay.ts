@@ -50,10 +50,13 @@ async function verifyKkiapayTransaction(transactionId: string, retries = 2): Pro
 
       const response = await fetch(url, {
         method: 'POST',
+        // Contrat d'authentification du SDK officiel (@kkiapay-org/nodejs-sdk, lib/http.ts) :
+        // x-api-key porte la cle PUBLIQUE, pas la privee. Envoyer la cle privee ici
+        // fait repondre 401 a l'API et faisait echouer la verification de paiements
+        // pourtant reussis.
         headers: {
           'Content-Type': 'application/json',
-          'X-API-KEY': config.privateKey,
-          'x-api-key': config.privateKey,
+          'x-api-key': config.publicKey,
           'x-private-key': config.privateKey,
           'x-secret-key': config.secret,
         },

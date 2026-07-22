@@ -169,10 +169,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
 
   } catch (error: any) {
+    // Le detail technique (cles API, reponse brute de Kkiapay...) reste dans les
+    // logs serveur : il ne doit jamais atterrir dans l'URL vue par l'acheteur.
     console.error("❌ Erreur dans le callback Kkiapay:", error);
-    
+
     return NextResponse.redirect(
-      `${baseUrl}/order-status?orderId=${targetOrderId}&status=failed&message=${encodeURIComponent(error?.message || 'Erreur de vérification du paiement')}`
+      `${baseUrl}/order-status?orderId=${targetOrderId}&status=pending`
     );
   }
 }
