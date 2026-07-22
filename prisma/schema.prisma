@@ -47,6 +47,51 @@ enum PaymentStatus {
   @@map("paymentStatus") // Nom de l'enum en base de données (si différent)
 }
 
+enum PaymentIntentStatus {
+  PENDING // Tentative ouverte, widget en cours
+  SUCCEEDED // Verifie aupres de Kkiapay, commande creee
+  FAILED // Verification non concluante ou paiement refuse
+  EXPIRED // Abandonnee sans issue
+
+  @@map("paymentIntentStatus")
+}
+
+/// Tentative de paiement en ligne. Ce N'EST PAS une commande : rien n'est visible
+/// de l'acheteur tant que le paiement n'a pas ete verifie aupres de l'API Kkiapay.
+///
+/// Elle porte l'instantane (montant, articles, adresse) fige AVANT l'ouverture du
+/// widget. C'est ce qui permet au webhook de creer la commande tout seul si le
+/// navigateur de l'acheteur disparait apres le paiement.
+model PaymentIntent {
+  id       String              @id @default(uuid()) @db.VarChar(255)
+  userId   String              @db.VarChar(255)
+  status   PaymentIntentStatus @default(PENDING)
+  amount   Decimal             @db.Decimal(10, 2) // Calcule serveur, jamais recu du client
+  currency String              @db.VarChar(10)
+
+  itemsJson    String @db.Text // [{ productId, quantity, unitPrice }]
+  shippingJson String @db.Text // Instantane de l'adresse de livraison
+
+  userEmail       String  @db.VarChar(255)
+  userPhoneNumber String? @map("userPhoneNumber") @db.VarChar(20)
+
+  // Unique : une transaction Kkiapay ne peut financer qu'une seule tentative.
+  transactionId String? @unique @map("transactionId") @db.VarChar(255)
+  // Unique : une tentative ne peut donner naissance qu'a une seule commande.
+  orderId       String? @unique @map("orderId") @db.VarChar(255)
+
+  failureReason String?  @map("failureReason") @db.VarChar(255)
+  expiresAt     DateTime @map("expiresAt")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, status])
+  @@index([status, expiresAt])
+  @@map("payment_intents")
+}
+
 enum StudentInstallmentRequestStatus {
   PENDING
   APPROVED
@@ -91,6 +136,7 @@ model User {
   posSessions                PosSession[]
   posTransactions            PosTransaction[]
   orderPayments              OrderPayment[] // Paiements enregistres
+  paymentIntents             PaymentIntent[] // Tentatives de paiement en ligne
 
   @@map("users") // Nom de la table dans la base de données
 }

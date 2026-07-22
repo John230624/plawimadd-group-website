@@ -12,7 +12,7 @@ import ProductCarouselSection from '@/components/home/ProductCarouselSection';
 import { CartItemSkeleton } from '@/components/Skeleton';
 import { useAppContext } from '@/context/AppContext';
 import type { Address, Product, StudentInstallmentRequest } from '@/lib/types';
-import type { KkiapayErrorResponse, KkiapaySuccessResponse } from '@/types/kkiapay';
+import type { KkiapaySuccessResponse } from '@/types/kkiapay';
 import MiniCustomOfferWidget from '@/components/MiniCustomOfferWidget';
 
 function getColorDisplay(color: string | null | undefined, colorMap: Record<string, string>): string {
@@ -77,7 +77,9 @@ export default function CartPage(): React.ReactElement {
   });
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [showKkiapayWidget, setShowKkiapayWidget] = useState(false);
-  const [transactionIdForKkiapay, setTransactionIdForKkiapay] = useState<string | null>(null);
+  // Tentative de paiement ouverte cote serveur : son montant fait foi, celui
+  // calcule dans le navigateur ne sert plus qu'a l'affichage.
+  const [paymentIntent, setPaymentIntent] = useState<{ id: string; amount: number } | null>(null);
   const [isKkiapayWidgetApiReady, setIsKkiapayWidgetApiReady] = useState(false);
   const [studentRequest, setStudentRequest] = useState<StudentInstallmentRequest | null>(null);
   const [checkoutMode, setCheckoutMode] = useState<'standard' | 'student'>('standard');
@@ -231,13 +233,33 @@ export default function CartPage(): React.ReactElement {
       return;
     }
 
+    if (!address.id) {
+      toast.error('Selectionnez une adresse de livraison enregistree.');
+      return;
+    }
+
     setSelectedAddress(address);
     setIsAddressModalOpen(false);
     setIsPaymentLoading(true);
 
-    const nextTransactionId = createTransactionId();
-    setTransactionIdForKkiapay(nextTransactionId);
-    setShowKkiapayWidget(true);
+    // Le serveur relit le panier, recalcule le total et ouvre la tentative.
+    // Aucune commande n'est creee a ce stade.
+    try {
+      const { data } = await axios.post(`${url}/api/payments/intent`, { addressId: address.id });
+      if (!data?.success || !data.intentId) {
+        throw new Error(data?.message || 'Preparation du paiement impossible.');
+      }
+      setPaymentIntent({ id: data.intentId, amount: data.amount });
+      setShowKkiapayWidget(true);
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.message || error.message
+        : error instanceof Error
+          ? error.message
+          : 'Preparation du paiement impossible.';
+      toast.error(message);
+      setIsPaymentLoading(false);
+    }
   };
 
   const handleProceedToStudentInstallment = async (address: Address): Promise<void> => {
@@ -311,7 +333,7 @@ export default function CartPage(): React.ReactElement {
   };
 
   useEffect(() => {
-    if (!showKkiapayWidget || !transactionIdForKkiapay || !selectedAddress) {
+    if (!showKkiapayWidget || !paymentIntent || !selectedAddress) {
       return;
     }
 
@@ -321,96 +343,39 @@ export default function CartPage(): React.ReactElement {
       return;
     }
 
-    const successListener = async (response: KkiapaySuccessResponse) => {
-      try {
-        const orderItems = cartProducts.map(({ product, quantity }) => ({
-          productId: product.id,
-          quantity,
-          price: getDisplayPrice(product),
-        }));
-
-        if (orderItems.length === 0) {
-          toast.error('Le panier est vide.');
-          router.push('/cart');
-          return;
-        }
-
-        const orderResponse = await axios.post(
-          `${url}/api/orders/create-after-payment`,
-          {
-            id: transactionIdForKkiapay,
-            items: orderItems,
-            totalAmount: subtotal,
-            shippingAddress: selectedAddress,
-            paymentMethod: 'Kkiapay',
-            userEmail: currentUser.email,
-            userPhoneNumber: selectedAddress.phoneNumber || currentUser.phoneNumber || null,
-            currency,
-            kkiapayTransactionId: response.transactionId,
-            kkiapayPaymentMethod: response.paymentMethod,
-            kkiapayAmount: response.amount,
-            kkiapayStatus: response.status || 'SUCCESS',
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (!orderResponse.data?.success) {
-          throw new Error(orderResponse.data?.message || 'La commande n a pas pu etre finalisee.');
-        }
-
-        clearCart();
-        toast.success('Paiement reussi. Votre commande est en cours de traitement.');
-        router.push(`/order-status?orderId=${orderResponse.data.orderId}&status=success`);
-      } catch (error) {
-        console.error(error);
-        const message =
-          axios.isAxiosError(error)
-            ? error.response?.data?.message || error.message
-            : error instanceof Error
-              ? error.message
-              : 'Erreur lors de la finalisation de la commande.';
-
-        toast.error(message);
-        router.push(
-          `/order-status?orderId=${transactionIdForKkiapay}&status=failed&message=${encodeURIComponent(
-            message
-          )}`
-        );
-      } finally {
-        setIsPaymentLoading(false);
-        setShowKkiapayWidget(false);
-      }
-    };
-
-    const failedListener = (error: KkiapayErrorResponse) => {
-      const message =
-        error.reason?.message || error.message || 'Le paiement a ete annule ou a echoue.';
-      toast.error(message);
+    // Le navigateur ne tranche plus rien et ne cree plus de commande : il
+    // transmet la reference de transaction a la page de statut, qui fait
+    // trancher le serveur. Une seule navigation, immediate.
+    const successListener = (response: KkiapaySuccessResponse) => {
       setIsPaymentLoading(false);
       setShowKkiapayWidget(false);
       router.push(
-        `/order-status?orderId=${transactionIdForKkiapay}&status=failed&message=${encodeURIComponent(
-          message
-        )}`
+        `/order-status?intent=${paymentIntent.id}&tx=${encodeURIComponent(response.transactionId)}`
       );
+    };
+
+    // Meme sur un echec annonce par le widget, c'est le serveur qui conclut :
+    // la page de statut verifiera avant d'afficher quoi que ce soit.
+    const failedListener = () => {
+      setIsPaymentLoading(false);
+      setShowKkiapayWidget(false);
+      router.push(`/order-status?intent=${paymentIntent.id}`);
     };
 
     window.addSuccessListener?.(successListener);
     window.addFailedListener?.(failedListener);
-    const isSandboxMode = process.env.NEXT_PUBLIC_KKIAPAY_SANDBOX === 'true';
 
     window.openKkiapayWidget({
-      amount: subtotal,
+      amount: paymentIntent.amount, // montant calcule par le serveur
       api_key: KKIAPAY_PUBLIC_API_KEY,
-      callback: `${window.location.origin}/api/kkiapay-callback?orderId=${transactionIdForKkiapay}`,
+      // `data` est restitue dans `state` a la verification : c'est ce qui
+      // rattache la transaction a cette tentative, webhook compris.
+      data: paymentIntent.id,
+      callback: `${window.location.origin}/order-status?intent=${paymentIntent.id}`,
       email: currentUser.email,
       phone: selectedAddress.phoneNumber || '',
       position: 'center',
-      sandbox: isSandboxMode,
+      sandbox: process.env.NEXT_PUBLIC_KKIAPAY_SANDBOX === 'true',
     });
 
     return () => {
@@ -419,17 +384,11 @@ export default function CartPage(): React.ReactElement {
     };
   }, [
     KKIAPAY_PUBLIC_API_KEY,
-    cartProducts,
-    clearCart,
-    currency,
     currentUser?.email,
-    currentUser?.phoneNumber,
+    paymentIntent,
     router,
     selectedAddress,
     showKkiapayWidget,
-    subtotal,
-    transactionIdForKkiapay,
-    url,
   ]);
 
   return (

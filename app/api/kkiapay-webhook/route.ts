@@ -1,146 +1,120 @@
-// app/api/kkiapay-webhook/route.ts
-// Notification serveur-a-serveur de Kkiapay (filet de securite du callback navigateur).
-// Si le client ferme son navigateur apres paiement, le callback GET ne se declenche
-// jamais : ce webhook confirme quand meme la commande.
-//
-// Securite : le payload recu n'est JAMAIS cru sur parole. On re-verifie la
-// transaction aupres de l'API Kkiapay avec la cle privee ; seul ce resultat
-// fait foi (statut, montant, et notre orderId stocke dans `state`).
-import { verifyKkiapayTransaction } from '@/lib/kkiapay';
-import prisma from '@/lib/prisma';
-import { recordOrderStockOut, restockOrder } from '@/lib/stock';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
+/**
+ * Notification serveur-a-serveur de Kkiapay.
+ *
+ * C'est le filet de securite : si l'acheteur ferme son navigateur juste apres
+ * avoir paye, c'est ce webhook — et lui seul — qui cree la commande. Il ne doit
+ * donc jamais dependre de quoi que ce soit venant du navigateur.
+ *
+ * Le payload recu n'est pas cru sur parole : il sert uniquement a identifier la
+ * tentative concernee. Le verdict vient de settleIntent(), qui re-interroge
+ * l'API Kkiapay avec la cle privee.
+ */
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendOrderConfirmationEmail } from '@/lib/email';
+import prisma from '@/lib/prisma';
+import { verifyKkiapayTransaction } from '@/lib/kkiapay';
+import { settleIntent } from '@/lib/payment-settlement';
+
+/**
+ * Comparaison a duree constante : une comparaison naive laisse fuir le secret
+ * caractere par caractere via le temps de reponse.
+ */
+function secretMatches(received: string, expected: string): boolean {
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+/**
+ * Verifie que l'appel vient bien de Kkiapay. Le secret attendu est celui
+ * configure dans le tableau de bord (en-tete `x-kkiapay-secret`).
+ */
+function isAuthenticCall(request: NextRequest): boolean {
+  const expected =
+    process.env.KKIAPAY_WEBHOOK_SECRET?.trim() || process.env.KKIAPAY_SECRET?.trim() || '';
+
+  if (!expected) {
+    console.error('[WEBHOOK] Aucun secret configure : appel refuse.');
+    return false;
+  }
+
+  const received =
+    request.headers.get('x-kkiapay-secret') || request.headers.get('X-KKIAPAY-SECRET') || '';
+
+  if (!received) return false;
+  return secretMatches(received, expected);
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  if (!isAuthenticCall(request)) {
+    console.warn('[WEBHOOK] Signature absente ou invalide.');
+    return NextResponse.json({ received: false }, { status: 401 });
+  }
+
   let payload: Record<string, unknown>;
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json({ received: false, message: 'Payload JSON invalide.' }, { status: 400 });
+    return NextResponse.json({ received: false, message: 'Payload invalide.' }, { status: 400 });
   }
 
-  const kkiapayTransactionId =
-    typeof payload.transactionId === 'string' ? payload.transactionId : null;
+  const transactionId =
+    typeof payload.transactionId === 'string' ? payload.transactionId.trim() : '';
 
-  if (!kkiapayTransactionId) {
-    console.warn('[Kkiapay Webhook] transactionId absent du payload:', payload);
-    // 200 : inutile que Kkiapay reessaie un payload qui ne contiendra jamais l'id.
+  if (!transactionId) {
+    console.warn('[WEBHOOK] transactionId absent du payload.');
+    // 200 : inutile que Kkiapay reessaie un payload qui n'en contiendra jamais.
     return NextResponse.json({ received: true, processed: false });
   }
 
   try {
-    const verification = await verifyKkiapayTransaction(kkiapayTransactionId);
-
-    // Notre orderId voyage dans le champ `data` du widget, que Kkiapay
-    // restitue dans `state` a la verification (fallback : champs du payload).
-    const orderId =
-      (typeof verification.state === 'string' && verification.state) ||
+    // L'identifiant de tentative voyage dans le champ `data` du widget. Kkiapay
+    // le restitue selon les cas dans le payload ou dans `state` a la
+    // verification ; en dernier recours on retrouve la tentative deja rattachee.
+    let intentId =
       (typeof payload.stateData === 'string' && payload.stateData) ||
       (typeof payload.state === 'string' && payload.state) ||
-      null;
+      '';
 
-    if (!orderId) {
-      console.warn(
-        `[Kkiapay Webhook] Impossible de relier la transaction ${kkiapayTransactionId} a une commande (state vide).`
+    if (!intentId) {
+      const known = await prisma.paymentIntent.findUnique({
+        where: { transactionId },
+        select: { id: true },
+      });
+      intentId = known?.id ?? '';
+    }
+
+    if (!intentId) {
+      const verification = await verifyKkiapayTransaction(transactionId);
+      intentId = typeof verification.state === 'string' ? verification.state : '';
+    }
+
+    if (!intentId) {
+      console.error(
+        `[WEBHOOK] Transaction ${transactionId} impossible a rattacher a une tentative.`
       );
+      // 200 : un reessai donnerait le meme resultat. Necessite une reprise manuelle.
       return NextResponse.json({ received: true, processed: false });
     }
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      select: {
-        totalAmount: true,
-        userId: true,
-        paymentStatus: true,
-        orderItems: { select: { productId: true, quantity: true } },
-      },
-    });
+    const result = await settleIntent({ intentId, transactionId });
 
-    if (!order) {
-      console.warn(`[Kkiapay Webhook] Commande ${orderId} introuvable.`);
-      return NextResponse.json({ received: true, processed: false });
+    if (result.outcome === 'PENDING') {
+      // Verdict inconnu (API injoignable) : on demande un reessai a Kkiapay.
+      console.warn(`[WEBHOOK] Verdict indisponible pour ${intentId}, reessai attendu.`);
+      return NextResponse.json({ received: false, retry: true }, { status: 503 });
     }
-
-    const expectedAmount = Number(order.totalAmount);
-    // Meme tolerance d'arrondi que le callback navigateur.
-    const amountIsValid = verification.amount + 1 >= expectedAmount;
-    const isSuccess = verification.status === 'SUCCESS' && amountIsValid;
-
-    // Idempotence : si le callback navigateur est deja passe et a conclu au
-    // meme etat, on ne refait rien (le webhook arrive souvent en double).
-    const alreadyCompleted = order.paymentStatus === PaymentStatus.COMPLETED;
-    if (alreadyCompleted && isSuccess) {
-      return NextResponse.json({ received: true, processed: true, alreadyProcessed: true });
-    }
-
-    await prisma.$transaction(async (prismaTx) => {
-      await prismaTx.order.update({
-        where: { id: orderId },
-        data: {
-          status: isSuccess ? OrderStatus.PROCESSING : OrderStatus.PAYMENT_FAILED,
-          paymentStatus: isSuccess ? PaymentStatus.COMPLETED : PaymentStatus.FAILED,
-          updatedAt: new Date(),
-        },
-      });
-
-      await prismaTx.payment.upsert({
-        where: { orderId },
-        update: {
-          transactionId: kkiapayTransactionId,
-          paymentMethod: verification.paymentMethod,
-          amount: verification.amount,
-          currency: verification.currency,
-          status: isSuccess ? PaymentStatus.COMPLETED : PaymentStatus.FAILED,
-          paymentDate: new Date(),
-          updatedAt: new Date(),
-        },
-        create: {
-          order: { connect: { id: orderId } },
-          transactionId: kkiapayTransactionId,
-          paymentMethod: verification.paymentMethod,
-          amount: verification.amount,
-          currency: verification.currency,
-          status: isSuccess ? PaymentStatus.COMPLETED : PaymentStatus.FAILED,
-          paymentDate: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      });
-
-      if (isSuccess) {
-        // recordOrderStockOut est idempotent : pas de double sortie de stock
-        // si le callback navigateur est passe avant nous.
-        await recordOrderStockOut(prismaTx, {
-          orderId,
-          items: order.orderItems,
-          userId: order.userId,
-        });
-      } else if (alreadyCompleted) {
-        await restockOrder(prismaTx, { orderId, userId: order.userId });
-      }
-    });
 
     console.log(
-      `[Kkiapay Webhook] Commande ${orderId} traitee via webhook - succes: ${isSuccess} (tx ${kkiapayTransactionId})`
+      `[WEBHOOK] Tentative ${intentId} denouee : ${result.outcome}${
+        result.outcome === 'PAID' ? ` (commande ${result.orderId})` : ''
+      }`
     );
-
-    if (isSuccess && !alreadyCompleted) {
-      try {
-        await sendOrderConfirmationEmail(orderId);
-      } catch (emailError) {
-        console.error('[Kkiapay Webhook] Erreur envoi email confirmation:', emailError);
-      }
-    }
-
-    return NextResponse.json({ received: true, processed: true, success: isSuccess });
+    return NextResponse.json({ received: true, processed: true, state: result.outcome });
   } catch (error) {
-    console.error('[Kkiapay Webhook] Erreur de traitement:', error);
-    // 500 : Kkiapay reessaiera plus tard (erreur transitoire possible).
-    return NextResponse.json(
-      { received: false, message: 'Erreur de verification, reessayer.' },
-      { status: 500 }
-    );
+    console.error('[WEBHOOK] Erreur de traitement:', error);
+    // 500 : Kkiapay reessaiera, l'erreur peut etre passagere.
+    return NextResponse.json({ received: false }, { status: 500 });
   }
 }

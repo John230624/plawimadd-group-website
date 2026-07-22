@@ -1,244 +1,274 @@
 // app/order-status/page.tsx
 'use client';
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle, XCircle, Loader2, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'react-toastify';
 import { useAppContext } from '@/context/AppContext';
 
 /**
- * Composant de la page de statut de commande.
- * Affiche le statut d'un paiement (succès, échec, en attente) basé sur les paramètres d'URL.
- * Met à jour le panier et l'historique des commandes en conséquence.
- * @returns {React.ReactElement} Le JSX de la page de statut de commande.
+ * Page de statut de paiement.
+ *
+ * Elle n'accorde aucun credit a ce que dit le navigateur : elle interroge le
+ * serveur jusqu'a ce qu'il tranche. Aucun identifiant de commande n'est affiche
+ * ni rendu cliquable tant que la commande n'existe pas reellement en base.
  */
+
+type ViewState = 'checking' | 'paid' | 'failed' | 'pending';
+
+/** Cadence et duree d'interrogation : ~40 s, bien au-dela d'un denouement normal. */
+const POLL_INTERVAL_MS = 1500;
+const POLL_TIMEOUT_MS = 40_000;
+
 const OrderStatusPage = (): React.ReactElement => {
-    const searchParams = useSearchParams();
-    const { loadCartData, fetchUserOrders } = useAppContext();
+  const searchParams = useSearchParams();
+  const { loadCartData, fetchUserOrders } = useAppContext();
 
-    const [status, setStatus] = useState<'loading' | 'success' | 'failed' | 'pending' | 'error'>('loading');
-    const [message, setMessage] = useState<string>('Vérification du statut de votre paiement...');
-    const [orderRef, setOrderRef] = useState<string | null>(null);
-    const [isClient, setIsClient] = useState(false);
+  const intentId = searchParams.get('intent');
+  const transactionId = searchParams.get('tx');
 
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
+  // Ancien format d'URL, encore emis par le flux de commande etudiante.
+  const legacyOrderId = searchParams.get('orderId');
+  const legacyStatus = searchParams.get('status');
+  const legacyMessage = searchParams.get('message');
 
-    useEffect(() => {
-        if (!isClient) return;
+  const [view, setView] = useState<ViewState>('checking');
+  const [message, setMessage] = useState('Nous confirmons votre paiement...');
+  const [orderId, setOrderId] = useState<string | null>(null);
 
-        // Récupération des paramètres d'URL
-        const receivedStatus = searchParams.get('status');
-        const receivedOrderId = searchParams.get('orderId');
-        const receivedMessage = searchParams.get('message');
+  // Evite que le rafraichissement panier/commandes parte plusieurs fois si le
+  // composant se remonte (StrictMode, navigation arriere).
+  const settledRef = useRef(false);
 
-        console.log("🔄 OrderStatus - Paramètres reçus:", {
-            status: receivedStatus,
-            orderId: receivedOrderId,
-            message: receivedMessage
-        });
+  const onPaid = useCallback(
+    (id: string) => {
+      if (settledRef.current) return;
+      settledRef.current = true;
+      setOrderId(id);
+      setView('paid');
+      setMessage('Paiement confirme. Votre commande a bien ete enregistree.');
+      // La commande existe deja en base a cet instant : ces rafraichissements
+      // ne peuvent pas tomber sur du vide.
+      loadCartData();
+      fetchUserOrders();
+    },
+    [loadCartData, fetchUserOrders]
+  );
 
-        // Définir la référence de la commande interne
-        setOrderRef(receivedOrderId);
+  const onFailed = useCallback((reason: string) => {
+    if (settledRef.current) return;
+    settledRef.current = true;
+    setView('failed');
+    setMessage(reason);
+    toast.error(reason);
+  }, []);
 
-        if (receivedStatus === 'success') {
-            setStatus('success');
-            setMessage('Paiement réussi ! Votre commande est en cours de traitement.');
-            
-            // Mettre à jour les données utilisateur
-            setTimeout(() => {
-                loadCartData(); // Vide le panier
-                fetchUserOrders(); // Rafraîchit les commandes de l'utilisateur
-            }, 1000);
-            
-        } else if (receivedStatus === 'failed') {
-            setStatus('failed');
-            setMessage(receivedMessage 
-                ? `Le paiement a échoué : ${receivedMessage}`
-                : 'Le paiement a échoué ou a été annulé. Veuillez réessayer.'
-            );
-        } else if (receivedStatus === 'pending') {
-            setStatus('pending');
-            setMessage('Votre paiement est en cours de traitement. Veuillez patienter...');
-        } else if (receivedStatus === 'error') {
-            setStatus('error');
-            setMessage(receivedMessage 
-                ? `Erreur technique : ${receivedMessage}`
-                : 'Une erreur est survenue lors du traitement de votre commande.'
-            );
-        } else {
-            // Cas par défaut si le statut n'est pas clair ou si la page est chargée sans paramètres
-            setStatus('pending');
-            setMessage('Statut de paiement en vérification. Nous traitons votre commande.');
-        }
-    }, [searchParams, loadCartData, fetchUserOrders, isClient]);
-
-    // Récupération des paramètres pour l'affichage
-    const kkiapayTransactionId = searchParams.get('transaction_id');
-    const transactionId = searchParams.get('transactionId');
-
-    if (!isClient) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-center">
-                    <Loader2 className="mx-auto h-12 w-12 text-blue-600 animate-spin" />
-                    <p className="mt-4 text-gray-600">Chargement...</p>
-                </div>
-            </div>
-        );
+  useEffect(() => {
+    if (!intentId) {
+      // Compatibilite ascendante : commande etudiante (?status=pending) et
+      // paiements inities sur l'ancien flux, encore en vol le temps du deploiement.
+      if (legacyStatus === 'success' && legacyOrderId) {
+        onPaid(legacyOrderId);
+      } else if (legacyStatus === 'failed') {
+        onFailed(legacyMessage || "Le paiement n'a pas abouti.");
+      } else if (legacyStatus) {
+        setView('pending');
+        setMessage('Votre commande est en cours de traitement.');
+      } else {
+        setView('failed');
+        setMessage('Reference de paiement absente. Reprenez depuis votre panier.');
+      }
+      return;
     }
 
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-4">
-            <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
-                {/* Icône de statut */}
-                <div className="flex justify-center">
-                    {status === 'loading' && (
-                        <Loader2 className="h-20 w-20 text-blue-600 animate-spin" aria-label="Chargement du statut du paiement" />
-                    )}
-                    {status === 'success' && (
-                        <div className="relative">
-                            <CheckCircle className="h-20 w-20 text-green-500" aria-label="Paiement réussi" />
-                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                                <CheckCircle className="h-4 w-4 text-white" />
-                            </div>
-                        </div>
-                    )}
-                    {status === 'failed' && (
-                        <XCircle className="h-20 w-20 text-red-500" aria-label="Paiement échoué" />
-                    )}
-                    {status === 'pending' && (
-                        <Clock className="h-20 w-20 text-yellow-500" aria-label="Paiement en attente" />
-                    )}
-                    {status === 'error' && (
-                        <XCircle className="h-20 w-20 text-orange-500" aria-label="Erreur technique" />
-                    )}
-                </div>
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const startedAt = Date.now();
 
-                {/* Titre */}
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                        {status === 'success' && 'Paiement Réussi !'}
-                        {status === 'failed' && 'Paiement Échoué'}
-                        {status === 'pending' && 'Paiement en Cours'}
-                        {status === 'error' && 'Erreur Technique'}
-                        {status === 'loading' && 'Vérification en Cours'}
-                    </h1>
-                    
-                    <p className="text-gray-600 leading-relaxed" role="status" aria-live="polite">
-                        {message}
-                    </p>
-                </div>
+    /** Applique un verdict serveur. Renvoie true si l'issue est definitive. */
+    const apply = (payload: { state?: string; orderId?: string; message?: string }): boolean => {
+      if (payload.state === 'PAID' && payload.orderId) {
+        onPaid(payload.orderId);
+        return true;
+      }
+      if (payload.state === 'FAILED') {
+        onFailed(payload.message || "Le paiement n'a pas abouti.");
+        return true;
+      }
+      return false;
+    };
 
-                {/* Informations de la commande */}
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                    {orderRef && (
-                        <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-600">Référence commande:</span>
-                            <span className="text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border">
-                                {orderRef}
-                            </span>
-                        </div>
-                    )}
-                    
-                    {transactionId && (
-                        <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-600">ID Transaction:</span>
-                            <span className="text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border break-all">
-                                {transactionId}
-                            </span>
-                        </div>
-                    )}
-                    
-                    {kkiapayTransactionId && (
-                        <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-600">ID Kkiapay:</span>
-                            <span className="text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border break-all">
-                                {kkiapayTransactionId}
-                            </span>
-                        </div>
-                    )}
-                </div>
+    const poll = async (): Promise<void> => {
+      if (cancelled) return;
 
-                {/* Actions */}
-                <div className="flex flex-col gap-3 pt-4">
-                    {status === 'success' && (
-                        <>
-                            <Link
-                                href="/my-orders"
-                                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md"
-                                aria-label="Voir mes commandes"
-                            >
-                                📦 Voir mes commandes
-                            </Link>
-                            <Link
-                                href="/"
-                                className="w-full border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors"
-                                aria-label="Retour à l'accueil"
-                            >
-                                🏠 Retour à l&apos;accueil
-                            </Link>
-                        </>
-                    )}
-                    
-                    {status === 'failed' && (
-                        <>
-                            <Link
-                                href="/cart"
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md"
-                                aria-label="Retourner au panier"
-                            >
-                                🛒 Retourner au panier
-                            </Link>
-                            <Link
-                                href="/"
-                                className="w-full border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors"
-                                aria-label="Retour à l'accueil"
-                            >
-                                🏠 Retour à l&apos;accueil
-                            </Link>
-                        </>
-                    )}
-                    
-                    {(status === 'pending' || status === 'loading' || status === 'error') && (
-                        <>
-                            <Link
-                                href="/my-orders"
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md"
-                                aria-label="Vérifier mes commandes"
-                            >
-                                🔍 Vérifier mes commandes
-                            </Link>
-                            <Link
-                                href="/"
-                                className="w-full border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors"
-                                aria-label="Retour à l'accueil"
-                            >
-                                🏠 Retour à l&apos;accueil
-                            </Link>
-                        </>
-                    )}
-                </div>
+      try {
+        const res = await fetch(`/api/payments/intent/${intentId}`, { cache: 'no-store' });
+        const data = await res.json();
+        if (cancelled) return;
+        if (res.ok && apply(data)) return;
+      } catch {
+        // Reseau instable : on retentera au tour suivant.
+      }
 
-                {/* Message d'information supplémentaire */}
-                <div className="pt-4 border-t border-gray-200">
-                    <p className="text-xs text-gray-500">
-                        {status === 'success' && 'Vous recevrez un email de confirmation sous peu.'}
-                        {status === 'failed' && 'Si le problème persiste, contactez notre support.'}
-                        {status === 'pending' && 'Cette opération peut prendre quelques minutes.'}
-                        {status === 'error' && 'Notre équipe technique a été notifiée.'}
-                        {status === 'loading' && 'Merci de patienter...'}
-                    </p>
-                </div>
-            </div>
+      if (cancelled) return;
+
+      if (Date.now() - startedAt >= POLL_TIMEOUT_MS) {
+        // Ni succes ni echec dans le delai : surtout ne rien affirmer. Le
+        // webhook finira le travail, la commande apparaitra dans le compte.
+        setView('pending');
+        setMessage(
+          "Votre paiement est en cours de confirmation. Si vous avez ete debite, votre commande sera creee automatiquement et vous recevrez un email."
+        );
+        return;
+      }
+
+      timer = setTimeout(poll, POLL_INTERVAL_MS);
+    };
+
+    const start = async (): Promise<void> => {
+      // Voie rapide : le widget vient de nous donner la reference, on demande
+      // au serveur de trancher tout de suite plutot que d'attendre le webhook.
+      if (transactionId) {
+        try {
+          const res = await fetch('/api/payments/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ intentId, transactionId }),
+          });
+          const data = await res.json();
+          if (cancelled) return;
+          if (res.ok && apply(data)) return;
+        } catch {
+          // On bascule sur l'interrogation en boucle.
+        }
+      }
+      void poll();
+    };
+
+    void start();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [intentId, transactionId, legacyOrderId, legacyStatus, legacyMessage, onPaid, onFailed]);
+
+  const title =
+    view === 'paid'
+      ? 'Paiement confirme'
+      : view === 'failed'
+        ? 'Paiement non abouti'
+        : view === 'pending'
+          ? 'Confirmation en cours'
+          : 'Confirmation de votre paiement';
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
+        <div className="flex justify-center">
+          {view === 'checking' && (
+            <Loader2 className="h-20 w-20 text-blue-600 animate-spin" aria-label="Confirmation en cours" />
+          )}
+          {view === 'paid' && <CheckCircle className="h-20 w-20 text-green-500" aria-label="Paiement confirme" />}
+          {view === 'failed' && <XCircle className="h-20 w-20 text-red-500" aria-label="Paiement non abouti" />}
+          {view === 'pending' && <Clock className="h-20 w-20 text-yellow-500" aria-label="Confirmation en cours" />}
         </div>
-    );
+
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{title}</h1>
+          <p className="text-gray-600 leading-relaxed" role="status" aria-live="polite">
+            {message}
+          </p>
+        </div>
+
+        {/* La reference n'est affichee qu'une fois la commande reellement creee. */}
+        {view === 'paid' && orderId && (
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-600">Reference commande :</span>
+              <span className="text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border break-all">
+                {orderId.slice(0, 8).toUpperCase()}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 pt-4">
+          {view === 'paid' && (
+            <>
+              <Link
+                href="/my-orders"
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md"
+              >
+                Voir mes commandes
+              </Link>
+              <Link
+                href="/"
+                className="w-full border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors"
+              >
+                Retour a l&apos;accueil
+              </Link>
+            </>
+          )}
+
+          {view === 'failed' && (
+            <>
+              <Link
+                href="/cart"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md"
+              >
+                Retourner au panier
+              </Link>
+              <Link
+                href="/"
+                className="w-full border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors"
+              >
+                Retour a l&apos;accueil
+              </Link>
+            </>
+          )}
+
+          {view === 'pending' && (
+            <>
+              <Link
+                href="/my-orders"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md"
+              >
+                Voir mes commandes
+              </Link>
+              <Link
+                href="/"
+                className="w-full border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors"
+              >
+                Retour a l&apos;accueil
+              </Link>
+            </>
+          )}
+        </div>
+
+        <div className="pt-4 border-t border-gray-200">
+          <p className="text-xs text-gray-500">
+            {view === 'paid' && 'Vous recevrez un email de confirmation sous peu.'}
+            {view === 'failed' && 'Si le probleme persiste, contactez notre support.'}
+            {view === 'pending' && 'Inutile de payer une seconde fois.'}
+            {view === 'checking' && 'Merci de patienter quelques instants...'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default function OrderStatusPageWrapper(): React.ReactElement {
   return (
-    <Suspense fallback={<div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600" /></div>}>
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600" />
+        </div>
+      }
+    >
       <OrderStatusPage />
     </Suspense>
   );
