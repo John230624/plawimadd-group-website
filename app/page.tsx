@@ -46,11 +46,29 @@ export default function HomePage(): React.ReactElement {
 
       {/* Unified Product Catalog Section */}
       <section className="mt-8 mb-12">
-
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">
+              Nos Produits ({displayedProducts.length})
+            </h2>
+            <p className="text-xs text-slate-500 sm:text-sm">
+              Découvrez notre large sélection d&apos;équipements et d&apos;accessoires.
+            </p>
+          </div>
+          {displayedProducts.length > 150 && (
+            <button
+              type="button"
+              onClick={() => router.push('/all-products')}
+              className="text-xs sm:text-sm font-semibold text-[#3b82f6] hover:underline"
+            >
+              Voir tout le catalogue ({displayedProducts.length}) &rarr;
+            </button>
+          )}
+        </div>
 
         {loadingProducts ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {Array.from({ length: 12 }).map((_, i) => (
+            {Array.from({ length: 18 }).map((_, i) => (
               <div key={i} className="animate-pulse rounded-lg bg-white p-3 h-[360px]">
                 <div className="aspect-square w-full rounded bg-slate-100" />
                 <div className="mt-3 h-4 w-3/4 rounded bg-slate-100" />
@@ -63,11 +81,25 @@ export default function HomePage(): React.ReactElement {
             <p className="text-sm text-slate-500">Aucun produit disponible pour le moment.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {displayedProducts.slice(0, 24).map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+              {displayedProducts.slice(0, 150).map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+
+            {displayedProducts.length > 150 && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => router.push('/all-products')}
+                  className="rounded-full bg-zinc-900 px-8 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800 shadow-sm"
+                >
+                  Voir tout le catalogue ({displayedProducts.length} produits)
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
 
