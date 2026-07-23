@@ -10,7 +10,23 @@ interface HomeHeroProps {
   onContact: () => void;
 }
 
-const defaultSlides = [
+export interface HeroSlideItem {
+  id: string;
+  title: string;
+  tagline: string;
+  description: string;
+  image: string;
+  video?: string | null;
+  category: string;
+  bgColor: string;
+  accentColor: string;
+  layout: string;
+  order?: number;
+}
+
+const HERO_CACHE_KEY = 'plawimadd_hero_slides_cache';
+
+const defaultSlides: HeroSlideItem[] = [
   {
     id: '1',
     title: 'Téléviseurs intelligents',
@@ -61,7 +77,23 @@ export default function HomeHero({
   onBrowseCatalog,
   onContact,
 }: HomeHeroProps): React.ReactElement {
-  const [slides, setSlides] = useState<((typeof defaultSlides)[number] & { video?: string | null })[]>(defaultSlides);
+  const [slides, setSlides] = useState<HeroSlideItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(HERO_CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch {
+        // Ignore localStorage read errors
+      }
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => slides.length === 0);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [direction, setDirection] = useState(1);
@@ -69,47 +101,73 @@ export default function HomeHero({
   // Charger les slides depuis l'API de manière dynamique
   useEffect(() => {
     let active = true;
-    fetch('/api/hero-slides')
+    fetch('/api/hero-slides', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (active && data.success && Array.isArray(data.slides) && data.slides.length > 0) {
           setSlides(data.slides);
+          try {
+            localStorage.setItem(HERO_CACHE_KEY, JSON.stringify(data.slides));
+          } catch {
+            // Ignore localStorage write errors
+          }
         }
       })
-      .catch((err) => console.error('Erreur chargement slides:', err));
+      .catch((err) => console.error('Erreur chargement slides:', err))
+      .finally(() => {
+        if (active) {
+          setIsLoading(false);
+        }
+      });
     return () => {
       active = false;
     };
   }, []);
 
+  const displaySlides = slides.length > 0 ? slides : defaultSlides;
+  const activeIndex = displaySlides.length > 0 ? currentSlide % displaySlides.length : 0;
+
   // Rotation automatique toutes les 6 secondes avec pause au survol
   useEffect(() => {
-    if (isHovered) return;
+    if (isHovered || displaySlides.length <= 1) return;
 
     const timer = setTimeout(() => {
       setDirection(1);
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
+      setCurrentSlide((prev) => (prev + 1) % displaySlides.length);
     }, 6000);
 
     return () => clearTimeout(timer);
-  }, [currentSlide, isHovered, slides.length]);
+  }, [currentSlide, isHovered, displaySlides.length]);
 
   const handleNext = () => {
     setDirection(1);
-    setCurrentSlide((prev) => (prev + 1) % slides.length);
+    setCurrentSlide((prev) => (prev + 1) % displaySlides.length);
   };
 
   const handlePrev = () => {
     setDirection(-1);
-    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+    setCurrentSlide((prev) => (prev - 1 + displaySlides.length) % displaySlides.length);
   };
 
   const handleDotClick = (index: number) => {
-    setDirection(index > currentSlide ? 1 : -1);
+    setDirection(index > activeIndex ? 1 : -1);
     setCurrentSlide(index);
   };
 
-  const slide = slides[currentSlide] || defaultSlides[0];
+  if (isLoading && slides.length === 0) {
+    return (
+      <div className="relative overflow-hidden rounded-none shadow-none min-h-[500px] md:min-h-[550px] bg-slate-100/70 animate-pulse flex items-center justify-center">
+        <div className="w-full max-w-xl p-8 space-y-4 text-center">
+          <div className="h-4 w-36 bg-slate-200 rounded-full mx-auto" />
+          <div className="h-9 w-3/4 bg-slate-200 rounded-lg mx-auto" />
+          <div className="h-4 w-5/6 bg-slate-200 rounded mx-auto" />
+          <div className="h-10 w-32 bg-slate-300 rounded-full mx-auto mt-6" />
+        </div>
+      </div>
+    );
+  }
+
+  const slide = displaySlides[activeIndex] || defaultSlides[0];
 
   const slideVariants: Variants = {
     enter: (dir: number) => ({

@@ -581,11 +581,10 @@ export default function ProductWizard({ productId }: ProductWizardProps = {}) {
   };
 
   const renderInfoStep = () => {
-    const totalSlots = Math.max(6, existingImageUrls.length + 1);
+    const availableNewSlots = Math.max(0, 6 - existingImageUrls.length);
     const slots: { type: 'existing' | 'new'; idx: number }[] = [];
     existingImageUrls.forEach((_, i) => slots.push({ type: 'existing', idx: i }));
-    const newCount = imageFiles.length;
-    for (let i = 0; i < newCount; i++) slots.push({ type: 'new', idx: i });
+    for (let i = 0; i < availableNewSlots; i++) slots.push({ type: 'new', idx: i });
 
     return (
     <div className="space-y-6 pb-36">

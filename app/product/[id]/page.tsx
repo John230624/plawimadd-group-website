@@ -48,14 +48,9 @@ type ProductReview = {
 
 type Tab = 'details' | 'specifications' | 'shipping' | 'reviews';
 
-function buildGallery(product: Product, products: Product[]): string[] {
+function buildGallery(product: Product): string[] {
   const ownImages = product.imgUrl?.filter(Boolean) || [];
-  const relatedImages = products
-    .filter((item) => item.id !== product.id && item.brand === product.brand)
-    .flatMap((item) => item.imgUrl || [])
-    .filter(Boolean);
-
-  return Array.from(new Set([...ownImages, ...relatedImages])).slice(0, 6);
+  return ownImages.length > 0 ? ownImages : ['/images/default_product_image.png'];
 }
 
 function getDisplayPrice(product: Product, selectedVariant: ProductVariant | null): number {
@@ -171,8 +166,8 @@ export default function ProductPage(): React.ReactElement {
   const galleryImages = useMemo(() => {
     if (variantImages.length > 0) return variantImages;
     if (!productData) return [];
-    return buildGallery(productData, products);
-  }, [productData, products, variantImages]);
+    return buildGallery(productData);
+  }, [productData, variantImages]);
 
   const relatedAccessories = useMemo(() => {
     return products

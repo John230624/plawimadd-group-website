@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(): Promise<NextResponse> {
   try {
     let slides = await prisma.heroSlide.findMany({
@@ -65,9 +68,17 @@ export async function GET(): Promise<NextResponse> {
       });
     }
 
-    return NextResponse.json({ success: true, slides });
+    return NextResponse.json(
+      { success: true, slides },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0, must-revalidate',
+        },
+      }
+    );
   } catch (error) {
     console.error('Erreur GET hero-slides:', error);
     return NextResponse.json({ success: false, message: 'Erreur serveur.' }, { status: 500 });
   }
 }
+

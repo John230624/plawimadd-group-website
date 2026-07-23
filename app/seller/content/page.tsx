@@ -64,10 +64,17 @@ export default function ContentPage(): React.ReactElement {
 
   const fetchAll = async () => {
     try {
-      const res = await fetch('/api/hero-slides');
+      const res = await fetch('/api/hero-slides', { cache: 'no-store' });
       const data = await res.json();
       if (data.success && Array.isArray(data.slides)) {
         setSlides(data.slides);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('plawimadd_hero_slides_cache', JSON.stringify(data.slides));
+          } catch {
+            // ignore storage error
+          }
+        }
       }
     } catch {
       toast.error('Erreur lors du chargement des diapositives.');
